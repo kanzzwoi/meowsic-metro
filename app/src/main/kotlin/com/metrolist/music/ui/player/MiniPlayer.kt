@@ -465,27 +465,20 @@ private fun NewMiniPlayer(
                     Spacer(modifier = Modifier.width(12.dp))
                 }
 
-// Subscribe button - isolated composable
-                mediaMetadata?.artists?.firstOrNull()?.id?.let { artistId ->
-                    SubscribeButton(
-                        artistId = artistId,
-                        metadata = mediaMetadata!!,
-                        primaryColor = primaryColor,
-                        outlineColor = outlineColor,
-                        onSurfaceColor = onSurfaceColor,
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-// Favorite button - isolated composable
-                mediaMetadata?.let { FavoriteButton(
-                    songId = it.id,
-                    errorColor = errorColor,
+// Play/pause button (replaces subscribe)
+                MiniPlayerPlayPauseButton(
+                    playerConnection = playerConnection,
                     outlineColor = outlineColor,
                     onSurfaceColor = onSurfaceColor,
                 )
-                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+// Close mini player button (replaces favorite)
+                CloseMiniPlayerButton(
+                    outlineColor = outlineColor,
+                    onSurfaceColor = onSurfaceColor,
+                )
             }
         }
     }
@@ -1029,6 +1022,39 @@ private fun LegacyMiniMediaInfo(
 // ============================================================================
 
 @Composable
+private fun MiniPlayerPlayPauseButton(
+    playerConnection: PlayerConnection,
+    outlineColor: Color,
+    onSurfaceColor: Color,
+) {
+    val isPlaying by playerConnection.isPlaying.collectAsState()
+    val playbackState by playerConnection.playbackState.collectAsState()
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier =
+            Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .border(
+                    width = 1.dp,
+                    color = outlineColor.copy(alpha = 0.3f),
+                    shape = CircleShape,
+                ).clickable { playerConnection.togglePlayPause() },
+    ) {
+        Icon(
+            painter = painterResource(
+                if (isPlaying && playbackState != Player.STATE_ENDED) R.drawable.pause
+                else R.drawable.play
+            ),
+            contentDescription = null,
+            tint = onSurfaceColor.copy(alpha = 0.9f),
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+@Composable
 private fun SubscribeButton(
     artistId: String,
     metadata: MediaMetadata,
@@ -1084,18 +1110,12 @@ private fun SubscribeButton(
 }
 
 @Composable
-private fun FavoriteButton(
-    songId: String,
-    errorColor: Color,
+private fun CloseMiniPlayerButton(
     outlineColor: Color,
     onSurfaceColor: Color,
 ) {
-    val database = LocalDatabase.current
     val playerConnection = LocalPlayerConnection.current ?: return
-    val librarySong by database.song(songId).collectAsStateWithLifecycle(initialValue = null)
-    // For episodes, show saved state (inLibrary); for songs, show liked state
-    val isEpisode = librarySong?.song?.isEpisode == true
-    val isLiked = if (isEpisode) librarySong?.song?.inLibrary != null else librarySong?.song?.liked == true
+    val scope = rememberCoroutineScope()
 
     Box(
         contentAlignment = Alignment.Center,
@@ -1105,17 +1125,18 @@ private fun FavoriteButton(
                 .clip(CircleShape)
                 .border(
                     width = 1.dp,
-                    color = if (isLiked) errorColor.copy(alpha = 0.5f) else outlineColor.copy(alpha = 0.3f),
+                    color = outlineColor.copy(alpha = 0.3f),
                     shape = CircleShape,
-                ).background(
-                    color = if (isLiked) errorColor.copy(alpha = 0.1f) else Color.Transparent,
-                    shape = CircleShape,
-                ).clickable { playerConnection.service.toggleLike() },
+                ).clickable {
+                    scope.launch {
+                        playerConnection.service.stopSelf()
+                    }
+                },
     ) {
         Icon(
-            painter = painterResource(if (isLiked) R.drawable.favorite else R.drawable.favorite_border),
+            painter = painterResource(R.drawable.close),
             contentDescription = null,
-            tint = if (isLiked) errorColor else onSurfaceColor.copy(alpha = 0.7f),
+            tint = onSurfaceColor.copy(alpha = 0.7f),
             modifier = Modifier.size(20.dp),
         )
     }

@@ -194,7 +194,7 @@ fun LibraryPlaylistsScreen(
             songThumbnails = emptyList(),
         )
 
-    val (showLiked) = rememberPreference(ShowLikedPlaylistKey, true)
+    val (showLiked) = rememberPreference(ShowLikedPlaylistKey, false)
     val (showDownloaded) = rememberPreference(ShowDownloadedPlaylistKey, true)
     val (showTop) = rememberPreference(ShowTopPlaylistKey, true)
     val (showUploaded) = rememberPreference(ShowUploadedPlaylistKey, true)
