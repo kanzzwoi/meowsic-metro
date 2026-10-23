@@ -1129,6 +1129,11 @@ private fun CloseMiniPlayerButton(
                     shape = CircleShape,
                 ).clickable {
                     scope.launch {
+                        // hentikan playback + kosongkan antrian agar notifikasi/player hilang total
+                        runCatching {
+                            playerConnection.player.stop()
+                            playerConnection.player.clearMediaItems()
+                        }
                         playerConnection.service.stopSelf()
                     }
                 },
