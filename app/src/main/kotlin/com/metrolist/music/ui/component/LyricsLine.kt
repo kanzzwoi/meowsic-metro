@@ -303,7 +303,7 @@ internal fun LyricsLine(
                 val transText by item.translatedTextFlow.collectAsStateWithLifecycle()
                 transText?.let { 
                     Text(
-                        text = it,
+                        text = "($it)",
                         fontSize = 16.sp,
                         color = expressiveAccent.copy(alpha = 0.5f),
                         textAlign = agentTextAlign,
