@@ -206,7 +206,7 @@ fun OriginalLyrics(
     val shareLyricsStr = stringResource(R.string.share_lyrics)
     val failedToCreateImageTemplate = stringResource(R.string.failed_to_create_image)
 
-    val lyricsTextPosition by rememberEnumPreference(LyricsTextPositionKey, LyricsPosition.CENTER)
+    val lyricsTextPosition by rememberEnumPreference(LyricsTextPositionKey, LyricsPosition.LEFT)
     val changeLyrics by rememberPreference(LyricsClickKey, true)
     val scrollLyrics by rememberPreference(LyricsScrollKey, true)
     val romanizeLyricsList = rememberPreference(LyricsRomanizeList, "")
@@ -219,7 +219,7 @@ fun OriginalLyrics(
 
     val openRouterApiKey by rememberPreference(OpenRouterApiKey, "")
     val deeplApiKey by rememberPreference(DeeplApiKey, "")
-    val aiProvider by rememberPreference(AiProviderKey, "DeepLFree")
+    val aiProvider by rememberPreference(AiProviderKey, "Google")
     val openRouterBaseUrl by rememberPreference(OpenRouterBaseUrlKey, "https://openrouter.ai/api/v1/chat/completions")
     val openRouterModel by rememberPreference(OpenRouterModelKey, "google/gemini-2.5-flash-lite")
     val translateLanguage by rememberPreference(TranslateLanguageKey, "id")
@@ -1018,21 +1018,6 @@ fun OriginalLyrics(
                                 }
 
                                 // Background always centered
-                                item.agent == "v1" -> {
-                                    Alignment.Start
-                                }
-
-                                // First vocalist - left
-                                item.agent == "v2" -> {
-                                    Alignment.End
-                                }
-
-                                // Second vocalist - right
-                                item.agent == "v1000" -> {
-                                    Alignment.CenterHorizontally
-                                }
-
-                                // Group/chorus - center
                                 else -> {
                                     when (lyricsTextPosition) {
                                         LyricsPosition.LEFT -> Alignment.Start
@@ -1045,18 +1030,6 @@ fun OriginalLyrics(
                         val agentTextAlign =
                             when {
                                 item.isBackground -> {
-                                    TextAlign.Center
-                                }
-
-                                item.agent == "v1" -> {
-                                    TextAlign.Left
-                                }
-
-                                item.agent == "v2" -> {
-                                    TextAlign.Right
-                                }
-
-                                item.agent == "v1000" -> {
                                     TextAlign.Center
                                 }
 
@@ -1709,7 +1682,7 @@ fun OriginalLyrics(
                             val translatedText by item.translatedTextFlow.collectAsStateWithLifecycle()
                             translatedText?.let { translated ->
                                 Text(
-                                    text = translated,
+                                    text = "($translated)",
                                     fontSize = 16.sp,
                                     color = expressiveAccent.copy(alpha = 0.5f),
                                     textAlign =
