@@ -5,6 +5,8 @@
 
 package com.metrolist.music.ui.screens.settings
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -391,11 +393,15 @@ fun AccountSettings(
             items = buildList {
                 add(
                     Material3SettingsItem(
-                        title = { Text(stringResource(R.string.integrations)) },
-                        icon = painterResource(R.drawable.integration),
+                        title = { Text(stringResource(R.string.join_channel)) },
+                        icon = painterResource(R.drawable.whatsapp),
                         onClick = {
                             onClose()
-                            navController.navigate("settings/integrations")
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse("https://whatsapp.com/channel/0029VamAXeQ2975Go0mfiL2y"))
+                                )
+                            }
                         }
                     )
                 )
