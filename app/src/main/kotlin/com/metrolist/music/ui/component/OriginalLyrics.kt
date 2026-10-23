@@ -391,6 +391,8 @@ fun OriginalLyrics(
                     model = openRouterModel,
                     mode = translateMode,
                     scope = scope,
+                    context = context,
+                    provider = aiProvider,
                 )
             }
         }
