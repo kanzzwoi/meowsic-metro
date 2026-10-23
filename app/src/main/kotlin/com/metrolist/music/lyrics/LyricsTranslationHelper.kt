@@ -10,6 +10,7 @@ import com.metrolist.music.db.MusicDatabase
 import com.metrolist.music.db.entities.LyricsEntity
 import com.metrolist.music.db.entities.SongEntity
 import com.metrolist.music.api.DeepLService
+import com.metrolist.music.api.GoogleFreeService
 import com.metrolist.music.api.OpenRouterService
 import com.metrolist.music.api.OpenRouterStreamingService
 import kotlinx.coroutines.CoroutineScope
@@ -275,7 +276,13 @@ object LyricsTranslationHelper {
                             ?: targetLanguage
 
                     val result =
-                        if (provider == "DeepL") {
+                        if (provider == "Google") {
+                            Timber.d("Using Google free translation")
+                            GoogleFreeService.translate(
+                                text = fullText,
+                                targetLanguage = targetLanguage,
+                            )
+                        } else if (provider == "DeepL") {
                             Timber.d("Using DeepL for translation")
                             // DeepL only supports translation mode
                             DeepLService.translate(
