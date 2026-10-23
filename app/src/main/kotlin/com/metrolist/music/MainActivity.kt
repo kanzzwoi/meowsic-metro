@@ -858,7 +858,12 @@ class MainActivity : FragmentActivity() {
                     playerConnection?.service?.isPlayerReady?.collectAsStateWithLifecycle()
                         ?: remember { mutableStateOf(false) }
                 val playerReady by playerReadyState
-                val activePlayerConnection = if (playerReady) playerConnection else null
+                // Player sheet hanya dipasang kalau benar-benar ada lagu (mencegah sheet kosong yang bisa di-expand)
+                val hasActiveMedia =
+                    playerConnection?.mediaMetadata
+                        ?.collectAsStateWithLifecycle()?.value != null
+                val activePlayerConnection =
+                    if (playerReady && hasActiveMedia) playerConnection else null
 
                 val playerAwareWindowInsets =
                     remember(
