@@ -125,6 +125,15 @@ constructor(
 
             MediaSessionConstants.ACTION_TOGGLE_REPEAT_MODE -> session.player.toggleRepeatMode()
             MediaSessionConstants.ACTION_ADD_TO_TARGET_PLAYLIST -> addToTargetPlaylist()
+            MediaSessionConstants.ACTION_DISMISS_PLAYER -> {
+                // Bak sampah: stop playback + kosongkan antrian + matikan service & notifikasi
+                runCatching {
+                    session.player.pause()
+                    session.player.stop()
+                    session.player.clearMediaItems()
+                }
+                service.stopDismiss()
+            }
         }
         return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     }

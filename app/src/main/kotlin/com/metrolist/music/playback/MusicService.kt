@@ -143,6 +143,7 @@ import com.metrolist.music.constants.HistoryDuration
 import com.metrolist.music.constants.LastFMUseNowPlaying
 import com.metrolist.music.constants.MediaSessionConstants
 import com.metrolist.music.constants.MediaSessionConstants.CommandAddToTargetPlaylist
+import com.metrolist.music.constants.MediaSessionConstants.CommandDismissPlayer
 import com.metrolist.music.constants.MediaSessionConstants.CommandToggleLike
 import com.metrolist.music.constants.MediaSessionConstants.CommandToggleRepeatMode
 import com.metrolist.music.constants.MediaSessionConstants.CommandToggleShuffle
@@ -1600,6 +1601,17 @@ class MusicService :
         player.pause()
     }
 
+    fun stopDismiss() {
+        scope.launch(Dispatchers.Main) {
+            runCatching {
+                player.pause()
+                player.stop()
+                player.clearMediaItems()
+            }
+            runCatching { pauseAllPlayersAndStopSelf() }.onFailure { stopSelf() }
+        }
+    }
+
     private fun updateNotification(isLiked: Boolean? = currentSong.value?.song?.let { if (it.isEpisode) it.inLibrary != null else it.liked }) {
         mediaSession?.setCustomLayout(
             listOf(
@@ -1611,16 +1623,9 @@ class MusicService :
                     .build(),
                 CommandButton
                     .Builder()
-                    .setDisplayName(
-                        getString(
-                            if (isLiked == true) {
-                                R.string.action_remove_like
-                            } else {
-                                R.string.action_like
-                            },
-                        ),
-                    ).setIconResId(if (isLiked == true) R.drawable.ic_heart else R.drawable.ic_heart_outline)
-                    .setSessionCommand(CommandToggleLike)
+                    .setDisplayName(getString(R.string.action_dismiss))
+                    .setIconResId(R.drawable.delete)
+                    .setSessionCommand(CommandDismissPlayer)
                     .setEnabled(currentSong.value != null)
                     .build(),
                 CommandButton
