@@ -163,15 +163,21 @@ internal fun LyricsLine(
             bottom = if (item.isBackground) 2.dp else 12.dp // simplified gap logic
         )
 
+    // Deteksi skrip RTL (arab, ibrani, dst.) dari teks lirik → rata kanan otomatis
+    val isRtlScript = remember(item.text) {
+        item.text.any { it.code in 0x0590..0x08FF || it.code in 0xFB1D..0xFDFF || it.code in 0xFE70..0xFEFF }
+    }
+
     val agentAlignment = when {
         respectAgentPositioning && item.agent == "v1" -> Alignment.Start
         respectAgentPositioning && item.agent == "v2" -> Alignment.End
         respectAgentPositioning && item.agent == "v1000" -> Alignment.CenterHorizontally
         item.isBackground -> Alignment.CenterHorizontally
-        else -> when (lyricsTextPosition) {
-            LyricsPosition.LEFT -> Alignment.Start
-            LyricsPosition.CENTER -> Alignment.CenterHorizontally
-            LyricsPosition.RIGHT -> Alignment.End
+        else -> when {
+            isRtlScript -> Alignment.End
+            lyricsTextPosition == LyricsPosition.LEFT -> Alignment.Start
+            lyricsTextPosition == LyricsPosition.CENTER -> Alignment.CenterHorizontally
+            else -> Alignment.End
         }
     }
     
@@ -180,10 +186,11 @@ internal fun LyricsLine(
         respectAgentPositioning && item.agent == "v2" -> TextAlign.Right
         respectAgentPositioning && item.agent == "v1000" -> TextAlign.Center
         item.isBackground -> TextAlign.Center
-        else -> when (lyricsTextPosition) {
-            LyricsPosition.LEFT -> TextAlign.Left
-            LyricsPosition.CENTER -> TextAlign.Center
-            LyricsPosition.RIGHT -> TextAlign.Right
+        else -> when {
+            isRtlScript -> TextAlign.End
+            lyricsTextPosition == LyricsPosition.LEFT -> TextAlign.Start
+            lyricsTextPosition == LyricsPosition.CENTER -> TextAlign.Center
+            else -> TextAlign.End
         }
     }
 

@@ -211,7 +211,7 @@ fun AppearanceSettings(
     val (lyricsPosition, onLyricsPositionChange) =
         rememberEnumPreference(
             LyricsTextPositionKey,
-            defaultValue = LyricsPosition.CENTER,
+            defaultValue = LyricsPosition.LEFT,
         )
     val (lyricsClick, onLyricsClickChange) = rememberPreference(LyricsClickKey, defaultValue = true)
     val (lyricsScroll, onLyricsScrollChange) =
