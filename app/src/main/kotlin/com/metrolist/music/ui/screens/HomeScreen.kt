@@ -1233,18 +1233,14 @@ fun HomeScreen(
                         )
                     }
                     item(key = "fav_kanz_list") {
-                        LazyColumn(
-                            contentPadding = WindowInsets.systemBars
-                                .only(WindowInsetsSides.Horizontal)
-                                .asPaddingValues(),
-                            modifier = Modifier.heightIn(max = 1080.dp),
-                        ) {
-                            items(FavKanz.tracks.size) { idx ->
-                                val t = FavKanz.tracks[idx]
+                        // Column biasa: nested LazyColumn di dalam LazyColumn Home bikin scroll bug
+                        Column {
+                            FavKanz.tracks.forEachIndexed { idx, t ->
                                 val songItem = FavKanz.toSongItem(t)
                                 YouTubeListItem(
                                     item = songItem,
-                                    isSelected = false,
+                                    isActive = songItem.id == mediaMetadata?.id,
+                                    isPlaying = isPlaying,
                                     trailingContent = {},
                                     modifier = Modifier.clickable {
                                         playerConnection.playQueue(
