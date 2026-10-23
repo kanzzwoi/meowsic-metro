@@ -7,6 +7,13 @@ package com.metrolist.music.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -675,6 +682,7 @@ fun HomeScreen(
     val speedDialItems by viewModel.speedDialItems.collectAsStateWithLifecycle()
     val pinnedSpeedDialItems by viewModel.pinnedSpeedDialItems.collectAsStateWithLifecycle()
     val selectedChip by viewModel.selectedChip.collectAsStateWithLifecycle()
+    var favKanzSelected by rememberSaveable { mutableStateOf(false) }
 
     // Official podcast API data
     val savedPodcastShows by viewModel.savedPodcastShows.collectAsStateWithLifecycle()
@@ -1190,13 +1198,83 @@ fun HomeScreen(
                 contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
             ) {
                 item {
-                    ChipsRow(
-                        chips = homePage?.chips?.map { it to it.title } ?: emptyList(),
-                        currentValue = selectedChip,
-                        onValueUpdate = {
-                            viewModel.toggleChip(it)
-                        },
-                    )
+                    // Chip "Fav Kanz" selalu paling kiri
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)),
+                    ) {
+                        Spacer(Modifier.width(12.dp))
+                        FilterChip(
+                            label = { Text("Fav Kanz") },
+                            selected = favKanzSelected,
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            ),
+                            onClick = {
+                                favKanzSelected = !favKanzSelected
+                                if (favKanzSelected && selectedChip != null) viewModel.toggleChip(selectedChip!!)
+                            },
+                            shape = RoundedCornerShape(16.dp),
+                            border = null,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        ChipsRow(
+                            chips = homePage?.chips?.map { it to it.title } ?: emptyList(),
+                            currentValue = selectedChip,
+                            onValueUpdate = {
+                                favKanzSelected = false
+                                viewModel.toggleChip(it)
+                            },
+                        )
+                    }
+                }
+
+                // Section Fav Kanz
+                if (favKanzSelected) {
+                    item(key = "fav_kanz_title") {
+                        NavigationTitle(
+                            title = "Fav Kanz",
+                            onPlayAllClick = if (!isListenTogetherGuest) {
+                                {
+                                    playerConnection.playQueue(
+                                        ListQueue(
+                                            title = "Fav Kanz",
+                                            items = FavKanz.tracks.map { FavKanz.toSongItem(it).toMediaItem() },
+                                        ),
+                                    )
+                                }
+                            } else null,
+                        )
+                    }
+                    item(key = "fav_kanz_list") {
+                        LazyColumn(
+                            contentPadding = WindowInsets.systemBars
+                                .only(WindowInsetsSides.Horizontal)
+                                .asPaddingValues(),
+                            modifier = Modifier.heightIn(max = 1080.dp),
+                        ) {
+                            items(FavKanz.tracks.size) { idx ->
+                                val t = FavKanz.tracks[idx]
+                                val songItem = FavKanz.toSongItem(t)
+                                YouTubeListItem(
+                                    item = songItem,
+                                    isSelected = false,
+                                    trailingContent = {},
+                                    modifier = Modifier.clickable {
+                                        playerConnection.playQueue(
+                                            ListQueue(
+                                                title = "Fav Kanz",
+                                                items = FavKanz.tracks.map { FavKanz.toSongItem(it).toMediaItem() },
+                                                startIndex = idx,
+                                            ),
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                    }
                 }
 
                 if (isLoading && homePage?.chips.isNullOrEmpty()) {
@@ -1372,7 +1450,7 @@ fun HomeScreen(
                     }
                 }
 
-                if (selectedChip == null) {
+                if (selectedChip == null && !favKanzSelected) {
                     item(key = "wrapped_card") {
                         AnimatedVisibility(visible = shouldShowWrappedCard) {
                             Card(
