@@ -1198,37 +1198,21 @@ fun HomeScreen(
                 contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
             ) {
                 item {
-                    // Chip "Fav Kanz" selalu paling kiri
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)),
-                    ) {
-                        Spacer(Modifier.width(12.dp))
-                        FilterChip(
-                            label = { Text("Fav Kanz") },
-                            selected = favKanzSelected,
-                            colors = FilterChipDefaults.filterChipColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            ),
-                            onClick = {
+                    // Chip "Fav Kanz" selalu paling kiri (digabung ke ChipsRow agar tidak nested scroll)
+                    val ytChips = homePage?.chips?.map { it as Any to it.title } ?: emptyList()
+                    ChipsRow(
+                        chips = listOf("fav_kanz" as Any to "Fav Kanz") + ytChips,
+                        currentValue = if (favKanzSelected) "fav_kanz" else (selectedChip as Any?),
+                        onValueUpdate = { value ->
+                            if (value == "fav_kanz") {
                                 favKanzSelected = !favKanzSelected
                                 if (favKanzSelected && selectedChip != null) viewModel.toggleChip(selectedChip!!)
-                            },
-                            shape = RoundedCornerShape(16.dp),
-                            border = null,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        ChipsRow(
-                            chips = homePage?.chips?.map { it to it.title } ?: emptyList(),
-                            currentValue = selectedChip,
-                            onValueUpdate = {
+                            } else {
                                 favKanzSelected = false
-                                viewModel.toggleChip(it)
-                            },
-                        )
-                    }
+                                viewModel.toggleChip(value as com.metrolist.innertube.pages.HomePage.Chip)
+                            }
+                        },
+                    )
                 }
 
                 // Section Fav Kanz
