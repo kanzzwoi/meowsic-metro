@@ -219,7 +219,7 @@ fun OriginalLyrics(
 
     val openRouterApiKey by rememberPreference(OpenRouterApiKey, "")
     val deeplApiKey by rememberPreference(DeeplApiKey, "")
-    val aiProvider by rememberPreference(AiProviderKey, "Google")
+    val aiProvider by rememberPreference(AiProviderKey, "DeepLFree")
     val openRouterBaseUrl by rememberPreference(OpenRouterBaseUrlKey, "https://openrouter.ai/api/v1/chat/completions")
     val openRouterModel by rememberPreference(OpenRouterModelKey, "google/gemini-2.5-flash-lite")
     val translateLanguage by rememberPreference(TranslateLanguageKey, "id")
@@ -381,7 +381,7 @@ fun OriginalLyrics(
                 mode = translateMode,
             )
             // Auto-translate saat lirik dibuka (kalau API key tersedia) — bahasa default: Indonesia
-            val needsApiKey = aiProvider != "Google"
+            val needsApiKey = aiProvider != "Google" && aiProvider != "DeepLFree"
             val effectiveApiKey = if (aiProvider == "DeepL") deeplApiKey else openRouterApiKey
             if (!needsApiKey || effectiveApiKey.isNotBlank()) {
                 LyricsTranslationHelper.translateLyrics(
@@ -405,7 +405,7 @@ fun OriginalLyrics(
     LaunchedEffect(showLyrics, lines.size) {
         LyricsTranslationHelper.manualTrigger.collect {
             val effectiveApiKey = if (aiProvider == "DeepL") deeplApiKey else openRouterApiKey
-            if (showLyrics && lines.isNotEmpty() && (aiProvider == "Google" || effectiveApiKey.isNotBlank())) {
+            if (showLyrics && lines.isNotEmpty() && (aiProvider == "Google" || aiProvider == "DeepLFree" || effectiveApiKey.isNotBlank())) {
                 LyricsTranslationHelper.translateLyrics(
                     lyrics = lines,
                     targetLanguage = translateLanguage,
