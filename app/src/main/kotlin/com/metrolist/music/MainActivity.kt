@@ -1013,7 +1013,7 @@ class MainActivity : FragmentActivity() {
                 val currentTitleRes =
                     remember(navBackStackEntry) {
                         when (navBackStackEntry?.destination?.route) {
-                            Screens.Home.route -> R.string.home
+                            Screens.Home.route -> null // tulisan "Home" diganti logo teks MEOWSIC (lihat bawah)
                             Screens.Search.route -> R.string.search
                             Screens.Library.route -> R.string.filter_library
                             Screens.ListenTogether.route -> R.string.together
@@ -1062,7 +1062,8 @@ class MainActivity : FragmentActivity() {
                                     TopAppBar(
                                         title = {
                                             Text(
-                                                text = currentTitleRes?.let { stringResource(it) } ?: "",
+                                                text = if (navBackStackEntry?.destination?.route == Screens.Home.route) "MEOWSIC"
+                                                       else currentTitleRes?.let { stringResource(it) } ?: "",
                                                 style = MaterialTheme.typography.titleLarge,
                                             )
                                         },

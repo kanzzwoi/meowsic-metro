@@ -148,6 +148,14 @@ fun MiniPlayer(
 ) {
     val useNewMiniPlayerDesign by rememberPreference(UseNewMiniPlayerDesignKey, true)
 
+    // Sembunyikan mini player sama sekali kalau nggak ada lagu (queue kosong / sudah ditutup)
+    val playerConnection = LocalPlayerConnection.current
+    val hasMedia = playerConnection?.mediaMetadata?.collectAsState()?.value != null
+    if (!hasMedia) {
+        Box(modifier = modifier)
+        return
+    }
+
     // Create stable progress state - doesn't cause recomposition on position changes
     val progressState = remember { ProgressState(positionState, durationState) }
 
