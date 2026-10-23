@@ -222,7 +222,7 @@ fun OriginalLyrics(
     val aiProvider by rememberPreference(AiProviderKey, "OpenRouter")
     val openRouterBaseUrl by rememberPreference(OpenRouterBaseUrlKey, "https://openrouter.ai/api/v1/chat/completions")
     val openRouterModel by rememberPreference(OpenRouterModelKey, "google/gemini-2.5-flash-lite")
-    val translateLanguage by rememberPreference(TranslateLanguageKey, "en")
+    val translateLanguage by rememberPreference(TranslateLanguageKey, "id")
     val translateMode by rememberPreference(TranslateModeKey, "Literal")
     val deeplFormality by rememberPreference(DeeplFormalityKey, "default")
     val aiSystemPrompt by rememberPreference(AiSystemPromptKey, "")
@@ -380,6 +380,19 @@ fun OriginalLyrics(
                 targetLanguage = translateLanguage,
                 mode = translateMode,
             )
+            // Auto-translate saat lirik dibuka (kalau API key tersedia) — bahasa default: Indonesia
+            val effectiveApiKey = if (aiProvider == "DeepL") deeplApiKey else openRouterApiKey
+            if (effectiveApiKey.isNotBlank()) {
+                LyricsTranslationHelper.translateLyrics(
+                    lyrics = lines,
+                    targetLanguage = translateLanguage,
+                    apiKey = openRouterApiKey,
+                    baseUrl = openRouterBaseUrl,
+                    model = openRouterModel,
+                    mode = translateMode,
+                    scope = scope,
+                )
+            }
         }
     }
 
