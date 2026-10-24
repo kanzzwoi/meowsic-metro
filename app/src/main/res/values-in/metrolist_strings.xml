@@ -577,7 +577,7 @@
     <string name="listen_together_auto_approval_suggestions">Setujui otomatis saran lagu</string>
     <string name="listen_together_auto_approval_suggestions_desc">Secara otomatis menyetujui dan mengantrekan saran lagu dari tamu</string>
     <string name="importing_playlist">Mengimpor playlist…</string>
-    <string name="speed_dial">Panggilan cepat</string>
+    <string name="speed_dial">Pilihan cepat</string>
     <string name="pin_to_speed_dial">Sematkan ke speed dial</string>
     <string name="unpin_from_speed_dial">Lepas sematan dari speed dial</string>
     <string name="randomize_home_order">Acak urutan layar beranda</string>
