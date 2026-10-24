@@ -232,7 +232,20 @@ class ListenTogetherManager
                 ) {
                     try {
                         if (isSyncing || !isHost || !isInRoom) return
-                        if (mediaItem == null) return
+                        if (mediaItem == null) {
+                            if (lastSyncedTrackId != null) {
+                                Timber.tag(TAG).d("Host cleared queue, broadcasting clear to members")
+                                lastSyncedTrackId = null
+                                lastSyncedIsPlaying = false
+                                cancelDriftCorrection()
+                                client.sendPlaybackAction(
+                                    PlaybackActions.CHANGE_TRACK,
+                                    trackInfo = null,
+                                    queue = emptyList(),
+                                )
+                            }
+                            return
+                        }
 
                         val connection = playerConnection ?: return
                         if (connection.allowInternalSync) return
@@ -1213,7 +1226,12 @@ class ListenTogetherManager
 
                     PlaybackActions.CHANGE_TRACK -> {
                         cancelDriftCorrection()
-                        actionTrackInfo?.let { track ->
+                        if (actionTrackInfo == null) {
+                            Timber.tag(TAG).d("Guest: CHANGE_TRACK clear (host emptied queue)")
+                            applyPlaybackState(currentTrack = null, isPlaying = false, position = 0, queue = emptyList(), queueTitle = null, bypassBuffer = true)
+                            return
+                        }
+                        val track = actionTrackInfo
                             Timber.tag(TAG).d("Guest: CHANGE_TRACK to ${track.title}, queue size=${action.queue?.size}")
 
                             // Reset sync debounce timer on track change - this is a fresh sync cycle
@@ -1234,7 +1252,6 @@ class ListenTogetherManager
                                 bufferingTrackId = track.id
                                 syncToTrack(track, false, 0)
                             }
-                        }
                     }
 
                     PlaybackActions.SKIP_NEXT -> {
