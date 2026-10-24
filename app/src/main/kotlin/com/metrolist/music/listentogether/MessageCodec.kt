@@ -72,7 +72,7 @@ class MessageCodec(
             MessageTypes.SUGGESTION_RECEIVED -> SuggestionReceivedPayload.parseFrom(payload)
             MessageTypes.SUGGESTION_APPROVED -> SuggestionApprovedPayload.parseFrom(payload)
             MessageTypes.SUGGESTION_REJECTED -> SuggestionRejectedPayload.parseFrom(payload)
-            MessageTypes.CHAT -> ChatReceivedPayload.parseFrom(payload)
+            MessageTypes.CHAT -> try { ChatReceivedPayload.parseFrom(payload) } catch (_: Exception) { try { val cp = com.metrolist.music.listentogether.proto.Listentogether.ChatPayload.parseFrom(payload); ChatReceivedPayload.newBuilder().setMessage(cp.message).setTimestamp(System.currentTimeMillis()).build() } catch (_: Exception) { null } }
             else -> null
         }
     }

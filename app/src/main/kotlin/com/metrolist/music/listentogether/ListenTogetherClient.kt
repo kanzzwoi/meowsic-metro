@@ -1453,8 +1453,18 @@ class ListenTogetherClient
                     }
 
                     MessageTypes.CHAT -> {
-                        val payload = codec.decodePayload(msgType, payloadBytes) as? com.metrolist.music.listentogether.proto.Listentogether.ChatReceivedPayload ?: try { com.metrolist.music.listentogether.proto.Listentogether.ChatReceivedPayload.parseFrom(payloadBytes) } catch (_: Exception) { null } ?: return
-                        emitEvent(ListenTogetherEvent.ChatReceived(payload.userId, payload.username, payload.message, payload.timestamp))
+                        var payload = codec.decodePayload(msgType, payloadBytes) as? com.metrolist.music.listentogether.proto.Listentogether.ChatReceivedPayload
+                        if (payload == null) {
+                            payload = try { com.metrolist.music.listentogether.proto.Listentogether.ChatReceivedPayload.parseFrom(payloadBytes) } catch (_: Exception) { null }
+                        }
+                        if (payload == null) {
+                            val cp = try { com.metrolist.music.listentogether.proto.Listentogether.ChatPayload.parseFrom(payloadBytes) } catch (_: Exception) { null } ?: return
+                            payload = com.metrolist.music.listentogether.proto.Listentogether.ChatReceivedPayload.newBuilder().setMessage(cp.message).setTimestamp(System.currentTimeMillis()).build()
+                        }
+                        val uid = payload.userId.ifBlank { "unknown" }
+                        val uname = payload.username.ifBlank { "Teman" }
+                        val ts = if (payload.timestamp != 0L) payload.timestamp else System.currentTimeMillis()
+                        emitEvent(ListenTogetherEvent.ChatReceived(uid, uname, payload.message, ts))
                     }
 
                     MessageTypes.SUGGESTION_REJECTED -> {
