@@ -1520,6 +1520,29 @@ fun BottomSheetPlayer(
                                 label = "nextButtonWeight",
                             )
 
+                            FilledIconButton(
+                                onClick = playerConnection::seekToPrevious,
+                                enabled = canSkipPrevious && !isListenTogetherGuest,
+                                shape = RoundedCornerShape(50),
+                                interactionSource = backInteractionSource,
+                                colors =
+                                    IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = sideButtonContainerColor,
+                                        contentColor = sideButtonContentColor,
+                                    ),
+                                modifier =
+                                    Modifier
+                                        .height(68.dp)
+                                        .weight(backButtonWeight),
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.skip_previous),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(32.dp),
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
                             // Skip back 10 detik
                             FilledIconButton(
                                 onClick = {
@@ -1548,29 +1571,6 @@ fun BottomSheetPlayer(
 
                             Spacer(modifier = Modifier.width(8.dp))
 
-                            FilledIconButton(
-                                onClick = playerConnection::seekToPrevious,
-                                enabled = canSkipPrevious && !isListenTogetherGuest,
-                                shape = RoundedCornerShape(50),
-                                interactionSource = backInteractionSource,
-                                colors =
-                                    IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = sideButtonContainerColor,
-                                        contentColor = sideButtonContentColor,
-                                    ),
-                                modifier =
-                                    Modifier
-                                        .height(68.dp)
-                                        .weight(backButtonWeight),
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.skip_previous),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(32.dp),
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(8.dp))
 
                             FilledIconButton(
                                 onClick = {

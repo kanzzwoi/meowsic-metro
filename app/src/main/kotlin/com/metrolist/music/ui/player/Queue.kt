@@ -1268,7 +1268,7 @@ fun Queue(
 @Composable
 private fun baseTintFor(playerBackground: PlayerBackgroundStyle, isActive: Boolean, enabled: Boolean): Color =
     if (isActive) {
-        MaterialTheme.colorScheme.onSurface
+        Color.Black.copy(alpha = 0.87f)
     } else {
         when (playerBackground) {
             PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT -> Color.White
@@ -1322,12 +1322,12 @@ private fun PlayerQueueButton(
                 Icon(
                     painter = painterResource(id = icon),
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(20.dp),
                     tint = baseTintFor(playerBackground, isActive, enabled),
                 )
                 Text(
                     text = label,
-                    color = iconButtonColor.copy(alpha = 0.8f),
+                    color = if (isActive) Color.Black.copy(alpha = 0.87f) else iconButtonColor.copy(alpha = 0.8f),
                     fontSize = 8.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
