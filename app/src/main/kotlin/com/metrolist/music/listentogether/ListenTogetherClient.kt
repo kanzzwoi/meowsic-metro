@@ -211,6 +211,8 @@ sealed class ListenTogetherEvent {
         val state: SyncStatePayload,
     ) : ListenTogetherEvent()
 
+    data class ChatReceived(val userId: String, val username: String, val message: String, val timestamp: Long) : ListenTogetherEvent()
+
     // Error events
     data class ServerError(
         val code: String,
@@ -1450,6 +1452,11 @@ class ListenTogetherClient
                         // For guests, optionally notify via events; UI can react if needed
                     }
 
+                    MessageTypes.CHAT -> {
+                        val payload = codec.decodePayload(msgType, payloadBytes) as? com.metrolist.music.listentogether.proto.Listentogether.ChatReceivedPayload ?: try { com.metrolist.music.listentogether.proto.Listentogether.ChatReceivedPayload.parseFrom(payloadBytes) } catch (_: Exception) { null } ?: return
+                        emitEvent(ListenTogetherEvent.ChatReceived(payload.userId, payload.username, payload.message, payload.timestamp))
+                    }
+
                     MessageTypes.SUGGESTION_REJECTED -> {
                         val payload = codec.decodePayload(msgType, payloadBytes) as? SuggestionRejectedPayload ?: return
                         log(LogLevel.WARNING, "Suggestion rejected", payload.reasonOrNull.orEmpty())
@@ -1872,6 +1879,8 @@ class ListenTogetherClient
             log(LogLevel.INFO, "Requesting sync state from server")
             sendMessageNoPayload(MessageTypes.REQUEST_SYNC)
         }
+
+        fun sendChat(message: String) { val t = message.trim(); if (t.isEmpty()) return; try { sendMessage(MessageTypes.CHAT, com.metrolist.music.listentogether.proto.Listentogether.ChatPayload.newBuilder().setMessage(t).build()) } catch (e: Exception) { log(LogLevel.ERROR, "Failed to send chat", e.message) } }
 
         /**
          * Block a user permanently (internal list). Prevents their join requests and suggestions from appearing.

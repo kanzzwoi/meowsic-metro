@@ -114,6 +114,17 @@ message RejectSuggestionPayload {
   string reason = 2;
 }
 
+message ChatPayload {
+  string message = 1;
+}
+
+message ChatReceivedPayload {
+  string user_id = 1;
+  string username = 2;
+  string message = 3;
+  int64 timestamp = 4;
+}
+
 message ReconnectPayload {
   string session_token = 1;
 }

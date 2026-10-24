@@ -1809,7 +1809,9 @@ class ListenTogetherManager
         /**
          * Leave the current room
          */
-        fun leaveRoom() {
+        fun sendChat(message: String) = client.sendChat(message)
+
+    fun leaveRoom() {
             Timber.tag(TAG).d("Leaving room")
             cleanup()
             client.leaveRoom()

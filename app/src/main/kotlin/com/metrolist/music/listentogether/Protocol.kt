@@ -14,6 +14,7 @@ object MessageTypes {
     const val TRANSFER_HOST = "transfer_host"
     const val PING = "ping"
     const val CHAT = "chat"
+    const val CHAT_RECEIVED = "chat"
     const val REQUEST_SYNC = "request_sync"
     const val RECONNECT = "reconnect"
     const val SUGGEST_TRACK = "suggest_track"
@@ -83,6 +84,8 @@ typealias HostChangedPayload = Listentogether.HostChangedPayload
 typealias KickedPayload = Listentogether.KickedPayload
 typealias SyncStatePayload = Listentogether.SyncStatePayload
 typealias PongPayload = Listentogether.PongPayload
+typealias ChatPayload = Listentogether.ChatPayload
+typealias ChatReceivedPayload = Listentogether.ChatReceivedPayload
 typealias ReconnectPayload = Listentogether.ReconnectPayload
 typealias ReconnectedPayload = Listentogether.ReconnectedPayload
 typealias UserReconnectedPayload = Listentogether.UserReconnectedPayload
@@ -242,6 +245,10 @@ fun RejectSuggestionPayload(
         .setSuggestionId(suggestionId)
         .setReason(reason.orEmpty())
         .build()
+
+fun ChatPayload(message: String): ChatPayload = ChatPayload.newBuilder().setMessage(message).build()
+
+fun ChatReceivedPayload(userId: String, username: String, message: String, timestamp: Long): ChatReceivedPayload = ChatReceivedPayload.newBuilder().setUserId(userId).setUsername(username).setMessage(message).setTimestamp(timestamp).build()
 
 fun ReconnectPayload(sessionToken: String): ReconnectPayload = ReconnectPayload.newBuilder().setSessionToken(sessionToken).build()
 

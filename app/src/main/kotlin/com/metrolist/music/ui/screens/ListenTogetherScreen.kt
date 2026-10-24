@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -88,6 +89,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.metrolist.music.LocalListenTogetherManager
 import com.metrolist.music.LocalPlayerAwareWindowInsets
 import com.metrolist.music.R
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.metrolist.music.constants.AppBarHeight
 import com.metrolist.music.constants.ListenTogetherInTopBarKey
 import com.metrolist.music.constants.ListenTogetherUsernameKey
@@ -96,6 +100,7 @@ import com.metrolist.music.listentogether.JoinRequestPayload
 import com.metrolist.music.listentogether.ListenTogetherEvent
 import com.metrolist.music.listentogether.RoomRole
 import com.metrolist.music.listentogether.SuggestionReceivedPayload
+import com.metrolist.music.listentogether.ListenTogetherEvent.ChatReceived
 import com.metrolist.music.listentogether.UserInfo
 import com.metrolist.music.ui.component.DefaultDialog
 import com.metrolist.music.ui.component.IconButton
@@ -139,6 +144,11 @@ fun ListenTogetherScreen(
 
     var selectedUserForMenu by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedUsername by rememberSaveable { mutableStateOf<String?>(null) }
+    var chatExpanded by rememberSaveable { mutableStateOf(false) }
+    var chatInput by rememberSaveable { mutableStateOf("") }
+    var chatMessages by remember { mutableStateOf<List<ChatReceived>>(emptyList()) }
+    val chatListState = rememberLazyListState()
+    val chatScope = rememberCoroutineScope()
 
     val waitingForApprovalText = stringResource(R.string.waiting_for_approval)
     val invalidRoomCodeText = stringResource(R.string.invalid_room_code)
@@ -177,6 +187,7 @@ fun ListenTogetherScreen(
                     clipboard.setPrimaryClip(clip)
                 }
 
+                is ChatReceived -> { chatMessages = chatMessages + event; if (chatExpanded) { chatScope.launch { chatListState.animateScrollToItem(chatMessages.size) } } }
                 else -> {}
             }
         }
@@ -327,6 +338,7 @@ fun ListenTogetherScreen(
                     }
                 }
 
+                item { ChatPanel(messages = chatMessages, expanded = chatExpanded, onToggle = { chatExpanded = !chatExpanded }, input = chatInput, onInputChange = { chatInput = it }, onSend = { val m = chatInput.trim(); if (m.isNotBlank()) { listenTogetherManager.sendChat(m); chatInput = "" } }, listState = chatListState, currentUserId = currentUserIdValue) }
                 // Leave room button
                 item {
                     Button(
@@ -1317,6 +1329,38 @@ private fun SettingsLinkCard(onClick: () -> Unit) {
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp),
             )
+        }
+    }
+}
+
+
+@Composable
+private fun ChatPanel(messages: List<ChatReceived>, expanded: Boolean, onToggle: () -> Unit, input: String, onInputChange: (String) -> Unit, onSend: () -> Unit, listState: LazyListState, currentUserId: String) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle), verticalAlignment = Alignment.CenterVertically) {
+                Icon(painterResource(R.drawable.chat_bubble), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Obrolan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text(if (messages.isNotEmpty()) "${messages.size}" else "", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(6.dp))
+                Icon(painterResource(if (expanded) R.drawable.expand_less else R.drawable.expand_more), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+            }
+            if (expanded) {
+                Spacer(Modifier.height(12.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(if (messages.isEmpty()) 80.dp else 220.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceContainerLowest).padding(8.dp)) {
+                    if (messages.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Belum ada pesan", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    else LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
+                        items(messages) { msg -> val isMe = msg.userId == currentUserId; val time = remember(msg.timestamp) { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(msg.timestamp)) }; Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start) { Surface(shape = RoundedCornerShape(16.dp), color = if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth(0.78f)) { Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) { if (!isMe) Text(msg.username, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); Text(msg.message, style = MaterialTheme.typography.bodyMedium); Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.End)) } } } }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(value = input, onValueChange = onInputChange, placeholder = { Text("Ketik pesan...") }, singleLine = true, shape = RoundedCornerShape(24.dp), modifier = Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
+                    androidx.compose.material3.FilledIconButton(onClick = onSend, enabled = input.isNotBlank()) { Icon(painterResource(R.drawable.send), contentDescription = "Kirim") }
+                }
+            }
         }
     }
 }

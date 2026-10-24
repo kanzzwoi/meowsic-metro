@@ -3,6 +3,7 @@ package com.metrolist.music.listentogether
 import com.google.protobuf.ByteString
 import com.google.protobuf.MessageLite
 import com.metrolist.music.listentogether.proto.Listentogether
+import com.metrolist.music.listentogether.proto.Listentogether.ChatReceivedPayload
 import timber.log.Timber
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -71,6 +72,7 @@ class MessageCodec(
             MessageTypes.SUGGESTION_RECEIVED -> SuggestionReceivedPayload.parseFrom(payload)
             MessageTypes.SUGGESTION_APPROVED -> SuggestionApprovedPayload.parseFrom(payload)
             MessageTypes.SUGGESTION_REJECTED -> SuggestionRejectedPayload.parseFrom(payload)
+            MessageTypes.CHAT -> ChatReceivedPayload.parseFrom(payload)
             else -> null
         }
     }
