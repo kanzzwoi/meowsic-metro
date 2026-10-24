@@ -192,7 +192,10 @@ class ListenTogetherManager
             scope.launch {
                 val prefs = context.dataStore.data.first()
                 // Optional self-hosted relay (Pterodactyl). Blank = use the built-in free service.
-                RoomChatClient.relayUrl = prefs[com.metrolist.music.constants.ChatRelayUrlKey]?.trim()?.ifEmpty { null }
+                val relayRaw = prefs[com.metrolist.music.constants.ChatRelayUrlKey]?.trim().orEmpty()
+                RoomChatClient.relayUrl = relayRaw.ifEmpty { null }
+                RoomChatClient.relayToken =
+                    relayRaw.substringAfter("token=", "").substringBefore("&").ifEmpty { null }
                 val emoji = prefs[com.metrolist.music.constants.ListenTogetherAvatarEmojiKey] ?: "🎧"
                 val color = prefs[com.metrolist.music.constants.ListenTogetherAvatarColorKey] ?: "#7C4DFF"
                 val myId = userId.value ?: return@launch

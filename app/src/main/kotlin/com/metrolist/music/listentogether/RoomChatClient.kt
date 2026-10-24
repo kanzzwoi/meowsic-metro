@@ -46,6 +46,9 @@ class RoomChatClient(
         /** Self-hosted relay (Pterodactyl). Falls back to ntfy when unreachable. */
         var relayUrl: String? = null
 
+        /** Optional token required by the relay (read from the URL query string). */
+        var relayToken: String? = null
+
         /**
          * Topic name derived from the room code. The code is hashed so the ntfy topic
          * cannot be guessed from the room code alone (ntfy topics are world-readable).
@@ -94,6 +97,7 @@ class RoomChatClient(
     private var webSocket: WebSocket? = null
     private var currentTopic: String? = null
     private var userId: String = ""
+    private var relayDisabled = false
     private var historyJob: Job? = null
     private var pollJob: Job? = null
     private val seenMessageIds = LinkedHashSet<String>()
@@ -122,6 +126,7 @@ class RoomChatClient(
         if (currentTopic == topic && webSocket != null) return
         disconnect()
         currentTopic = topic
+        relayDisabled = false
         if (relayUrl != null) {
             // The relay keeps history in memory and pushes it to late joiners.
             openSocket(topic)
@@ -134,11 +139,11 @@ class RoomChatClient(
     }
 
     private fun openSocket(topic: String) {
-        val relay = relayUrl
+        val relay = relayUrl?.takeIf { !relayDisabled }
         val wsUrl =
             if (relay != null) {
                 val base = relay.trimEnd('/').replaceFirst("https://", "wss://").replaceFirst("http://", "ws://")
-                "$base/$topic"
+                "$base/chat/$topic"
             } else {
                 "$NTFY_BASE/$topic/ws"
             }
@@ -164,6 +169,9 @@ class RoomChatClient(
                                     put("action", JsonPrimitive("subscribe"))
                                     put("topic", JsonPrimitive(topic))
                                     put("user_id", JsonPrimitive(userId.orEmpty()))
+                                    relayToken?.takeIf { it.isNotBlank() }?.let {
+                                        put("token", JsonPrimitive(it))
+                                    }
                                 },
                             ),
                         )
@@ -185,7 +193,19 @@ class RoomChatClient(
                         onError?.invoke(t.message ?: "Chat connection failed")
                         scope.launch {
                             delay(3000)
-                            if (currentTopic == topic) openSocket(topic)
+                            if (currentTopic != topic) return@launch
+                            if (relayUrl != null && !relayDisabled) {
+                                // Relay unreachable: fall back to the built-in free relay
+                                // so chat keeps working while the server is down.
+                                relayDisabled = true
+                                Timber.tag(TAG).w("Relay unavailable, switching to ntfy fallback")
+                                openSocket(topic)
+                                ensureTopic(topic)
+                                loadHistory(topic)
+                                startPolling(topic)
+                            } else {
+                                openSocket(topic)
+                            }
                         }
                     }
                 },
@@ -343,7 +363,7 @@ class RoomChatClient(
 
         // Prefer the self-hosted relay (no rate limits); fall back to ntfy.
         val live = webSocket
-        if (relayUrl != null && live != null) {
+        if (relayUrl != null && !relayDisabled && live != null) {
             val ok =
                 try {
                     live.send(
@@ -427,7 +447,7 @@ class RoomChatClient(
 
         // Prefer the relay socket (no rate limits).
         val live = webSocket
-        if (relayUrl != null && live != null) {
+        if (relayUrl != null && !relayDisabled && live != null) {
             val ok =
                 try {
                     live.send(
