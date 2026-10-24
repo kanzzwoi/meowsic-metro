@@ -1576,38 +1576,51 @@ fun BottomSheetPlayer(
                                         .weight(playPauseWeight)
                                         .focusRequester(focusRequester),
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center,
-                                ) {
-                                    Icon(
-                                        painter =
-                                            painterResource(
-                                                if (isListenTogetherGuest) {
-                                                    if (isMuted) R.drawable.volume_off else R.drawable.volume_up
-                                                } else {
-                                                    if (effectiveIsPlaying) R.drawable.pause else R.drawable.play
-                                                },
-                                            ),
-                                        contentDescription =
+                                Icon(
+                                    painter =
+                                        painterResource(
                                             if (isListenTogetherGuest) {
-                                                if (isMuted) stringResource(R.string.unmute) else stringResource(R.string.mute)
+                                                if (isMuted) R.drawable.volume_off else R.drawable.volume_up
                                             } else {
-                                                if (effectiveIsPlaying) stringResource(R.string.player_pause) else stringResource(R.string.play)
+                                                if (effectiveIsPlaying) R.drawable.pause else R.drawable.play
                                             },
-                                        modifier = Modifier.size(32.dp),
+                                        ),
+                                    contentDescription =
+                                        if (isListenTogetherGuest) {
+                                            if (isMuted) stringResource(R.string.unmute) else stringResource(R.string.mute)
+                                        } else {
+                                            if (effectiveIsPlaying) stringResource(R.string.player_pause) else stringResource(R.string.play)
+                                        },
+                                    modifier = Modifier.size(32.dp),
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            // Skip +10 detik
+                            FilledIconButton(
+                                onClick = {
+                                    playerConnection.player.seekTo(
+                                        (playerConnection.player.currentPosition + 10_000L).coerceAtMost(playerConnection.player.duration),
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text =
-                                            if (isListenTogetherGuest) {
-                                                if (isMuted) stringResource(R.string.unmute) else stringResource(R.string.mute)
-                                            } else {
-                                                if (effectiveIsPlaying) stringResource(R.string.player_pause) else stringResource(R.string.play)
-                                            },
-                                        style = MaterialTheme.typography.titleMedium,
-                                    )
-                                }
+                                },
+                                enabled = !isListenTogetherGuest,
+                                shape = RoundedCornerShape(50),
+                                colors =
+                                    IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = sideButtonContainerColor,
+                                        contentColor = sideButtonContentColor,
+                                    ),
+                                modifier =
+                                    Modifier
+                                        .height(68.dp)
+                                        .weight(nextButtonWeight),
+                            ) {
+                                Text(
+                                    text = ">>",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
                             }
 
                             Spacer(modifier = Modifier.width(8.dp))
