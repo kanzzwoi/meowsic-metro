@@ -755,46 +755,18 @@ fun SongMenu(
                             add(
                                 Material3MenuItemData(
                                     title = {
-                                        Text(
-                                            text =
-                                                stringResource(
-                                                    if (song.song.inLibrary == null) {
-                                                        R.string.add_to_library
-                                                    } else {
-                                                        R.string.remove_from_library
-                                                    },
-                                                ),
-                                        )
+                                        Text(text = stringResource(R.string.add_to_playlist))
                                     },
-                                    description = { Text(text = stringResource(R.string.add_to_library_desc)) },
+                                    description = { Text(text = stringResource(R.string.add_to_playlist_desc)) },
                                     icon = {
                                         Icon(
-                                            painter =
-                                                painterResource(
-                                                    if (song.song.inLibrary == null) {
-                                                        R.drawable.library_add
-                                                    } else {
-                                                        R.drawable.library_add_check
-                                                    },
-                                                ),
+                                            painter = painterResource(R.drawable.playlist_add),
                                             contentDescription = null,
                                         )
                                     },
                                     onClick = {
-                                        val currentSong = song.song
-                                        val isInLibrary = currentSong.inLibrary != null
-                                        val token =
-                                            if (isInLibrary) currentSong.libraryRemoveToken else currentSong.libraryAddToken
-
-                                        token?.let {
-                                            coroutineScope.launch {
-                                                YouTube.feedback(listOf(it))
-                                            }
-                                        }
-
-                                        database.query {
-                                            update(song.song.toggleLibrary())
-                                        }
+                                        onDismiss()
+                                        showChoosePlaylistDialog = true
                                     },
                                 ),
                             )
