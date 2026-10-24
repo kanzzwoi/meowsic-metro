@@ -39,9 +39,9 @@ object Updater {
     private var cachedAllReleases: List<ReleaseInfo> = emptyList()
     
     private const val CHECK_INTERVAL_MILLIS = 2 * 60 * 60 * 1000L // 2 hours
-    private const val GITHUB_API_BASE = "https://api.github.com/repos/MetrolistGroup/Metrolist"
-    private const val KMP_LATEST_RELEASE_URL = "https://api.github.com/repos/MetrolistGroup/Metrolist-KMP/releases/latest"
-    private const val KMP_APK_NAME = "Metrolist.apk"
+    private const val GITHUB_API_BASE = "https://api.github.com/repos/kanzzwoi/meowsic-metro"
+    private const val KMP_LATEST_RELEASE_URL = "https://api.github.com/repos/kanzzwoi/meowsic-metro/releases/latest"
+    private const val KMP_APK_NAME = "Meowsic.apk"
 
     /**
      * Compares two version strings.
@@ -98,8 +98,8 @@ object Updater {
             
             // Parse architecture and variant from filename
             val (arch, variant) = when {
-                name == "Metrolist.apk" -> "universal" to "foss"
-                name == "Metrolist-with-Google-Cast.apk" -> "universal" to "gms"
+                name == "Meowsic.apk" -> "universal" to "foss"
+                name == "Meowsic.apk" -> "universal" to "gms"
                 name.startsWith("app-") && name.endsWith("-release.apk") -> {
                     val arch = name.removePrefix("app-").removeSuffix("-release.apk")
                     arch to "foss"
@@ -136,7 +136,7 @@ object Updater {
                 
                 val releaseInfo = ReleaseInfo(
                     tagName = json.getString("tag_name"),
-                    versionName = json.getString("name"),
+                    versionName = json.getString("tag_name").removePrefix("v"),
                     description = json.getString("body"),
                     releaseDate = json.getString("published_at"),
                     assets = parseAssets(json.getJSONArray("assets"))
