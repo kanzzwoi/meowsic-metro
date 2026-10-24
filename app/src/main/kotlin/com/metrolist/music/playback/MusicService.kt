@@ -1602,6 +1602,7 @@ class MusicService :
     }
 
     fun stopDismiss() {
+        clearPersistedQueueFiles()
         scope.launch(Dispatchers.Main) {
             runCatching {
                 player.pause()
@@ -1630,13 +1631,6 @@ class MusicService :
                     .build(),
                 CommandButton
                     .Builder()
-                    .setDisplayName(getString(R.string.action_dismiss))
-                    .setIconResId(R.drawable.delete)
-                    .setSessionCommand(CommandDismissPlayer)
-                    .setEnabled(currentSong.value != null)
-                    .build(),
-                CommandButton
-                    .Builder()
                     .setDisplayName(getString(R.string.start_radio))
                     .setIconResId(R.drawable.radio)
                     .setSessionCommand(CommandToggleStartRadio)
@@ -1647,6 +1641,20 @@ class MusicService :
                     .setDisplayName(getString(R.string.android_auto_target_playlist))
                     .setIconResId(R.drawable.playlist_add)
                     .setSessionCommand(CommandAddToTargetPlaylist)
+                    .setEnabled(currentSong.value != null)
+                    .build(),
+                CommandButton
+                    .Builder()
+                    .setDisplayName(getString(R.string.action_dismiss))
+                    .setIconResId(R.drawable.delete)
+                    .setSessionCommand(CommandDismissPlayer)
+                    .setEnabled(currentSong.value != null)
+                    .build(),
+                CommandButton
+                    .Builder()
+                    .setDisplayName(getString(R.string.action_dismiss))
+                    .setIconResId(R.drawable.delete)
+                    .setSessionCommand(CommandDismissPlayer)
                     .setEnabled(currentSong.value != null)
                     .build(),
             ),
