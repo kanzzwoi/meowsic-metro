@@ -264,8 +264,9 @@ fun ExperimentalLyrics(
         database
     ) {
         LyricsTranslationHelper.manualTrigger.collectLatest {
+            val isKeyless = aiProvider == "Google" || aiProvider == "DeepLFree"
             val effectiveApiKey = if (aiProvider == "DeepL") deeplApiKey else openRouterApiKey
-            if (showLyrics && lines.isNotEmpty() && effectiveApiKey.isNotBlank()) {
+            if (showLyrics && lines.isNotEmpty() && (isKeyless || effectiveApiKey.isNotBlank())) {
                 LyricsTranslationHelper.translateLyrics(
                     lyrics = lines,
                     targetLanguage = translateLanguage,
@@ -283,7 +284,7 @@ fun ExperimentalLyrics(
                     database = database,
                     systemPrompt = aiSystemPrompt,
                 )
-            } else if (effectiveApiKey.isBlank()) {
+            } else if (!isKeyless) {
                 Toast.makeText(context, context.getString(R.string.ai_api_key_required), Toast.LENGTH_SHORT).show()
             }
         }

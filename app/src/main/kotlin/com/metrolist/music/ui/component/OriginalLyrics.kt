@@ -388,8 +388,9 @@ fun OriginalLyrics(
     // Listen for manual trigger
     LaunchedEffect(showLyrics, lines.size) {
         LyricsTranslationHelper.manualTrigger.collect {
+            val isKeyless = aiProvider == "Google" || aiProvider == "DeepLFree"
             val effectiveApiKey = if (aiProvider == "DeepL") deeplApiKey else openRouterApiKey
-            if (showLyrics && lines.isNotEmpty() && (aiProvider == "Google" || aiProvider == "DeepLFree" || effectiveApiKey.isNotBlank())) {
+            if (showLyrics && lines.isNotEmpty() && (isKeyless || effectiveApiKey.isNotBlank())) {
                 LyricsTranslationHelper.translateLyrics(
                     lyrics = lines,
                     targetLanguage = translateLanguage,
