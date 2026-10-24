@@ -1151,12 +1151,43 @@ fun BottomSheetPlayer(
                                 }
                             }
                         }
-                        PlayerMoreMenuButton(
-                            mediaMetadata = mediaMetadata,
-                            state = state,
-                            textButtonColor = textButtonColor,
-                            iconButtonColor = iconButtonColor,
-                        )
+                        if (showInlineLyrics) {
+                            val currentLyrics by playerConnection.currentLyrics.collectAsStateWithLifecycle(initialValue = null)
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(24.dp))
+                                        .background(textButtonColor)
+                                        .clickable {
+                                            menuState.show {
+                                                com.metrolist.music.ui.menu.LyricsMenu(
+                                                    lyricsProvider = { currentLyrics },
+                                                    songProvider = { currentSong?.song },
+                                                    mediaMetadataProvider = { mediaMetadata },
+                                                    onDismiss = menuState::dismiss,
+                                                    onShowOffsetDialog = {
+                                                        bottomSheetPageState.show {
+                                                            ShowOffsetDialog(
+                                                                songProvider = { currentSong?.song },
+                                                            )
+                                                        }
+                                                    },
+                                                )
+                                            }
+                                        },
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.more_horiz),
+                                    contentDescription = null,
+                                    tint = iconButtonColor,
+                                    modifier =
+                                        Modifier
+                                            .align(Alignment.Center)
+                                            .size(24.dp),
+                                )
+                            }
+                        }
                     }
                 } else {
                     AnimatedContent(targetState = showInlineLyrics, label = "ShareButton") { showLyrics ->
