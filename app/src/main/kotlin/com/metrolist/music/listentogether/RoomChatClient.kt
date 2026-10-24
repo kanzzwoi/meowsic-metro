@@ -13,6 +13,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.ConnectionSpec
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -36,6 +37,16 @@ class RoomChatClient(
             .Builder()
             .readTimeout(0, TimeUnit.MILLISECONDS)
             .pingInterval(20, TimeUnit.SECONDS)
+            // A self-hosted relay is usually plain http:// (ws://) on a private host.
+            .apply {
+                try {
+                    connectionSpecs(
+                        listOf(ConnectionSpec.CLEARTEXT, ConnectionSpec.MODERN_TLS),
+                    )
+                } catch (_: Throwable) {
+                    // keep defaults
+                }
+            }
             .build(),
 ) {
     companion object {
