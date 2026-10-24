@@ -43,7 +43,18 @@ class RoomChatClient(
         private const val NTFY_BASE = "https://ntfy.sh"
         private const val TOPIC_PREFIX = "meowsic-room-"
 
-        fun topicFor(roomCode: String): String = TOPIC_PREFIX + roomCode.lowercase()
+        /**
+         * Topic name derived from the room code. The code is hashed so the ntfy topic
+         * cannot be guessed from the room code alone (ntfy topics are world-readable).
+         */
+        fun topicFor(roomCode: String): String {
+            val digest =
+                java.security.MessageDigest
+                    .getInstance("SHA-256")
+                    .digest(roomCode.lowercase().toByteArray())
+            val hash = digest.take(8).joinToString("") { "%02x".format(it) }
+            return TOPIC_PREFIX + hash
+        }
 
         private val json = Json { ignoreUnknownKeys = true }
     }
@@ -80,6 +91,9 @@ class RoomChatClient(
     private var webSocket: WebSocket? = null
     private var currentTopic: String? = null
     private var historyJob: Job? = null
+    private var pollJob: Job? = null
+    private val seenMessageIds = LinkedHashSet<String>()
+    private var lastPollCursor: String? = null
 
     @Volatile
     private var onMessage: ((ChatMessage) -> Unit)? = null
@@ -104,8 +118,10 @@ class RoomChatClient(
         if (currentTopic == topic && webSocket != null) return
         disconnect()
         currentTopic = topic
+        ensureTopic(topic)
         openSocket(topic)
         loadHistory(topic)
+        startPolling(topic)
     }
 
     private fun openSocket(topic: String) {
@@ -158,6 +174,34 @@ class RoomChatClient(
             )
     }
 
+    /**
+     * ntfy only starts delivering to a topic a short moment after the first subscriber
+     * attaches. Publishing a seed message registers the topic right away so the very
+     * first real chat message is not missed.
+     */
+    private fun ensureTopic(topic: String) {
+        scope.launch {
+            try {
+                val payload =
+                    buildJsonObject {
+                        put("topic", JsonPrimitive(topic))
+                        put("kind", JsonPrimitive("seed"))
+                        put("id", JsonPrimitive("seed"))
+                        put("timestamp", JsonPrimitive(System.currentTimeMillis()))
+                    }
+                val request =
+                    Request
+                        .Builder()
+                        .url("$NTFY_BASE/$topic")
+                        .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                        .build()
+                client.newCall(request).execute().use { }
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "Failed to seed chat topic")
+            }
+        }
+    }
+
     /** Load recent messages so history survives a join or reconnect. */
     private fun loadHistory(topic: String) {
         historyJob?.cancel()
@@ -174,7 +218,13 @@ class RoomChatClient(
                         val body = response.body?.string().orEmpty()
                         body.lineSequence()
                             .filter { it.isNotBlank() }
-                            .forEach { line -> handleIncoming(line) }
+                            .forEach { line ->
+                                extractOuterId(line)?.let { lastPollCursor = it }
+                                val id = extractMessageId(line)
+                                if (id != null && seenMessageIds.add(id)) {
+                                    handleIncoming(line)
+                                }
+                            }
                     }
                 } catch (e: Exception) {
                     Timber.tag(TAG).w(e, "Failed to load chat history")
@@ -193,7 +243,7 @@ class RoomChatClient(
         if (outer["event"]?.jsonPrimitive?.content != "message") return
 
         val raw = outer["message"]?.jsonPrimitive?.content.orEmpty()
-        if (raw.isBlank()) return
+        if (raw.isBlank() || raw.length > 4096) return
 
         // Our payload is JSON; ntfy messages from other apps are plain text and are ignored.
         val payload =
@@ -203,10 +253,15 @@ class RoomChatClient(
                 return
             }
 
+        val messageKey = payload.id.ifBlank { outer["id"]?.jsonPrimitive?.content.orEmpty() }
+        if (messageKey.isNotBlank() && !seenMessageIds.add(messageKey)) return
+
         val timestamp =
             payload.timestamp.takeIf { it > 0L }
                 ?: outer["time"]?.jsonPrimitive?.content?.toLongOrNull()?.times(1000)
                 ?: System.currentTimeMillis()
+
+        if (payload.kind == "seed") return
 
         if (payload.kind == "profile") {
             if (payload.sender_id.isBlank()) return
@@ -244,7 +299,8 @@ class RoomChatClient(
         onSent: ((ChatMessage) -> Unit)? = null,
         onError: ((String) -> Unit)? = null,
     ) {
-        val text = message.trim()
+        // ntfy rejects bodies over 4096 bytes; keep well below that
+        val text = message.trim().take(500)
         if (text.isBlank()) return
         val topic = topicFor(roomCode)
         val id = System.currentTimeMillis().toString() + "-" + senderId.hashCode().toString().replace("-", "")
@@ -324,9 +380,71 @@ class RoomChatClient(
         }
     }
 
+    /**
+     * Safety net: poll recent messages every few seconds so nothing is lost even if a
+     * WebSocket event is dropped by the relay.
+     */
+    private fun startPolling(topic: String) {
+        pollJob?.cancel()
+        pollJob =
+            scope.launch {
+                while (currentTopic == topic) {
+                    kotlinx.coroutines.delay(4000)
+                    try {
+                        val since = lastPollCursor?.let { "&since=$it" } ?: "&since=10m"
+                        val request =
+                            Request
+                                .Builder()
+                                .url("$NTFY_BASE/$topic/json?poll=1$since")
+                                .build()
+                        client.newCall(request).execute().use { response ->
+                            if (!response.isSuccessful) return@use
+                            val body = response.body?.string().orEmpty()
+                            body.lineSequence()
+                                .filter { it.isNotBlank() }
+                                .forEach { line ->
+                                    // Advance the cursor with ntfy's own message id
+                                    extractOuterId(line)?.let { lastPollCursor = it }
+                                    val id = extractMessageId(line)
+                                    if (id != null && seenMessageIds.add(id)) {
+                                        handleIncoming(line)
+                                    }
+                                }
+                        }
+                    } catch (e: Exception) {
+                        Timber.tag(TAG).w(e, "Chat poll failed")
+                    }
+                }
+            }
+    }
+
+    private fun extractOuterId(line: String): String? =
+        try {
+            json.parseToJsonElement(line).jsonObject["id"]?.jsonPrimitive?.content
+        } catch (e: Exception) {
+            null
+        }
+
+    private fun extractMessageId(line: String): String? =
+        try {
+            val obj = json.parseToJsonElement(line).jsonObject
+            val inner = obj["message"]?.jsonPrimitive?.content
+            if (inner.isNullOrBlank()) {
+                obj["id"]?.jsonPrimitive?.content
+            } else {
+                json.parseToJsonElement(inner).jsonObject["id"]?.jsonPrimitive?.content
+            }
+        } catch (e: Exception) {
+            null
+        }
+
     fun disconnect() {
         historyJob?.cancel()
         historyJob = null
+        pollJob?.cancel()
+        pollJob = null
+        seenMessageIds.clear()
+        lastPollCursor = null
         webSocket?.close(1000, "bye")
         webSocket = null
         currentTopic = null
