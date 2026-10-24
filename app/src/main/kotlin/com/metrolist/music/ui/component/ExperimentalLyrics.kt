@@ -159,7 +159,7 @@ fun ExperimentalLyrics(
     val listenTogetherManager = LocalListenTogetherManager.current
     val isGuest = listenTogetherManager?.isInRoom == true && !listenTogetherManager.isHost
 
-    val lyricsTextPosition by rememberEnumPreference(LyricsTextPositionKey, LyricsPosition.CENTER)
+    val lyricsTextPosition by rememberEnumPreference(LyricsTextPositionKey, LyricsPosition.LEFT)
     val changeLyrics by rememberPreference(LyricsClickKey, true)
     val romanizeLyricsList = rememberPreference(LyricsRomanizeList, "")
     val romanizeAsMain by rememberPreference(LyricsRomanizeAsMainKey, false)
@@ -170,7 +170,7 @@ fun ExperimentalLyrics(
     // AI Translation Preferences
     val openRouterApiKey by rememberPreference(OpenRouterApiKey, "")
     val deeplApiKey by rememberPreference(DeeplApiKey, "")
-    val aiProvider by rememberPreference(AiProviderKey, "OpenRouter")
+    val aiProvider by rememberPreference(AiProviderKey, "Google")
     val openRouterBaseUrl by rememberPreference(OpenRouterBaseUrlKey, OpenRouterDefaultBaseUrl)
     val openRouterModel by rememberPreference(OpenRouterModelKey, OpenRouterDefaultModel)
     val translateLanguage by rememberPreference(TranslateLanguageKey, "en")
@@ -245,6 +245,28 @@ fun ExperimentalLyrics(
                 targetLanguage = translateLanguage,
                 mode = translateMode
             )
+            // Auto-translate saat lirik dibuka — provider tanpa key (Google/DeepLFree) langsung jalan
+            val needsApiKey = aiProvider != "Google" && aiProvider != "DeepLFree"
+            val effectiveApiKeyAuto = if (aiProvider == "DeepL") deeplApiKey else openRouterApiKey
+            if (!needsApiKey || effectiveApiKeyAuto.isNotBlank()) {
+                LyricsTranslationHelper.translateLyrics(
+                    lyrics = lines,
+                    targetLanguage = translateLanguage,
+                    apiKey = openRouterApiKey,
+                    baseUrl = openRouterBaseUrl,
+                    model = openRouterModel,
+                    mode = translateMode,
+                    scope = scope,
+                    context = context,
+                    provider = aiProvider,
+                    deeplApiKey = deeplApiKey,
+                    deeplFormality = deeplFormality,
+                    useStreaming = true,
+                    songId = currentSong?.id ?: "",
+                    database = database,
+                    systemPrompt = aiSystemPrompt,
+                )
+            }
         }
     }
     

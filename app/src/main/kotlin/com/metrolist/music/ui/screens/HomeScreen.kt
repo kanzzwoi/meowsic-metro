@@ -5,6 +5,7 @@
 
 package com.metrolist.music.ui.screens
 
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.layout.ContentScale
@@ -1059,8 +1060,8 @@ fun HomeScreen(
             val list = mutableListOf<HomeSection>()
             val chipActive = selectedChip != null
 
-            if (!chipActive && speedDialItems.isNotEmpty()) list.add(HomeSection.SpeedDial)
             if (!chipActive) list.add(HomeSection.Banner)
+            if (!chipActive && speedDialItems.isNotEmpty()) list.add(HomeSection.SpeedDial)
             if (!chipActive && quickPicks?.isNotEmpty() == true) list.add(HomeSection.QuickPicks)
             if (!chipActive && communityPlaylists?.isNotEmpty() == true) list.add(HomeSection.FromTheCommunity)
             if (!chipActive && dailyDiscover?.isNotEmpty() == true) list.add(HomeSection.DailyDiscover)
@@ -1091,6 +1092,8 @@ fun HomeScreen(
                     // All "main" sections start closer together
                     val base =
                         when (section) {
+                            HomeSection.Banner -> 1000
+
                             HomeSection.SpeedDial,
                             HomeSection.QuickPicks,
                             HomeSection.DailyDiscover,
@@ -1111,6 +1114,8 @@ fun HomeScreen(
 
                     val modifier =
                         when (section) {
+                            HomeSection.Banner -> 0
+
                             // Top tier: High variance to allow shuffling among themselves
                             // Range: [500-200, 500+400] = [300, 900]
                             HomeSection.SpeedDial,
@@ -1135,9 +1140,9 @@ fun HomeScreen(
             } else {
                 val defaultOrder =
                     mapOf(
+                        HomeSection.Banner to 105,
                         HomeSection.SpeedDial to 100,
                         HomeSection.QuickPicks to 90,
-                        HomeSection.Banner to 95,
                         HomeSection.FromTheCommunity to 80,
                         HomeSection.DailyDiscover to 70,
                         HomeSection.KeepListening to 60,
@@ -1838,6 +1843,17 @@ fun HomeScreen(
                                     R.drawable.home_banner3,
                                 )
                                 val bannerPagerState = rememberPagerState(pageCount = { bannerPages.size })
+                                // Auto-geser tiap 5 detik
+                                LaunchedEffect(bannerPagerState) {
+                                    while (true) {
+                                        delay(5000)
+                                        if (!bannerPagerState.isScrollInProgress) {
+                                            bannerPagerState.animateScrollToPage(
+                                                (bannerPagerState.currentPage + 1) % bannerPages.size,
+                                            )
+                                        }
+                                    }
+                                }
                                 Column {
                                     HorizontalPager(
                                         state = bannerPagerState,
