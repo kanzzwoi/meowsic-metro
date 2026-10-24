@@ -280,27 +280,16 @@ fun Queue(
                 ) {
                     val buttonSize = 42.dp
                     val iconSize = 24.dp
-                    val queueShape =
-                        RoundedCornerShape(
-                            topStart = 50.dp,
-                            bottomStart = 50.dp,
-                            topEnd = 3.dp,
-                            bottomEnd = 3.dp,
-                        )
-                    val middleShape = RoundedCornerShape(3.dp)
-                    val repeatShape =
-                        RoundedCornerShape(
-                            topStart = 3.dp,
-                            bottomStart = 3.dp,
-                            topEnd = 50.dp,
-                            bottomEnd = 50.dp,
-                        )
+                    val queueShape = RoundedCornerShape(12.dp)
+                    val middleShape = RoundedCornerShape(12.dp)
+                    val repeatShape = RoundedCornerShape(12.dp)
 
                     PlayerQueueButton(
                         icon = R.drawable.queue_music,
                         onClick = { state.expandSoft() },
                         isActive = false,
                         shape = queueShape,
+                        label = "Antrean",
                         modifier = Modifier.size(buttonSize),
                         textButtonColor = textButtonColor,
                         iconButtonColor = iconButtonColor,
@@ -325,6 +314,7 @@ fun Queue(
                         textButtonColor = textButtonColor,
                         iconButtonColor = iconButtonColor,
                         text = if (sleepTimerEnabled) makeTimeString(sleepTimerTimeLeft) else null,
+                        label = if (sleepTimerEnabled) null else "Timer",
                         iconSize = iconSize,
                         textBackgroundColor = TextBackgroundColor,
                         playerBackground = playerBackground,
@@ -336,6 +326,7 @@ fun Queue(
                         onClick = {
                             playerConnection.player.shuffleModeEnabled = !shuffleModeEnabled
                         },
+                        label = "Shuffle",
                         isActive = shuffleModeEnabled,
                         enabled = !isListenTogetherGuest,
                         shape = middleShape,
@@ -350,6 +341,7 @@ fun Queue(
                     PlayerQueueButton(
                         icon = R.drawable.lyrics,
                         onClick = { onToggleLyrics() },
+                        label = "Lirik",
                         isActive = showInlineLyrics,
                         shape = middleShape,
                         modifier = Modifier.size(buttonSize),
@@ -367,6 +359,11 @@ fun Queue(
                                 Player.REPEAT_MODE_ONE -> R.drawable.repeat_one
                                 else -> R.drawable.repeat
                             },
+                        label = when (repeatMode) {
+                            Player.REPEAT_MODE_ONE -> "Ulang 1"
+                            Player.REPEAT_MODE_ALL -> "Ulang"
+                            else -> "Ulang"
+                        },
                         onClick = {
                             playerConnection.player.toggleRepeatMode()
                         },
@@ -1269,6 +1266,17 @@ fun Queue(
 }
 
 @Composable
+private fun baseTintFor(playerBackground: PlayerBackgroundStyle, isActive: Boolean, enabled: Boolean): Color =
+    if (isActive) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        when (playerBackground) {
+            PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT -> Color.White
+            PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        }
+    }
+
+@Composable
 private fun PlayerQueueButton(
     icon: Int,
     onClick: () -> Unit,
@@ -1282,6 +1290,7 @@ private fun PlayerQueueButton(
     iconSize: androidx.compose.ui.unit.Dp,
     textBackgroundColor: Color,
     playerBackground: PlayerBackgroundStyle,
+    label: String? = null,
 ) {
     val buttonModifier =
         Modifier
@@ -1308,7 +1317,24 @@ private fun PlayerQueueButton(
         modifier = appliedModifier,
         contentAlignment = Alignment.Center,
     ) {
-        if (text != null) {
+        if (label != null) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Icon(
+                    painter = painterResource(id = icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = baseTintFor(playerBackground, isActive, enabled),
+                )
+                Text(
+                    text = label,
+                    color = iconButtonColor.copy(alpha = 0.8f),
+                    fontSize = 8.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        } else if (text != null) {
             Text(
                 text = text,
                 color = iconButtonColor.copy(alpha = if (enabled) 1f else 0.6f),
@@ -1322,20 +1348,7 @@ private fun PlayerQueueButton(
                         .basicMarquee(),
             )
         } else {
-            val baseTint =
-                if (isActive) {
-                    iconButtonColor
-                } else {
-                    when (playerBackground) {
-                        PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT -> {
-                            Color.White
-                        }
-
-                        PlayerBackgroundStyle.DEFAULT -> {
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        }
-                    }
-                }
+            val baseTint = baseTintFor(playerBackground, isActive, enabled)
             val finalTint = if (enabled) baseTint else baseTint.copy(alpha = 0.5f)
             Icon(
                 painter = painterResource(id = icon),
