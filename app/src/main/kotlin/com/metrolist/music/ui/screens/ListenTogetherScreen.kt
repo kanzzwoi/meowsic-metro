@@ -37,6 +37,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -75,6 +78,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -100,7 +104,7 @@ import com.metrolist.music.listentogether.JoinRequestPayload
 import com.metrolist.music.listentogether.ListenTogetherEvent
 import com.metrolist.music.listentogether.RoomRole
 import com.metrolist.music.listentogether.SuggestionReceivedPayload
-import com.metrolist.music.listentogether.ListenTogetherEvent.ChatReceived
+import com.metrolist.music.listentogether.RoomChatClient
 import com.metrolist.music.listentogether.UserInfo
 import com.metrolist.music.ui.component.DefaultDialog
 import com.metrolist.music.ui.component.IconButton
@@ -135,6 +139,8 @@ fun ListenTogetherScreen(
     val shouldShowTopBar = showTopBar || listenTogetherInTopBar
 
     var savedUsername by rememberPreference(ListenTogetherUsernameKey, "")
+    var myAvatarEmoji by rememberPreference(com.metrolist.music.constants.ListenTogetherAvatarEmojiKey, "🎧")
+    var myAvatarColor by rememberPreference(com.metrolist.music.constants.ListenTogetherAvatarColorKey, "#7C4DFF")
     var roomCodeInput by rememberSaveable { mutableStateOf("") }
     var usernameInput by rememberSaveable { mutableStateOf(savedUsername) }
 
@@ -144,11 +150,20 @@ fun ListenTogetherScreen(
 
     var selectedUserForMenu by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedUsername by rememberSaveable { mutableStateOf<String?>(null) }
+    var showProfileEditor by rememberSaveable { mutableStateOf(false) }
     var chatExpanded by rememberSaveable { mutableStateOf(false) }
     var chatInput by rememberSaveable { mutableStateOf("") }
-    var chatMessages by remember { mutableStateOf<List<ChatReceived>>(emptyList()) }
+    val chatMessages by listenTogetherManager.chatMessages.collectAsStateWithLifecycle()
+    val chatError by listenTogetherManager.chatError.collectAsStateWithLifecycle()
+    val memberProfiles by listenTogetherManager.memberProfiles.collectAsStateWithLifecycle()
     val chatListState = rememberLazyListState()
     val chatScope = rememberCoroutineScope()
+
+    LaunchedEffect(chatMessages.size) {
+        if (chatExpanded && chatMessages.isNotEmpty()) {
+            chatScope.launch { chatListState.animateScrollToItem(chatMessages.size - 1) }
+        }
+    }
 
     val waitingForApprovalText = stringResource(R.string.waiting_for_approval)
     val invalidRoomCodeText = stringResource(R.string.invalid_room_code)
@@ -187,7 +202,6 @@ fun ListenTogetherScreen(
                     clipboard.setPrimaryClip(clip)
                 }
 
-                is ChatReceived -> { chatMessages = chatMessages + event; if (chatExpanded) { chatScope.launch { chatListState.animateScrollToItem(chatMessages.size) } } }
                 else -> {}
             }
         }
@@ -195,6 +209,24 @@ fun ListenTogetherScreen(
 
     val isInRoom = listenTogetherManager.isInRoom
     val isHost = roomState?.hostId == userId
+
+    if (showProfileEditor) {
+        ProfileEditorDialog(
+            currentEmoji = myAvatarEmoji,
+            currentColor = myAvatarColor,
+            onDismiss = { showProfileEditor = false },
+            onSave = { emoji, color ->
+                myAvatarEmoji = emoji
+                myAvatarColor = color
+                showProfileEditor = false
+                listenTogetherManager.publishMyProfile(
+                    username = savedUsername.ifBlank { usernameInput.ifBlank { "Teman" } },
+                    emoji = emoji,
+                    color = color,
+                )
+            },
+        )
+    }
 
     // User action menu dialog
     if (selectedUserForMenu != null && selectedUsername != null) {
@@ -307,6 +339,10 @@ fun ListenTogetherScreen(
                         users = connectedUsers,
                         isHost = isHost,
                         currentUserId = currentUserIdValue,
+                        profiles = memberProfiles,
+                        ownEmoji = myAvatarEmoji,
+                        ownColor = myAvatarColor,
+                        onEditProfile = { showProfileEditor = true },
                         onUserClick = { clickedUserId, username ->
                             if (isHost && clickedUserId != currentUserIdValue) {
                                 selectedUserForMenu = clickedUserId
@@ -338,7 +374,7 @@ fun ListenTogetherScreen(
                     }
                 }
 
-                item { ChatPanel(messages = chatMessages, expanded = chatExpanded, onToggle = { chatExpanded = !chatExpanded }, input = chatInput, onInputChange = { chatInput = it }, onSend = { val m = chatInput.trim(); if (m.isNotBlank()) { listenTogetherManager.sendChat(m); chatInput = "" } }, listState = chatListState, currentUserId = currentUserIdValue) }
+                item { ChatPanel(messages = chatMessages, expanded = chatExpanded, onToggle = { chatExpanded = !chatExpanded }, input = chatInput, onInputChange = { chatInput = it }, onSend = { val m = chatInput.trim(); if (m.isNotBlank()) { listenTogetherManager.sendChatMessage(m); chatInput = "" } }, error = chatError, listState = chatListState, currentUserId = currentUserIdValue) }
                 // Leave room button
                 item {
                     Button(
@@ -762,6 +798,10 @@ private fun ConnectedUsersSection(
     users: List<UserInfo>,
     isHost: Boolean,
     currentUserId: String,
+    profiles: Map<String, RoomChatClient.UserProfile>,
+    ownEmoji: String,
+    ownColor: String,
+    onEditProfile: () -> Unit,
     onUserClick: (String, String) -> Unit,
 ) {
     Card(
@@ -775,12 +815,20 @@ private fun ConnectedUsersSection(
         Column(
             modifier = Modifier.padding(16.dp),
         ) {
-            Text(
-                text = "${stringResource(R.string.connected_users)} (${users.size})",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "${stringResource(R.string.connected_users)} (${users.size})",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onEditProfile) {
+                    Icon(painterResource(R.drawable.edit), null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Profil saya")
+                }
+            }
             Spacer(modifier = Modifier.height(12.dp))
 
             Row(
@@ -791,10 +839,13 @@ private fun ConnectedUsersSection(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 users.forEach { user ->
+                    val profile = profiles[user.userId]
                     UserAvatar(
                         user = user,
                         isCurrentUser = user.userId == currentUserId,
                         isClickable = isHost && user.userId != currentUserId,
+                        emoji = profile?.emoji ?: if (user.userId == currentUserId) ownEmoji else "",
+                        colorHex = profile?.color ?: if (user.userId == currentUserId) ownColor else "",
                         onClick = { onUserClick(user.userId, user.username) },
                     )
                 }
@@ -808,6 +859,8 @@ private fun UserAvatar(
     user: UserInfo,
     isCurrentUser: Boolean,
     isClickable: Boolean,
+    emoji: String,
+    colorHex: String,
     onClick: () -> Unit,
 ) {
     Column(
@@ -824,27 +877,38 @@ private fun UserAvatar(
                 modifier = Modifier.size(56.dp),
                 shape = CircleShape,
                 color =
-                    when {
-                        user.isHost -> MaterialTheme.colorScheme.primary
-                        isCurrentUser -> MaterialTheme.colorScheme.secondary
-                        else -> MaterialTheme.colorScheme.surfaceVariant
+                    if (colorHex.isNotBlank()) {
+                        runCatching { Color(android.graphics.Color.parseColor(colorHex)) }.getOrDefault(MaterialTheme.colorScheme.primary)
+                    } else {
+                        when {
+                            user.isHost -> MaterialTheme.colorScheme.primary
+                            isCurrentUser -> MaterialTheme.colorScheme.secondary
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        }
                     },
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    Text(
-                        text = user.username.take(1).uppercase(),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color =
-                            when {
-                                user.isHost -> MaterialTheme.colorScheme.onPrimary
-                                isCurrentUser -> MaterialTheme.colorScheme.onSecondary
-                                else -> MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                    )
+                    if (emoji.isNotBlank()) {
+                        Text(
+                            text = emoji,
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                    } else {
+                        Text(
+                            text = user.username.take(1).uppercase(),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color =
+                                when {
+                                    user.isHost -> MaterialTheme.colorScheme.onPrimary
+                                    isCurrentUser -> MaterialTheme.colorScheme.onSecondary
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                        )
+                    }
                 }
             }
 
@@ -1335,7 +1399,7 @@ private fun SettingsLinkCard(onClick: () -> Unit) {
 
 
 @Composable
-private fun ChatPanel(messages: List<ChatReceived>, expanded: Boolean, onToggle: () -> Unit, input: String, onInputChange: (String) -> Unit, onSend: () -> Unit, listState: LazyListState, currentUserId: String) {
+private fun ChatPanel(messages: List<RoomChatClient.ChatMessage>, expanded: Boolean, onToggle: () -> Unit, input: String, onInputChange: (String) -> Unit, onSend: () -> Unit, error: String?, listState: LazyListState, currentUserId: String) {
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle), verticalAlignment = Alignment.CenterVertically) {
@@ -1351,7 +1415,7 @@ private fun ChatPanel(messages: List<ChatReceived>, expanded: Boolean, onToggle:
                 Box(modifier = Modifier.fillMaxWidth().height(if (messages.isEmpty()) 80.dp else 220.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceContainerLowest).padding(8.dp)) {
                     if (messages.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Belum ada pesan", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     else LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
-                        items(messages) { msg -> val isMe = msg.userId == currentUserId; val time = remember(msg.timestamp) { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(msg.timestamp)) }; Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start) { Surface(shape = RoundedCornerShape(16.dp), color = if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth(0.78f)) { Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) { if (!isMe) Text(msg.username, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); Text(msg.message, style = MaterialTheme.typography.bodyMedium); Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.End)) } } } }
+                        items(messages) { msg -> val isMe = msg.senderId == currentUserId; val time = remember(msg.timestamp) { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(msg.timestamp)) }; Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start) { Surface(shape = RoundedCornerShape(16.dp), color = if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth(0.78f)) { Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) { if (!isMe) Text(msg.senderName, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); Text(msg.text, style = MaterialTheme.typography.bodyMedium); Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.End)) } } } }
                     }
                 }
                 Spacer(Modifier.height(10.dp))
@@ -1359,6 +1423,91 @@ private fun ChatPanel(messages: List<ChatReceived>, expanded: Boolean, onToggle:
                     OutlinedTextField(value = input, onValueChange = onInputChange, placeholder = { Text("Ketik pesan...") }, singleLine = true, shape = RoundedCornerShape(24.dp), modifier = Modifier.weight(1f))
                     Spacer(Modifier.width(8.dp))
                     androidx.compose.material3.FilledIconButton(onClick = onSend, enabled = input.isNotBlank()) { Icon(painterResource(R.drawable.send), contentDescription = "Kirim") }
+                }
+                if (error != null) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun ProfileEditorDialog(
+    currentEmoji: String,
+    currentColor: String,
+    onDismiss: () -> Unit,
+    onSave: (String, String) -> Unit,
+) {
+    val emojis = listOf("🎧", "😎", "🐱", "🐺", "🦊", "🐼", "🦄", "🌙", "⭐", "🔥", "🌊", "🍿", "🪩", "🚀", "👾", "🌸")
+    val colors = listOf("#7C4DFF", "#FF5252", "#FF6E40", "#FFC400", "#69F0AE", "#18FFFF", "#40C4FF", "#448AFF", "#B388FF", "#F06292", "#AED581", "#FFAB40")
+
+    var emoji by remember { mutableStateOf(currentEmoji) }
+    var color by remember { mutableStateOf(currentColor) }
+
+    DefaultDialog(
+        onDismiss = onDismiss,
+        icon = {
+            Box(
+                modifier =
+                    Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(runCatching { Color(android.graphics.Color.parseColor(color)) }.getOrDefault(MaterialTheme.colorScheme.primary)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(emoji, style = MaterialTheme.typography.headlineMedium)
+            }
+        },
+        title = { Text("Profil Saya", fontWeight = FontWeight.Bold) },
+        buttons = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+            TextButton(onClick = { onSave(emoji, color) }) {
+                Text("Simpan")
+            }
+        },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Pilih emoji", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(8),
+                modifier = Modifier.height(96.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                items(emojis) { item ->
+                    Surface(
+                        modifier = Modifier.size(40.dp).clickable { emoji = item },
+                        shape = CircleShape,
+                        color = if (item == emoji) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) { Text(item, style = MaterialTheme.typography.titleMedium) }
+                    }
+                }
+            }
+
+            Text("Pilih warna", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(6),
+                modifier = Modifier.height(96.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                items(colors) { item ->
+                    Surface(
+                        modifier = Modifier.size(40.dp).clickable { color = item },
+                        shape = CircleShape,
+                        color = runCatching { Color(android.graphics.Color.parseColor(item)) }.getOrDefault(MaterialTheme.colorScheme.primary),
+                        border = if (item == color) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.onSurface) else null,
+                    ) {
+                        if (item == color) {
+                            Box(contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.check), null, tint = Color.White, modifier = Modifier.size(20.dp)) }
+                        }
+                    }
                 }
             }
         }

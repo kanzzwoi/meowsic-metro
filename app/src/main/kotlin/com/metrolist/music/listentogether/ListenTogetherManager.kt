@@ -32,6 +32,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -153,6 +156,90 @@ class ListenTogetherManager
         val events = client.events
         val blockedUsernames = client.blockedUsernames
         val pendingSuggestions = client.pendingSuggestions
+
+        // Room chat (ntfy-backed, since the Listen Together server has no chat support)
+        private val chatClient = RoomChatClient()
+        private val _chatMessages = MutableStateFlow<List<RoomChatClient.ChatMessage>>(emptyList())
+        val chatMessages: StateFlow<List<RoomChatClient.ChatMessage>> = _chatMessages.asStateFlow()
+        private val _chatError = MutableStateFlow<String?>(null)
+        val chatError: StateFlow<String?> = _chatError.asStateFlow()
+
+        // Per-user avatar details (emoji + color) broadcast through the room chat topic
+        private val _memberProfiles = MutableStateFlow<Map<String, RoomChatClient.UserProfile>>(emptyMap())
+        val memberProfiles: StateFlow<Map<String, RoomChatClient.UserProfile>> = _memberProfiles.asStateFlow()
+
+        /** Publish the local user's avatar so other members can render it. */
+        fun publishMyProfile(
+            username: String,
+            emoji: String,
+            color: String,
+        ) {
+            val room = roomState.value ?: return
+            val myId = userId.value ?: return
+            val profile =
+                RoomChatClient.UserProfile(
+                    userId = myId,
+                    username = username,
+                    emoji = emoji,
+                    color = color,
+                )
+            _memberProfiles.value = _memberProfiles.value + (myId to profile)
+            chatClient.publishProfile(room.roomCode, myId, username, emoji, color)
+        }
+
+        private fun connectChat(roomCode: String) {
+            // Announce our own avatar so members (including late joiners) can render it
+            scope.launch {
+                val prefs = context.dataStore.data.first()
+                val emoji = prefs[com.metrolist.music.constants.ListenTogetherAvatarEmojiKey] ?: "🎧"
+                val color = prefs[com.metrolist.music.constants.ListenTogetherAvatarColorKey] ?: "#7C4DFF"
+                val myId = userId.value ?: return@launch
+                val name =
+                    roomState.value?.users?.firstOrNull { it.userId == myId }?.username
+                        ?: context.dataStore.data.first()[com.metrolist.music.constants.ListenTogetherUsernameKey]
+                        ?: "Teman"
+                _memberProfiles.value =
+                    _memberProfiles.value + (myId to RoomChatClient.UserProfile(myId, name, emoji, color))
+                chatClient.publishProfile(roomCode, myId, name, emoji, color)
+            }
+            chatClient.connect(
+                roomCode = roomCode,
+                onMessage = { message ->
+                    if (_chatMessages.value.any { it.id == message.id }) return@connect
+                    _chatMessages.value = (_chatMessages.value + message).takeLast(200)
+                },
+                onError = { error -> _chatError.value = error },
+                onProfile = { profile ->
+                    _memberProfiles.value = _memberProfiles.value + (profile.userId to profile)
+                },
+            )
+        }
+
+        private fun disconnectChat() {
+            chatClient.disconnect()
+            _chatMessages.value = emptyList()
+            _chatError.value = null
+            _memberProfiles.value = emptyMap()
+        }
+
+        /** Send a chat message to everyone in the room. */
+        fun sendChatMessage(text: String) {
+            val room = roomState.value ?: return
+            val myId = userId.value ?: return
+            val name = room.users.firstOrNull { it.userId == myId }?.username ?: "Teman"
+            chatClient.send(
+                roomCode = room.roomCode,
+                senderId = myId,
+                senderName = name,
+                message = text,
+                onSent = { message ->
+                    if (_chatMessages.value.none { it.id == message.id }) {
+                        _chatMessages.value = (_chatMessages.value + message).takeLast(200)
+                    }
+                },
+                onError = { error -> _chatError.value = error },
+            )
+        }
 
         val isInRoom: Boolean get() = client.isInRoom
         val isHost: Boolean get() = client.isHost
@@ -457,6 +544,7 @@ class ListenTogetherManager
 
                 is ListenTogetherEvent.RoomCreated -> {
                     Timber.tag(TAG).d("Room created: ${event.roomCode}")
+                    connectChat(event.roomCode)
                     try {
                         // Register player listener for host
                         val connection = playerConnection
@@ -500,6 +588,7 @@ class ListenTogetherManager
                 }
 
                 is ListenTogetherEvent.JoinApproved -> {
+                    connectChat(event.roomCode)
                     Timber.tag(TAG).d("Join approved for room: ${event.roomCode}")
                     // Save current mute state before joining as guest so we can restore it on leave
                     saveMuteStateOnJoin()
@@ -562,6 +651,7 @@ class ListenTogetherManager
 
                 is ListenTogetherEvent.Kicked -> {
                     Timber.tag(TAG).d("Kicked from room: ${event.reason}")
+                    disconnectChat()
                     cleanup()
                 }
 
@@ -577,6 +667,7 @@ class ListenTogetherManager
 
                 is ListenTogetherEvent.Reconnected -> {
                     Timber.tag(TAG).d("Reconnected to room: ${event.roomCode}, isHost: ${event.isHost}")
+                    connectChat(event.roomCode)
                     try {
                         // Re-register player listener
                         val connection = playerConnection
@@ -1812,6 +1903,7 @@ class ListenTogetherManager
         fun sendChat(message: String) = client.sendChat(message)
 
     fun leaveRoom() {
+        disconnectChat()
             Timber.tag(TAG).d("Leaving room")
             cleanup()
             client.leaveRoom()
