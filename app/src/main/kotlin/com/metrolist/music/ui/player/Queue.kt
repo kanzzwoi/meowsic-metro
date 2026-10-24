@@ -83,6 +83,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalClipboard
@@ -1266,13 +1267,14 @@ fun Queue(
 }
 
 @Composable
-private fun baseTintFor(playerBackground: PlayerBackgroundStyle, isActive: Boolean, enabled: Boolean): Color =
-    if (isActive) {
-        Color.Black.copy(alpha = 0.87f)
-    } else {
-        // Selalu putih biar kebaca di tombol hitam (light mode juga)
-        Color.White.copy(alpha = if (enabled) 1f else 0.5f)
-    }
+private fun baseTintFor(playerBackground: PlayerBackgroundStyle, isActive: Boolean, enabled: Boolean): Color {
+    // Aktif = icon putih di atas balok hitam
+    if (isActive) return Color.White.copy(alpha = 0.95f)
+    // Non-aktif: hitam di light mode, putih di dark mode — baca dari surface luminance
+    val bgIsLight = MaterialTheme.colorScheme.surface.luminance() > 0.5f
+    return if (bgIsLight) Color.Black.copy(alpha = if (enabled) 0.86f else 0.38f)
+    else Color.White.copy(alpha = if (enabled) 0.95f else 0.45f)
+}
 
 @Composable
 private fun PlayerQueueButton(
@@ -1316,7 +1318,7 @@ private fun PlayerQueueButton(
             painter = painterResource(id = icon),
             contentDescription = null,
             modifier = Modifier.size(30.dp),
-            tint = if (isActive) Color.Black.copy(alpha = 0.87f) else baseTintFor(playerBackground, isActive, enabled),
+            tint = baseTintFor(playerBackground, isActive, enabled),
         )
     }
 
