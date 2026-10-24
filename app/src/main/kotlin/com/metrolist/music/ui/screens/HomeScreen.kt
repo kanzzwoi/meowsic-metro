@@ -5,6 +5,16 @@
 
 package com.metrolist.music.ui.screens
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
@@ -23,7 +33,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -83,7 +92,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -187,6 +195,7 @@ sealed class HomeSection(
 ) {
     data object SpeedDial : HomeSection("speed_dial", 100)
 
+    data object Banner : HomeSection("banner", 95)
     data object QuickPicks : HomeSection("quick_picks", 90)
 
     data object DailyDiscover : HomeSection("daily_discover", 80)
@@ -1051,6 +1060,7 @@ fun HomeScreen(
             val chipActive = selectedChip != null
 
             if (!chipActive && speedDialItems.isNotEmpty()) list.add(HomeSection.SpeedDial)
+            if (!chipActive) list.add(HomeSection.Banner)
             if (!chipActive && quickPicks?.isNotEmpty() == true) list.add(HomeSection.QuickPicks)
             if (!chipActive && communityPlaylists?.isNotEmpty() == true) list.add(HomeSection.FromTheCommunity)
             if (!chipActive && dailyDiscover?.isNotEmpty() == true) list.add(HomeSection.DailyDiscover)
@@ -1127,6 +1137,7 @@ fun HomeScreen(
                     mapOf(
                         HomeSection.SpeedDial to 100,
                         HomeSection.QuickPicks to 90,
+                        HomeSection.Banner to 95,
                         HomeSection.FromTheCommunity to 80,
                         HomeSection.DailyDiscover to 70,
                         HomeSection.KeepListening to 60,
@@ -1813,6 +1824,61 @@ fun HomeScreen(
                                                     )
                                                 }
                                             }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        HomeSection.Banner -> {
+                            item(key = "home_banner") {
+                                val bannerPages = listOf(
+                                    R.drawable.home_banner1,
+                                    R.drawable.home_banner2,
+                                    R.drawable.home_banner3,
+                                )
+                                val bannerPagerState = rememberPagerState(pageCount = { bannerPages.size })
+                                Column {
+                                    HorizontalPager(
+                                        state = bannerPagerState,
+                                        contentPadding = PaddingValues(horizontal = 24.dp),
+                                        pageSpacing = 12.dp,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) { page ->
+                                        Image(
+                                            painter = painterResource(bannerPages[page]),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.FillWidth,
+                                            modifier =
+                                                Modifier
+                                                    .fillMaxWidth()
+                                                    .aspectRatio(16f / 9f)
+                                                    .clip(RoundedCornerShape(16.dp)),
+                                        )
+                                    }
+                                    Row(
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 10.dp),
+                                    ) {
+                                        repeat(bannerPages.size) { iteration ->
+                                            val color =
+                                                if (bannerPagerState.currentPage == iteration) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                }
+                                            Box(
+                                                modifier =
+                                                    Modifier
+                                                        .padding(4.dp)
+                                                        .clip(CircleShape)
+                                                        .background(color)
+                                                        .size(8.dp),
+                                            )
                                         }
                                     }
                                 }
