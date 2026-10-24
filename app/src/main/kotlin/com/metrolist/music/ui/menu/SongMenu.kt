@@ -232,8 +232,22 @@ fun SongMenu(
         mutableStateOf(false)
     }
 
+    var pendingOpenPlaylist by rememberSaveable {
+        mutableStateOf(false)
+    }
+
     var showErrorPlaylistAddDialog by rememberSaveable {
         mutableStateOf(false)
+    }
+
+    kotlinx.coroutines.MainScope().let { scope ->
+        androidx.compose.runtime.LaunchedEffect(pendingOpenPlaylist) {
+            if (pendingOpenPlaylist) {
+                pendingOpenPlaylist = false
+                kotlinx.coroutines.delay(260)
+                showChoosePlaylistDialog = true
+            }
+        }
     }
 
     AddToPlaylistDialog(
@@ -765,8 +779,8 @@ fun SongMenu(
                                         )
                                     },
                                     onClick = {
+                                        pendingOpenPlaylist = true
                                         onDismiss()
-                                        showChoosePlaylistDialog = true
                                     },
                                 ),
                             )
