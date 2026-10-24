@@ -193,9 +193,10 @@ object LyricsTranslationHelper {
         translationJob =
             scope.launch(Dispatchers.IO) {
                 try {
-                    // Validate inputs
+                    // Validate inputs — provider gratis (Google/DeepLFree) tidak butuh key
                     val effectiveApiKey = if (provider == "DeepL") deeplApiKey else apiKey
-                    if (effectiveApiKey.isBlank()) {
+                    val isKeylessProvider = provider == "Google" || provider == "DeepLFree"
+                    if (!isKeylessProvider && effectiveApiKey.isBlank()) {
                         _status.value = TranslationStatus.Error(context.getString(com.metrolist.music.R.string.ai_error_api_key_required))
                         return@launch
                     }
