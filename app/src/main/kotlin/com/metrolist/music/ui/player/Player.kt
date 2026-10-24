@@ -1562,10 +1562,10 @@ fun BottomSheetPlayer(
                                         .height(68.dp)
                                         .weight(backButtonWeight),
                             ) {
-                                Text(
-                                    text = "<<",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
+                                Icon(
+                                    painter = painterResource(R.drawable.rewind_10),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(28.dp),
                                 )
                             }
 
@@ -1644,10 +1644,10 @@ fun BottomSheetPlayer(
                                         .height(68.dp)
                                         .weight(nextButtonWeight),
                             ) {
-                                Text(
-                                    text = ">>",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
+                                Icon(
+                                    painter = painterResource(R.drawable.fast_forward),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(28.dp),
                                 )
                             }
 
