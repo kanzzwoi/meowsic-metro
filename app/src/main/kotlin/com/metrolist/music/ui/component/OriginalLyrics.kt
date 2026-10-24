@@ -390,17 +390,24 @@ fun OriginalLyrics(
         LyricsTranslationHelper.manualTrigger.collect {
             val isKeyless = aiProvider == "Google" || aiProvider == "DeepLFree"
             val effectiveApiKey = if (aiProvider == "DeepL") deeplApiKey else openRouterApiKey
-            if (showLyrics && lines.isNotEmpty() && (isKeyless || effectiveApiKey.isNotBlank())) {
+            if (showLyrics && lines.isNotEmpty()) {
+                // Tanpa key? Fallback ke Google gratis
+                val (useKey, useProvider) =
+                    if (isKeyless || effectiveApiKey.isNotBlank()) {
+                        openRouterApiKey to aiProvider
+                    } else {
+                        "" to "Google"
+                    }
                 LyricsTranslationHelper.translateLyrics(
                     lyrics = lines,
                     targetLanguage = translateLanguage,
-                    apiKey = openRouterApiKey,
+                    apiKey = useKey,
                     baseUrl = openRouterBaseUrl,
                     model = openRouterModel,
                     mode = translateMode,
                     scope = scope,
                     context = context,
-                    provider = aiProvider,
+                    provider = useProvider,
                     deeplApiKey = deeplApiKey,
                     deeplFormality = deeplFormality,
                     useStreaming = true,
@@ -408,8 +415,6 @@ fun OriginalLyrics(
                     database = database,
                     systemPrompt = aiSystemPrompt,
                 )
-            } else if (effectiveApiKey.isBlank()) {
-                Toast.makeText(context, aiApiKeyRequiredStr, Toast.LENGTH_SHORT).show()
             }
         }
     }

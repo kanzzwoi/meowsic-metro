@@ -266,17 +266,24 @@ fun ExperimentalLyrics(
         LyricsTranslationHelper.manualTrigger.collectLatest {
             val isKeyless = aiProvider == "Google" || aiProvider == "DeepLFree"
             val effectiveApiKey = if (aiProvider == "DeepL") deeplApiKey else openRouterApiKey
-            if (showLyrics && lines.isNotEmpty() && (isKeyless || effectiveApiKey.isNotBlank())) {
+            if (showLyrics && lines.isNotEmpty()) {
+                // Tanpa key? Fallback ke Google gratis, bukan toast error
+                val (useKey, useProvider) =
+                    if (isKeyless || effectiveApiKey.isNotBlank()) {
+                        openRouterApiKey to aiProvider
+                    } else {
+                        "" to "Google"
+                    }
                 LyricsTranslationHelper.translateLyrics(
                     lyrics = lines,
                     targetLanguage = translateLanguage,
-                    apiKey = openRouterApiKey,
+                    apiKey = useKey,
                     baseUrl = openRouterBaseUrl,
                     model = openRouterModel,
                     mode = translateMode,
                     scope = scope,
                     context = context,
-                    provider = aiProvider,
+                    provider = useProvider,
                     deeplApiKey = deeplApiKey,
                     deeplFormality = deeplFormality,
                     useStreaming = true,
@@ -284,8 +291,6 @@ fun ExperimentalLyrics(
                     database = database,
                     systemPrompt = aiSystemPrompt,
                 )
-            } else if (!isKeyless) {
-                Toast.makeText(context, context.getString(R.string.ai_api_key_required), Toast.LENGTH_SHORT).show()
             }
         }
     }
