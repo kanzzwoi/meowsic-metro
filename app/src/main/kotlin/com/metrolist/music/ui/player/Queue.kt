@@ -280,9 +280,9 @@ fun Queue(
                 ) {
                     val buttonSize = 42.dp
                     val iconSize = 24.dp
-                    val queueShape = RoundedCornerShape(12.dp)
-                    val middleShape = RoundedCornerShape(12.dp)
-                    val repeatShape = RoundedCornerShape(12.dp)
+                    val queueShape = RoundedCornerShape(2.dp)
+                    val middleShape = RoundedCornerShape(2.dp)
+                    val repeatShape = RoundedCornerShape(2.dp)
 
                     PlayerQueueButton(
                         icon = R.drawable.queue_music,
@@ -1313,49 +1313,57 @@ private fun PlayerQueueButton(
                 ).alpha(alphaFactor)
         }
 
-    Box(
-        modifier = appliedModifier,
-        contentAlignment = Alignment.Center,
-    ) {
-        if (label != null) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Icon(
-                    painter = painterResource(id = icon),
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = baseTintFor(playerBackground, isActive, enabled),
-                )
-                Text(
-                    text = label,
-                    color = if (isActive) Color.Black.copy(alpha = 0.87f) else iconButtonColor.copy(alpha = 0.8f),
-                    fontSize = 8.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                )
+    val iconOnly: @Composable () -> Unit = {
+        Icon(
+            painter = painterResource(id = icon),
+            contentDescription = null,
+            modifier = Modifier.size(30.dp),
+            tint = if (isActive) Color.Black.copy(alpha = 0.87f) else baseTintFor(playerBackground, isActive, enabled),
+        )
+    }
+
+    if (label != null) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(modifier = appliedModifier, contentAlignment = Alignment.Center) {
+                iconOnly()
             }
-        } else if (text != null) {
             Text(
-                text = text,
-                color = iconButtonColor.copy(alpha = if (enabled) 1f else 0.6f),
-                fontSize = 10.sp,
+                text = label,
+                color = iconButtonColor.copy(alpha = 0.85f),
+                fontSize = 9.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .basicMarquee(),
             )
-        } else {
-            val baseTint = baseTintFor(playerBackground, isActive, enabled)
-            val finalTint = if (enabled) baseTint else baseTint.copy(alpha = 0.5f)
-            Icon(
-                painter = painterResource(id = icon),
-                contentDescription = null,
-                modifier = Modifier.size(iconSize),
-                tint = finalTint,
-            )
+        }
+    } else {
+        Box(
+            modifier = appliedModifier,
+            contentAlignment = Alignment.Center,
+        ) {
+            if (text != null) {
+                Text(
+                    text = text,
+                    color = iconButtonColor.copy(alpha = if (enabled) 1f else 0.6f),
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .basicMarquee(),
+                )
+            } else {
+                val baseTint = baseTintFor(playerBackground, isActive, enabled)
+                val finalTint = if (enabled) baseTint else baseTint.copy(alpha = 0.5f)
+                Icon(
+                    painter = painterResource(id = icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(iconSize),
+                    tint = finalTint,
+                )
+            }
         }
     }
 }
