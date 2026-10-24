@@ -450,39 +450,23 @@ fun PlayerMenu(
                                 ),
                             )
                         }
-                        // Add to Library option
-                        val isInLibrary = librarySong?.song?.inLibrary != null
+                        // Add to Library option -> ganti jadi Tambah ke playlist
                         add(
                             Material3MenuItemData(
                                 title = {
-                                    Text(
-                                        text =
-                                            stringResource(
-                                                if (isInLibrary) {
-                                                    R.string.remove_from_library
-                                                } else {
-                                                    R.string.add_to_library
-                                                },
-                                            ),
-                                    )
+                                    Text(text = stringResource(R.string.add_to_playlist))
                                 },
+                                description = { Text(text = stringResource(R.string.add_to_playlist_desc)) },
                                 icon = {
                                     Icon(
-                                        painter =
-                                            painterResource(
-                                                if (isInLibrary) {
-                                                    R.drawable.library_add_check
-                                                } else {
-                                                    R.drawable.library_add
-                                                },
-                                            ),
+                                        painter = painterResource(R.drawable.playlist_add),
                                         contentDescription = null,
                                         modifier = Modifier.size(24.dp),
                                     )
                                 },
                                 onClick = {
-                                    playerConnection.toggleLibrary()
                                     onDismiss()
+                                    showChoosePlaylistDialog = true
                                 },
                             ),
                         )

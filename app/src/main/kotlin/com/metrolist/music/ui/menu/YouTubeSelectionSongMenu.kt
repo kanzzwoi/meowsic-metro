@@ -275,60 +275,9 @@ fun YouTubeSelectionSongMenu(
                     Material3MenuItemData(
                         icon = { Icon(painterResource(R.drawable.playlist_add), null) },
                         title = { Text(stringResource(R.string.add_to_playlist)) },
+                        description = { Text(stringResource(R.string.add_to_playlist_desc)) },
                         onClick = {
                             showChoosePlaylistDialog = true
-                        },
-                    ),
-                    Material3MenuItemData(
-                        title = {
-                            Text(
-                                text =
-                                    stringResource(
-                                        if (allInLibrary) R.string.remove_from_library else R.string.add_to_library,
-                                    ),
-                            )
-                        },
-                        icon = {
-                            Icon(
-                                painter =
-                                    painterResource(
-                                        if (allInLibrary) R.drawable.library_add_check else R.drawable.library_add,
-                                    ),
-                                contentDescription = null,
-                            )
-                        },
-                        onClick = {
-                            if (allInLibrary) {
-                                database.query {
-                                    songSelection.forEach { song ->
-                                        inLibrary(song.id, null)
-                                    }
-                                }
-                                coroutineScope.launch {
-                                    // Use the new reliable method that fetches fresh tokens
-                                    songSelection.forEach { song ->
-                                        YouTube.toggleSongLibrary(song.id, false)
-                                    }
-                                }
-                            } else {
-                                database.transaction {
-                                    songSelection.forEach { song ->
-                                        insert(song.toMediaMetadata())
-                                        inLibrary(song.id, LocalDateTime.now())
-                                    }
-                                }
-                                coroutineScope.launch {
-                                    // Use the new reliable method that fetches fresh tokens
-                                    songSelection
-                                        .filter { song ->
-                                            song.toMediaMetadata().inLibrary == null
-                                        }.forEach { song ->
-                                            YouTube.toggleSongLibrary(song.id, true)
-                                        }
-                                }
-                            }
-                            clearAction()
-                            onDismiss()
                         },
                     ),
                     when (downloadState) {
