@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
@@ -80,6 +82,8 @@ import com.metrolist.music.constants.ListenTogetherAutoApprovalKey
 import com.metrolist.music.constants.ListenTogetherAutoApproveSuggestionsKey
 import com.metrolist.music.constants.ListenTogetherServerUrlKey
 import com.metrolist.music.constants.ListenTogetherSyncVolumeKey
+import com.metrolist.music.constants.ChatRelayUrlKey
+import com.metrolist.music.listentogether.RoomChatClient
 import com.metrolist.music.constants.ListenTogetherUsernameKey
 import com.metrolist.music.LocalListenTogetherManager
 import com.metrolist.music.listentogether.ConnectionState
@@ -115,12 +119,14 @@ fun ListenTogetherSettings(navController: NavController) {
     val servers = remember { ListenTogetherServers.servers }
     var serverUrl by rememberPreference(ListenTogetherServerUrlKey, ListenTogetherServers.defaultServerUrl)
     var username by rememberPreference(ListenTogetherUsernameKey, "")
+    var chatRelayUrl by rememberPreference(ChatRelayUrlKey, "")
     var autoApprovalJoins by rememberPreference(ListenTogetherAutoApprovalKey, false)
     var autoApproveSuggestions by rememberPreference(ListenTogetherAutoApproveSuggestionsKey, false)
     var syncHostVolume by rememberPreference(ListenTogetherSyncVolumeKey, true)
 
     var showServerUrlDialog by rememberSaveable { mutableStateOf(false) }
     var showUsernameDialog by rememberSaveable { mutableStateOf(false) }
+    var showChatRelayDialog by rememberSaveable { mutableStateOf(false) }
     var showCreateRoomDialog by rememberSaveable { mutableStateOf(false) }
     var showJoinRoomDialog by rememberSaveable { mutableStateOf(false) }
     var showLogsDialog by rememberSaveable { mutableStateOf(false) }
@@ -179,6 +185,48 @@ fun ListenTogetherSettings(navController: NavController) {
             },
             onDismiss = { showServerUrlDialog = false },
         )
+    }
+
+    if (showChatRelayDialog) {
+        var tempRelay by rememberSaveable(showChatRelayDialog) { mutableStateOf(chatRelayUrl) }
+
+        DefaultDialog(
+            onDismiss = { showChatRelayDialog = false },
+            icon = { Icon(painterResource(R.drawable.chat), contentDescription = null) },
+            title = { Text(stringResource(R.string.chat_relay_url)) },
+            buttons = {
+                TextButton(onClick = {
+                    chatRelayUrl = ""
+                    RoomChatClient.relayUrl = null
+                    showChatRelayDialog = false
+                }) {
+                    Text(stringResource(R.string.reset))
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(onClick = {
+                    val trimmed = tempRelay.trim()
+                    chatRelayUrl = trimmed
+                    RoomChatClient.relayUrl = trimmed.ifEmpty { null }
+                    showChatRelayDialog = false
+                }) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            },
+        ) {
+            Text(
+                stringResource(R.string.chat_relay_url_desc),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = tempRelay,
+                onValueChange = { tempRelay = it },
+                label = { Text(stringResource(R.string.chat_relay_url)) },
+                placeholder = { Text("https://chat.example.com") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            )
+        }
     }
 
     if (showUsernameDialog) {
@@ -419,6 +467,18 @@ fun ListenTogetherSettings(navController: NavController) {
                                             ).show()
                                     }
                                 },
+                        ),
+                        IntegrationCardItem(
+                            icon = painterResource(R.drawable.chat),
+                            title = { Text(stringResource(R.string.chat_relay_url)) },
+                            description = {
+                                Text(
+                                    chatRelayUrl.ifEmpty { stringResource(R.string.chat_relay_url_auto) },
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            },
+                            onClick = { showChatRelayDialog = true },
                         ),
                         IntegrationCardItem(
                             icon = painterResource(R.drawable.done),

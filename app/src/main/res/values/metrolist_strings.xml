@@ -995,4 +995,7 @@
     <string name="stream_source_web_creator_desc">Creator web client.</string>
     <string name="top_result">Top result</string>
     <string name="other">Other</string>
+    <string name="chat_relay_url">Server chat (relay)</string>
+    <string name="chat_relay_url_desc">Kosongkan untuk memakai layanan gratis bawaan. Isi dengan alamat server chat milikmu, contoh: https://chat.example.com</string>
+    <string name="chat_relay_url_auto">Gratis bawaan (ntfy)</string>
 </resources>

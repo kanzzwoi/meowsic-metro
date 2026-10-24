@@ -191,6 +191,8 @@ class ListenTogetherManager
             // Announce our own avatar so members (including late joiners) can render it
             scope.launch {
                 val prefs = context.dataStore.data.first()
+                // Optional self-hosted relay (Pterodactyl). Blank = use the built-in free service.
+                RoomChatClient.relayUrl = prefs[com.metrolist.music.constants.ChatRelayUrlKey]?.trim()?.ifEmpty { null }
                 val emoji = prefs[com.metrolist.music.constants.ListenTogetherAvatarEmojiKey] ?: "🎧"
                 val color = prefs[com.metrolist.music.constants.ListenTogetherAvatarColorKey] ?: "#7C4DFF"
                 val myId = userId.value ?: return@launch

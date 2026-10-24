@@ -43,6 +43,9 @@ class RoomChatClient(
         private const val NTFY_BASE = "https://ntfy.sh"
         private const val TOPIC_PREFIX = "meowsic-room-"
 
+        /** Self-hosted relay (Pterodactyl). Falls back to ntfy when unreachable. */
+        var relayUrl: String? = null
+
         /**
          * Topic name derived from the room code. The code is hashed so the ntfy topic
          * cannot be guessed from the room code alone (ntfy topics are world-readable).
@@ -90,6 +93,7 @@ class RoomChatClient(
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var webSocket: WebSocket? = null
     private var currentTopic: String? = null
+    private var userId: String = ""
     private var historyJob: Job? = null
     private var pollJob: Job? = null
     private val seenMessageIds = LinkedHashSet<String>()
@@ -118,17 +122,30 @@ class RoomChatClient(
         if (currentTopic == topic && webSocket != null) return
         disconnect()
         currentTopic = topic
-        ensureTopic(topic)
-        openSocket(topic)
-        loadHistory(topic)
-        startPolling(topic)
+        if (relayUrl != null) {
+            // The relay keeps history in memory and pushes it to late joiners.
+            openSocket(topic)
+        } else {
+            ensureTopic(topic)
+            openSocket(topic)
+            loadHistory(topic)
+            startPolling(topic)
+        }
     }
 
     private fun openSocket(topic: String) {
+        val relay = relayUrl
+        val wsUrl =
+            if (relay != null) {
+                val base = relay.trimEnd('/').replaceFirst("https://", "wss://").replaceFirst("http://", "ws://")
+                "$base/$topic"
+            } else {
+                "$NTFY_BASE/$topic/ws"
+            }
         val request =
             Request
                 .Builder()
-                .url("$NTFY_BASE/$topic/ws")
+                .url(wsUrl)
                 .build()
 
         webSocket =
@@ -146,6 +163,7 @@ class RoomChatClient(
                                 buildJsonObject {
                                     put("action", JsonPrimitive("subscribe"))
                                     put("topic", JsonPrimitive(topic))
+                                    put("user_id", JsonPrimitive(userId.orEmpty()))
                                 },
                             ),
                         )
@@ -240,10 +258,16 @@ class RoomChatClient(
                 return
             }
 
-        if (outer["event"]?.jsonPrimitive?.content != "message") return
-
-        val raw = outer["message"]?.jsonPrimitive?.content.orEmpty()
-        if (raw.isBlank() || raw.length > 4096) return
+        // Relay sends the payload directly; ntfy wraps it in {"event":"message","message":"<json>"}.
+        val isRelayFrame = outer["event"] == null && outer["kind"] != null
+        val raw =
+            if (isRelayFrame) {
+                outer.toString()
+            } else {
+                if (outer["event"]?.jsonPrimitive?.content != "message") return
+                outer["message"]?.jsonPrimitive?.content.orEmpty()
+            }
+        if (raw.isBlank() || raw.length > 8192) return
 
         // Our payload is JSON; ntfy messages from other apps are plain text and are ignored.
         val payload =
@@ -306,17 +330,52 @@ class RoomChatClient(
         val id = System.currentTimeMillis().toString() + "-" + senderId.hashCode().toString().replace("-", "")
         val timestamp = System.currentTimeMillis()
 
+        val payload =
+            buildJsonObject {
+                put("kind", JsonPrimitive("chat"))
+                put("topic", JsonPrimitive(topic))
+                put("id", JsonPrimitive(id))
+                put("sender_id", JsonPrimitive(senderId))
+                put("sender_name", JsonPrimitive(senderName))
+                put("message", JsonPrimitive(text))
+                put("timestamp", JsonPrimitive(timestamp))
+            }
+
+        // Prefer the self-hosted relay (no rate limits); fall back to ntfy.
+        val live = webSocket
+        if (relayUrl != null && live != null) {
+            val ok =
+                try {
+                    live.send(
+                        json.encodeToString(
+                            JsonObject.serializer(),
+                            buildJsonObject {
+                                put("action", JsonPrimitive("publish"))
+                                put("payload", payload)
+                            },
+                        ),
+                    )
+                    true
+                } catch (e: Exception) {
+                    Timber.tag(TAG).w(e, "Relay publish failed, falling back to ntfy")
+                    false
+                }
+            if (ok) {
+                onSent?.invoke(
+                    ChatMessage(
+                        id = id,
+                        senderId = senderId,
+                        senderName = senderName,
+                        text = text,
+                        timestamp = timestamp,
+                    ),
+                )
+                return
+            }
+        }
+
         scope.launch {
             try {
-                val payload =
-                    buildJsonObject {
-                        put("topic", JsonPrimitive(topic))
-                        put("id", JsonPrimitive(id))
-                        put("sender_id", JsonPrimitive(senderId))
-                        put("sender_name", JsonPrimitive(senderName))
-                        put("message", JsonPrimitive(text))
-                        put("timestamp", JsonPrimitive(timestamp))
-                    }
                 val request =
                     Request
                         .Builder()
@@ -354,19 +413,42 @@ class RoomChatClient(
         color: String,
     ) {
         val topic = topicFor(roomCode)
+        val payload =
+            buildJsonObject {
+                put("topic", JsonPrimitive(topic))
+                put("kind", JsonPrimitive("profile"))
+                put("id", JsonPrimitive("profile-$userId"))
+                put("sender_id", JsonPrimitive(userId))
+                put("sender_name", JsonPrimitive(username))
+                put("emoji", JsonPrimitive(emoji))
+                put("color", JsonPrimitive(color))
+                put("timestamp", JsonPrimitive(System.currentTimeMillis()))
+            }
+
+        // Prefer the relay socket (no rate limits).
+        val live = webSocket
+        if (relayUrl != null && live != null) {
+            val ok =
+                try {
+                    live.send(
+                        json.encodeToString(
+                            JsonObject.serializer(),
+                            buildJsonObject {
+                                put("action", JsonPrimitive("publish"))
+                                put("payload", payload)
+                            },
+                        ),
+                    )
+                    true
+                } catch (e: Exception) {
+                    Timber.tag(TAG).w(e, "Relay profile publish failed")
+                    false
+                }
+            if (ok) return
+        }
+
         scope.launch {
             try {
-                val payload =
-                    buildJsonObject {
-                        put("topic", JsonPrimitive(topic))
-                        put("kind", JsonPrimitive("profile"))
-                        put("id", JsonPrimitive("profile-$userId"))
-                        put("sender_id", JsonPrimitive(userId))
-                        put("sender_name", JsonPrimitive(username))
-                        put("emoji", JsonPrimitive(emoji))
-                        put("color", JsonPrimitive(color))
-                        put("timestamp", JsonPrimitive(System.currentTimeMillis()))
-                    }
                 val request =
                     Request
                         .Builder()

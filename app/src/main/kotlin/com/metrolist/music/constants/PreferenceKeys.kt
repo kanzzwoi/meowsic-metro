@@ -188,6 +188,7 @@ val EnableGoogleCastKey = booleanPreferencesKey("enableGoogleCast")
 // Listen Together
 val ListenTogetherServerUrlKey = stringPreferencesKey("listenTogetherServerUrl")
 val ListenTogetherUsernameKey = stringPreferencesKey("listenTogetherUsername")
+val ChatRelayUrlKey = stringPreferencesKey("chatRelayUrl")
 val ListenTogetherAvatarEmojiKey = stringPreferencesKey("listenTogetherAvatarEmoji")
 val ListenTogetherAvatarColorKey = stringPreferencesKey("listenTogetherAvatarColor")
 val ListenTogetherAutoApprovalKey = booleanPreferencesKey("listenTogetherAutoApproval")
