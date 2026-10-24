@@ -1125,31 +1125,38 @@ fun BottomSheetPlayer(
                 Spacer(modifier = Modifier.width(12.dp))
 
                 if (true) {
-                    // Tombol expand lirik: tampil saat lirik inline aktif, menggantikan titik tiga
-                    AnimatedContent(targetState = showInlineLyrics, label = "ExpandLyricsButton") { showLyrics ->
-                        if (showLyrics) {
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(24.dp))
-                                        .background(textButtonColor)
-                                        .clickable { isFullScreen = !isFullScreen },
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.fullscreen),
-                                    contentDescription = null,
-                                    tint = iconButtonColor,
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AnimatedContent(targetState = showInlineLyrics, label = "ExpandLyricsButton") { showLyrics ->
+                            if (showLyrics) {
+                                Box(
                                     modifier =
                                         Modifier
-                                            .align(Alignment.Center)
-                                            .size(24.dp),
-                                )
+                                            .size(40.dp)
+                                            .clip(RoundedCornerShape(24.dp))
+                                            .background(textButtonColor)
+                                            .clickable { isFullScreen = !isFullScreen },
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.fullscreen),
+                                        contentDescription = null,
+                                        tint = iconButtonColor,
+                                        modifier =
+                                            Modifier
+                                                .align(Alignment.Center)
+                                                .size(24.dp),
+                                    )
+                                }
                             }
-                        } else {
-                            // Tanpa lirik: kosongkan area (titik tiga dihapus)
-                            Spacer(modifier = Modifier.size(40.dp))
                         }
+                        PlayerMoreMenuButton(
+                            mediaMetadata = mediaMetadata,
+                            state = state,
+                            textButtonColor = textButtonColor,
+                            iconButtonColor = iconButtonColor,
+                        )
                     }
                 } else {
                     AnimatedContent(targetState = showInlineLyrics, label = "ShareButton") { showLyrics ->

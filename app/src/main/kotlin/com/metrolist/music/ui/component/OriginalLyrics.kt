@@ -380,22 +380,6 @@ fun OriginalLyrics(
                 targetLanguage = translateLanguage,
                 mode = translateMode,
             )
-            // Auto-translate saat lirik dibuka (kalau API key tersedia) — bahasa default: Indonesia
-            val needsApiKey = aiProvider != "Google" && aiProvider != "DeepLFree"
-            val effectiveApiKey = if (aiProvider == "DeepL") deeplApiKey else openRouterApiKey
-            if (!needsApiKey || effectiveApiKey.isNotBlank()) {
-                LyricsTranslationHelper.translateLyrics(
-                    lyrics = lines,
-                    targetLanguage = translateLanguage,
-                    apiKey = openRouterApiKey,
-                    baseUrl = openRouterBaseUrl,
-                    model = openRouterModel,
-                    mode = translateMode,
-                    scope = scope,
-                    context = context,
-                    provider = aiProvider,
-                )
-            }
         }
     }
 

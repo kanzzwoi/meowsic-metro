@@ -245,28 +245,6 @@ fun ExperimentalLyrics(
                 targetLanguage = translateLanguage,
                 mode = translateMode
             )
-            // Auto-translate saat lirik dibuka — provider tanpa key (Google/DeepLFree) langsung jalan
-            val needsApiKey = aiProvider != "Google" && aiProvider != "DeepLFree"
-            val effectiveApiKeyAuto = if (aiProvider == "DeepL") deeplApiKey else openRouterApiKey
-            if (!needsApiKey || effectiveApiKeyAuto.isNotBlank()) {
-                LyricsTranslationHelper.translateLyrics(
-                    lyrics = lines,
-                    targetLanguage = translateLanguage,
-                    apiKey = openRouterApiKey,
-                    baseUrl = openRouterBaseUrl,
-                    model = openRouterModel,
-                    mode = translateMode,
-                    scope = scope,
-                    context = context,
-                    provider = aiProvider,
-                    deeplApiKey = deeplApiKey,
-                    deeplFormality = deeplFormality,
-                    useStreaming = true,
-                    songId = currentSong?.id ?: "",
-                    database = database,
-                    systemPrompt = aiSystemPrompt,
-                )
-            }
         }
     }
     
