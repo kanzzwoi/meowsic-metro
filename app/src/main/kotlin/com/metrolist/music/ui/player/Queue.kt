@@ -83,7 +83,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalClipboard
@@ -1267,16 +1266,6 @@ fun Queue(
 }
 
 @Composable
-private fun baseTintFor(playerBackground: PlayerBackgroundStyle, isActive: Boolean, enabled: Boolean): Color {
-    // Aktif = icon putih di atas balok hitam
-    if (isActive) return Color.White.copy(alpha = 0.95f)
-    // Non-aktif: hitam di light mode, putih di dark mode — baca dari surface luminance
-    val bgIsLight = MaterialTheme.colorScheme.surface.luminance() > 0.5f
-    return if (bgIsLight) Color.Black.copy(alpha = if (enabled) 0.86f else 0.38f)
-    else Color.White.copy(alpha = if (enabled) 0.95f else 0.45f)
-}
-
-@Composable
 private fun PlayerQueueButton(
     icon: Int,
     onClick: () -> Unit,
@@ -1299,6 +1288,10 @@ private fun PlayerQueueButton(
 
     val alphaFactor = if (enabled) 1f else 0.35f
 
+    // Aktif: kotak filled -> ikon pakai pasangan warna kotaknya (hitam di atas kotak putih, putih di atas kotak hitam)
+    // Non-aktif: ikon kontras sama background player
+    val contentColor = if (isActive) iconButtonColor else textBackgroundColor
+
     val appliedModifier =
         if (isActive) {
             modifier.then(buttonModifier.background(textButtonColor)).alpha(alphaFactor)
@@ -1307,7 +1300,7 @@ private fun PlayerQueueButton(
                 .then(
                     buttonModifier.border(
                         width = 1.dp,
-                        color = textButtonColor.copy(alpha = 0.3f),
+                        color = contentColor.copy(alpha = 0.35f),
                         shape = shape,
                     ),
                 ).alpha(alphaFactor)
@@ -1318,7 +1311,7 @@ private fun PlayerQueueButton(
             painter = painterResource(id = icon),
             contentDescription = null,
             modifier = Modifier.size(30.dp),
-            tint = baseTintFor(playerBackground, isActive, enabled),
+            tint = contentColor,
         )
     }
 
@@ -1329,7 +1322,7 @@ private fun PlayerQueueButton(
             }
             Text(
                 text = label,
-                color = iconButtonColor.copy(alpha = 0.85f),
+                color = textBackgroundColor.copy(alpha = 0.85f),
                 fontSize = 9.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1344,7 +1337,7 @@ private fun PlayerQueueButton(
             if (text != null) {
                 Text(
                     text = text,
-                    color = iconButtonColor.copy(alpha = if (enabled) 1f else 0.6f),
+                    color = contentColor,
                     fontSize = 10.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -1355,13 +1348,11 @@ private fun PlayerQueueButton(
                             .basicMarquee(),
                 )
             } else {
-                val baseTint = baseTintFor(playerBackground, isActive, enabled)
-                val finalTint = if (enabled) baseTint else baseTint.copy(alpha = 0.5f)
                 Icon(
                     painter = painterResource(id = icon),
                     contentDescription = null,
                     modifier = Modifier.size(iconSize),
-                    tint = finalTint,
+                    tint = contentColor,
                 )
             }
         }
