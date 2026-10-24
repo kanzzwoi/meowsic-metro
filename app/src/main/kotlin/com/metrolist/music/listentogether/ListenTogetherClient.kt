@@ -1890,7 +1890,6 @@ class ListenTogetherClient
             sendMessageNoPayload(MessageTypes.REQUEST_SYNC)
         }
 
-        fun sendChat(message: String) { val t = message.trim(); if (t.isEmpty()) return; try { sendMessage(MessageTypes.CHAT, com.metrolist.music.listentogether.proto.Listentogether.ChatPayload.newBuilder().setMessage(t).build()) } catch (e: Exception) { log(LogLevel.ERROR, "Failed to send chat", e.message) } }
 
         /**
          * Block a user permanently (internal list). Prevents their join requests and suggestions from appearing.

@@ -1900,7 +1900,6 @@ class ListenTogetherManager
         /**
          * Leave the current room
          */
-        fun sendChat(message: String) = client.sendChat(message)
 
     fun leaveRoom() {
         disconnectChat()
