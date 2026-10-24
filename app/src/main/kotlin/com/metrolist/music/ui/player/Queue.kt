@@ -1270,10 +1270,8 @@ private fun baseTintFor(playerBackground: PlayerBackgroundStyle, isActive: Boole
     if (isActive) {
         Color.Black.copy(alpha = 0.87f)
     } else {
-        when (playerBackground) {
-            PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT -> Color.White
-            PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-        }
+        // Selalu putih biar kebaca di tombol hitam (light mode juga)
+        Color.White.copy(alpha = if (enabled) 1f else 0.5f)
     }
 
 @Composable

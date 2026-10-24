@@ -591,7 +591,7 @@ class MainActivity : FragmentActivity() {
             }
         }
 
-        val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
+        val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.ON)
         val isSystemInDarkTheme = isSystemInDarkTheme()
         val useDarkTheme =
             remember(darkTheme, isSystemInDarkTheme) {
@@ -1067,6 +1067,18 @@ class MainActivity : FragmentActivity() {
                                             )
                                         },
                                         actions = {
+                                            val scope = rememberCoroutineScope()
+                                            IconButton(onClick = {
+                                                scope.launch {
+                                                    val next = if (useDarkTheme) com.metrolist.music.ui.screens.settings.DarkMode.OFF else com.metrolist.music.ui.screens.settings.DarkMode.ON
+                                                    applicationContext.safeDataStoreEdit { it[com.metrolist.music.constants.DarkModeKey] = next.name }
+                                                }
+                                            }) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.contrast),
+                                                    contentDescription = if (useDarkTheme) "Mode terang" else "Mode gelap",
+                                                )
+                                            }
                                             if (showHistoryButton) {
                                                 IconButton(onClick = { navController.navigate("history") }) {
                                                     Icon(
