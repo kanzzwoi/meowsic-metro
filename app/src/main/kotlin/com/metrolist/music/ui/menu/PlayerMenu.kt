@@ -153,18 +153,6 @@ fun PlayerMenu(
         mutableStateOf(false)
     }
 
-    var pendingOpenPlaylist by rememberSaveable {
-        mutableStateOf(false)
-    }
-
-    androidx.compose.runtime.LaunchedEffect(pendingOpenPlaylist) {
-        if (pendingOpenPlaylist) {
-            pendingOpenPlaylist = false
-            kotlinx.coroutines.delay(260)
-            showChoosePlaylistDialog = true
-        }
-    }
-
     var showListenTogetherDialog by rememberSaveable {
         mutableStateOf(false)
     }
@@ -477,8 +465,7 @@ fun PlayerMenu(
                                     )
                                 },
                                 onClick = {
-                                    pendingOpenPlaylist = true
-                                    onDismiss()
+                                    showChoosePlaylistDialog = true
                                 },
                             ),
                         )
