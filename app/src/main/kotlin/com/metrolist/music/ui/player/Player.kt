@@ -1489,11 +1489,11 @@ fun BottomSheetPlayer(
                             val backButtonWeight by animateFloatAsState(
                                 targetValue =
                                     if (isBackPressed) {
-                                        0.65f
+                                        0.6f
                                     } else if (isPlayPausePressed) {
-                                        0.35f
+                                        0.3f
                                     } else {
-                                        0.45f
+                                        0.38f
                                     },
                                 animationSpec =
                                     spring(
@@ -1506,11 +1506,11 @@ fun BottomSheetPlayer(
                             val nextButtonWeight by animateFloatAsState(
                                 targetValue =
                                     if (isNextPressed) {
-                                        0.65f
+                                        0.6f
                                     } else if (isPlayPausePressed) {
-                                        0.35f
+                                        0.3f
                                     } else {
-                                        0.45f
+                                        0.38f
                                     },
                                 animationSpec =
                                     spring(
@@ -1519,6 +1519,34 @@ fun BottomSheetPlayer(
                                     ),
                                 label = "nextButtonWeight",
                             )
+
+                            // Skip back 10 detik
+                            FilledIconButton(
+                                onClick = {
+                                    playerConnection.player.seekTo(
+                                        (playerConnection.player.currentPosition - 10_000L).coerceAtLeast(0L),
+                                    )
+                                },
+                                enabled = !isListenTogetherGuest,
+                                shape = RoundedCornerShape(50),
+                                colors =
+                                    IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = sideButtonContainerColor,
+                                        contentColor = sideButtonContentColor,
+                                    ),
+                                modifier =
+                                    Modifier
+                                        .height(68.dp)
+                                        .weight(backButtonWeight),
+                            ) {
+                                Text(
+                                    text = "<<",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
 
                             FilledIconButton(
                                 onClick = playerConnection::seekToPrevious,
