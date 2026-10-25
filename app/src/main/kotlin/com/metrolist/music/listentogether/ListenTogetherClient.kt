@@ -26,7 +26,6 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import com.google.protobuf.MessageLite
 import com.metrolist.music.R
 import com.metrolist.music.constants.ListenTogetherAutoApprovalKey
-import com.metrolist.music.constants.ListenTogetherAutoApproveSuggestionsKey
 import com.metrolist.music.constants.ListenTogetherIsHostKey
 import com.metrolist.music.constants.ListenTogetherRoomCodeKey
 import com.metrolist.music.constants.ListenTogetherServerUrlKey
@@ -1420,22 +1419,12 @@ class ListenTogetherClient
 
                             log(LogLevel.INFO, "Suggestion received", "${payload.fromUsername}: ${payload.trackInfo.title}")
 
-                            // Check if auto-approval of suggestions is enabled
-                            val autoApproveSuggestionsEnabled = context.dataStore.get(ListenTogetherAutoApproveSuggestionsKey, false)
-
-                            if (autoApproveSuggestionsEnabled) {
-                                // Automatically approve the suggestion
-                                log(LogLevel.INFO, "Auto-approving suggestion", "${payload.fromUsername}: ${payload.trackInfo.title}")
-                                approveSuggestion(payload.suggestionId)
-                            } else {
-                                // Add to pending list and show notification
-                                _pendingSuggestions.value += payload
-                                // Notify the host with actionable notification
-                                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-                                    PackageManager.PERMISSION_GRANTED
-                                ) {
-                                    showSuggestionNotification(payload)
-                                }
+                            // Saran masuk daftar, host yang memutuskan.
+                            _pendingSuggestions.value += payload
+                            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                                PackageManager.PERMISSION_GRANTED
+                            ) {
+                                showSuggestionNotification(payload)
                             }
                         }
                     }

@@ -79,7 +79,7 @@ import androidx.navigation.NavController
 import com.metrolist.music.LocalPlayerAwareWindowInsets
 import com.metrolist.music.R
 import com.metrolist.music.constants.ListenTogetherAutoApprovalKey
-import com.metrolist.music.constants.ListenTogetherAutoApproveSuggestionsKey
+import com.metrolist.music.constants.ListenTogetherAllowMemberPickKey
 import com.metrolist.music.constants.ListenTogetherServerUrlKey
 import com.metrolist.music.constants.ListenTogetherSyncVolumeKey
 import com.metrolist.music.constants.ChatRelayUrlKey
@@ -123,7 +123,7 @@ fun ListenTogetherSettings(navController: NavController) {
     var chatRelayUrl by rememberPreference(ChatRelayUrlKey, "")
     var chatUseFreeService by rememberPreference(ChatUseFreeServiceKey, false)
     var autoApprovalJoins by rememberPreference(ListenTogetherAutoApprovalKey, false)
-    var autoApproveSuggestions by rememberPreference(ListenTogetherAutoApproveSuggestionsKey, false)
+    var allowMemberPick by rememberPreference(ListenTogetherAllowMemberPickKey, false)
     var syncHostVolume by rememberPreference(ListenTogetherSyncVolumeKey, true)
 
     var showServerUrlDialog by rememberSaveable { mutableStateOf(false) }
@@ -551,16 +551,16 @@ fun ListenTogetherSettings(navController: NavController) {
                             },
                             trailingContent = {
                                 Switch(
-                                    checked = autoApproveSuggestions,
+                                    checked = allowMemberPick,
                                     onCheckedChange = {
-                                        autoApproveSuggestions = it
+                                        allowMemberPick = it
                                         manager.setAllowMemberPick(it)
                                     },
                                     thumbContent = {
                                         Icon(
                                             painter =
                                                 painterResource(
-                                                    id = if (autoApproveSuggestions) R.drawable.check else R.drawable.close,
+                                                    id = if (allowMemberPick) R.drawable.check else R.drawable.close,
                                                 ),
                                             contentDescription = null,
                                             modifier = Modifier.size(SwitchDefaults.IconSize),
@@ -569,8 +569,8 @@ fun ListenTogetherSettings(navController: NavController) {
                                 )
                             },
                             onClick = {
-                                autoApproveSuggestions = !autoApproveSuggestions
-                                manager.setAllowMemberPick(autoApproveSuggestions)
+                                allowMemberPick = !allowMemberPick
+                                manager.setAllowMemberPick(allowMemberPick)
                             },
                         ),
                         IntegrationCardItem(
