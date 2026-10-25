@@ -820,6 +820,23 @@ class ListenTogetherManager
                     // User might reconnect, no action needed
                 }
 
+                is ListenTogetherEvent.UserLeft -> {
+                    // The host leaving the room ends the session for everybody: the
+                    // guests would otherwise keep playing on their own and drift out
+                    // of sync with each other. Pause them so the room stops together.
+                    val leftHost = roomState.value?.hostId == event.userId
+                    if (leftHost) {
+                        Timber.tag(TAG).d("Host left the room, pausing playback")
+                        val connection = playerConnection
+                        if (connection != null && connection.player.isPlaying) {
+                            connection.allowInternalSync = true
+                            connection.pause()
+                            connection.allowInternalSync = false
+                        }
+                        cancelDriftCorrection()
+                    }
+                }
+
                 is ListenTogetherEvent.HostChanged -> {
                     Timber.tag(TAG).d("Host changed: new host is ${event.newHostName} (${event.newHostId})")
                     val wasHost = isHost
