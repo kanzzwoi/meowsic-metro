@@ -228,6 +228,7 @@ fun SongMenu(
         )
     }
 
+    var showSuggestToRoomDialog by rememberSaveable { mutableStateOf(false) }
     var showChoosePlaylistDialog by rememberSaveable {
         mutableStateOf(false)
     }
@@ -281,6 +282,50 @@ fun SongMenu(
         mutableStateOf(false)
     }
     var isDeleting by remember { mutableStateOf(false) }
+
+    // Dialog konfirmasi: saran lagu ke room bersama.
+    if (showSuggestToRoomDialog) {
+        DefaultDialog(
+            onDismiss = { showSuggestToRoomDialog = false },
+            icon = {
+                Icon(
+                    painter = painterResource(R.drawable.queue_music),
+                    contentDescription = null,
+                )
+            },
+            title = { Text(stringResource(R.string.suggest_to_together_confirm_title)) },
+            buttons = {
+                TextButton(onClick = { showSuggestToRoomDialog = false }) {
+                    Text(stringResource(R.string.suggest_to_together_cancel))
+                }
+                TextButton(
+                    onClick = {
+                        showSuggestToRoomDialog = false
+                        val durationMs =
+                            if (song.song.duration > 0) song.song.duration.toLong() * 1000 else 180000L
+                        listenTogetherManager?.suggestSongToRoom(
+                            trackId = song.id,
+                            title = song.song.title,
+                            artist = song.orderedArtists.joinToString(", ") { it.name },
+                            album = song.song.albumName ?: "",
+                            duration = durationMs,
+                            thumbnail = song.thumbnailUrl ?: "",
+                        )
+                        onDismiss()
+                    },
+                ) {
+                    Text(stringResource(R.string.suggest_to_together_confirm))
+                }
+            },
+        ) {
+            Text(
+                stringResource(
+                    R.string.suggest_to_together_confirm_desc,
+                    song.song.title,
+                ),
+            )
+        }
+    }
 
     if (showDeleteUploadedDialog) {
         DefaultDialog(
@@ -569,9 +614,13 @@ fun SongMenu(
             Material3MenuGroup(
                 items =
                     listOfNotNull(
-                        if (listenTogetherManager != null && listenTogetherManager.isInRoom && !listenTogetherManager.isHost) {
+                        if (listenTogetherManager != null &&
+                            listenTogetherManager.isInRoom &&
+                            !listenTogetherManager.isHost &&
+                            listenTogetherManager.canPickSongs()
+                        ) {
                             Material3MenuItemData(
-                                title = { Text(text = stringResource(R.string.suggest_to_host)) },
+                                title = { Text(text = stringResource(R.string.suggest_to_together)) },
                                 icon = {
                                     Icon(
                                         painter = painterResource(R.drawable.queue_music),
@@ -579,18 +628,7 @@ fun SongMenu(
                                     )
                                 },
                                 onClick = {
-                                    val durationMs = if (song.song.duration > 0) song.song.duration.toLong() * 1000 else 180000L
-                                    val trackInfo =
-                                        com.metrolist.music.listentogether.TrackInfo(
-                                            id = song.id,
-                                            title = song.song.title,
-                                            artist = song.orderedArtists.joinToString(", ") { it.name },
-                                            album = song.song.albumName,
-                                            duration = durationMs,
-                                            thumbnail = song.thumbnailUrl,
-                                        )
-                                    listenTogetherManager.suggestTrack(trackInfo)
-                                    onDismiss()
+                                    showSuggestToRoomDialog = true
                                 },
                             )
                         } else {

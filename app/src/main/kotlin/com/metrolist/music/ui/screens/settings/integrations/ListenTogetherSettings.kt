@@ -552,9 +552,10 @@ fun ListenTogetherSettings(navController: NavController) {
                             trailingContent = {
                                 Switch(
                                     checked = autoApproveSuggestions,
-                                    onCheckedChange = { autoApproveSuggestions = it },
-                                    // Only disable for guests in a room (hosts can always change)
-                                    enabled = roomState == null || role != RoomRole.GUEST,
+                                    onCheckedChange = {
+                                        autoApproveSuggestions = it
+                                        manager.setAllowMemberPick(it)
+                                    },
                                     thumbContent = {
                                         Icon(
                                             painter =
@@ -567,8 +568,10 @@ fun ListenTogetherSettings(navController: NavController) {
                                     },
                                 )
                             },
-                            // Allow clicking to see disabled state, but only change if enabled
-                            onClick = { if (roomState == null || role != RoomRole.GUEST) autoApproveSuggestions = !autoApproveSuggestions },
+                            onClick = {
+                                autoApproveSuggestions = !autoApproveSuggestions
+                                manager.setAllowMemberPick(autoApproveSuggestions)
+                            },
                         ),
                         IntegrationCardItem(
                             icon = painterResource(R.drawable.volume_up),

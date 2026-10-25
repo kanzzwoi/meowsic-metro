@@ -8,8 +8,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -127,6 +129,20 @@ class RoomChatClient(
         val timestamp: Long = 0L,
         val emoji: String = "",
         val color: String = "",
+        val room_code: String = "",
+        val suggestion_id: String = "",
+        val track_id: String = "",
+        val track_title: String = "",
+        val track_artist: String = "",
+        val track_album: String = "",
+        val track_duration: Long = 0L,
+        val track_thumbnail: String = "",
+        val suggestion_action: String = "",
+        val queue_mode: String = "",
+        val duration_ms: Long = 0L,
+        val ends_at: Long = 0L,
+        val target_user_id: String = "",
+        val allowed: Boolean = true,
     )
 
     /** Avatar details a member picked for themselves. */
@@ -135,6 +151,26 @@ class RoomChatClient(
         val username: String,
         val emoji: String,
         val color: String,
+    )
+
+    /**
+     * A song a member suggested to the room.
+     *
+     * Suggestions live on the relay (not the Together server), because the
+     * Together server only forwards them to the host. Keeping them here lets
+     * every member see the same list.
+     */
+    data class RoomSuggestion(
+        val id: String,
+        val fromUserId: String,
+        val fromUsername: String,
+        val trackId: String,
+        val title: String,
+        val artist: String,
+        val album: String,
+        val duration: Long,
+        val thumbnail: String,
+        val timestamp: Long,
     )
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -155,6 +191,13 @@ class RoomChatClient(
 
     @Volatile
     private var onProfile: ((UserProfile) -> Unit)? = null
+    private var onSuggestion: ((RoomSuggestion) -> Unit)? = null
+    private var onSuggestionRemoved: ((String) -> Unit)? = null
+    private var onSuggestionAction: ((String, String) -> Unit)? = null
+    private var onQueueModeChanged: ((String) -> Unit)? = null
+    private var onRoomTimer: ((Long) -> Unit)? = null
+    private var onRoomState: ((List<RoomSuggestion>) -> Unit)? = null
+    private var onSuggestionPermission: ((String, Boolean) -> Unit)? = null
 
     /**
      * Subscribe to a room topic.
@@ -169,10 +212,24 @@ class RoomChatClient(
         onMessage: (ChatMessage) -> Unit,
         onError: ((String) -> Unit)? = null,
         onProfile: ((UserProfile) -> Unit)? = null,
+        onSuggestion: ((RoomSuggestion) -> Unit)? = null,
+        onSuggestionRemoved: ((String) -> Unit)? = null,
+        onSuggestionAction: ((String, String) -> Unit)? = null,
+        onQueueModeChanged: ((String) -> Unit)? = null,
+        onRoomTimer: ((Long) -> Unit)? = null,
+        onRoomState: ((List<RoomSuggestion>) -> Unit)? = null,
+        onSuggestionPermission: ((String, Boolean) -> Unit)? = null,
     ) {
         this.onMessage = onMessage
         this.onError = onError
         this.onProfile = onProfile
+        this.onSuggestion = onSuggestion
+        this.onSuggestionRemoved = onSuggestionRemoved
+        this.onSuggestionAction = onSuggestionAction
+        this.onQueueModeChanged = onQueueModeChanged
+        this.onRoomTimer = onRoomTimer
+        this.onRoomState = onRoomState
+        this.onSuggestionPermission = onSuggestionPermission
         val topic = topicFor(roomCode)
         if (currentTopic == topic && webSocket != null) return
         disconnect()
@@ -364,6 +421,49 @@ class RoomChatClient(
             }
     }
 
+    /**
+     * Room state arrives when a member joins: the current suggestion list, the
+     * queue mode and the running room timer.
+     */
+    private fun handleRoomState(outer: JsonObject) {
+        val suggestions =
+            (outer["suggestions"] as? JsonArray)?.mapNotNull { element ->
+                val obj = element.jsonObject
+                val id = obj["suggestion_id"]?.jsonPrimitive?.content.orEmpty()
+                val trackId = obj["track_id"]?.jsonPrimitive?.content.orEmpty()
+                if (id.isBlank() || trackId.isBlank()) return@mapNotNull null
+                RoomSuggestion(
+                    id = id,
+                    fromUserId = obj["sender_id"]?.jsonPrimitive?.content.orEmpty(),
+                    fromUsername = obj["sender_name"]?.jsonPrimitive?.content.orEmpty().ifBlank { "Teman" },
+                    trackId = trackId,
+                    title = obj["track_title"]?.jsonPrimitive?.content.orEmpty(),
+                    artist = obj["track_artist"]?.jsonPrimitive?.content.orEmpty(),
+                    album = obj["track_album"]?.jsonPrimitive?.content.orEmpty(),
+                    duration = obj["track_duration"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L,
+                    thumbnail = obj["track_thumbnail"]?.jsonPrimitive?.content.orEmpty(),
+                    timestamp = obj["timestamp"]?.jsonPrimitive?.content?.toLongOrNull() ?: System.currentTimeMillis(),
+                )
+            } ?: emptyList()
+        onRoomState?.invoke(suggestions)
+
+        outer["queue_mode"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }?.let {
+            onQueueModeChanged?.invoke(it)
+        }
+
+        (outer["permissions"] as? JsonObject)?.forEach { (userId, allowed) ->
+            onSuggestionPermission?.invoke(userId, allowed.jsonPrimitive.booleanOrNull ?: true)
+        }
+
+
+        val timer = outer["timer"]
+        if (timer != null && timer !is kotlinx.serialization.json.JsonNull) {
+            val endsAt = timer.jsonObject["endsAt"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L
+            val remaining = if (endsAt > 0L) (endsAt - System.currentTimeMillis()).coerceAtLeast(0L) else 0L
+            onRoomTimer?.invoke(remaining)
+        }
+    }
+
     private fun handleIncoming(text: String) {
         val outer =
             try {
@@ -383,6 +483,13 @@ class RoomChatClient(
             }
         if (raw.isBlank() || raw.length > 8192) return
 
+        // Frame "room_state" berisi daftar saran sebagai array, jadi dibaca
+        // terpisah dari payload biasa yang cuma field scalar.
+        if (outer["kind"]?.jsonPrimitive?.content == "room_state") {
+            handleRoomState(outer)
+            return
+        }
+
         // Our payload is JSON; ntfy messages from other apps are plain text and are ignored.
         val payload =
             try {
@@ -400,6 +507,66 @@ class RoomChatClient(
                 ?: System.currentTimeMillis()
 
         if (payload.kind == "seed") return
+
+        if (payload.kind == "suggestion") {
+            if (payload.suggestion_id.isBlank() || payload.track_id.isBlank()) return
+            onSuggestion?.invoke(
+                RoomSuggestion(
+                    id = payload.suggestion_id,
+                    fromUserId = payload.sender_id,
+                    fromUsername = payload.sender_name.ifBlank { "Teman" },
+                    trackId = payload.track_id,
+                    title = payload.track_title,
+                    artist = payload.track_artist,
+                    album = payload.track_album,
+                    duration = payload.track_duration,
+                    thumbnail = payload.track_thumbnail,
+                    timestamp = timestamp,
+                ),
+            )
+            return
+        }
+
+        if (payload.kind == "suggestion_permission") {
+            if (payload.target_user_id.isBlank()) return
+            onSuggestionPermission?.invoke(payload.target_user_id, payload.allowed)
+            return
+        }
+
+        if (payload.kind == "suggestion_action") {
+            if (payload.suggestion_id.isBlank()) return
+            onSuggestionAction?.invoke(payload.suggestion_id, payload.suggestion_action)
+            return
+        }
+
+        if (payload.kind == "queue_mode") {
+            if (payload.queue_mode.isBlank()) return
+            onQueueModeChanged?.invoke(payload.queue_mode)
+            return
+        }
+
+        if (payload.kind == "timer") {
+            // Server yang menentukan waktu selesai, supaya semua device sinkron
+            // walau ada member yang koneksinya sempat putus.
+            val endsAt = payload.ends_at
+            val remaining =
+                if (endsAt > 0L) (endsAt - System.currentTimeMillis()).coerceAtLeast(0L)
+                else payload.duration_ms
+            onRoomTimer?.invoke(remaining)
+            return
+        }
+
+        if (payload.kind == "timer_expired") {
+            onRoomTimer?.invoke(0L)
+            return
+        }
+
+        if (payload.kind == "suggestion_removed") {
+            val removedId = payload.suggestion_id
+            if (removedId.isBlank()) return
+            onSuggestionRemoved?.invoke(removedId)
+            return
+        }
 
         if (payload.kind == "profile") {
             if (payload.sender_id.isBlank()) return
@@ -529,6 +696,184 @@ class RoomChatClient(
             } else if (!delivered) {
                 onError?.invoke("Gagal kirim pesan, cek koneksi")
             }
+        }
+    }
+
+    /**
+     * Share a song suggestion with the room.
+     *
+     * The Together server only forwards suggestions to the host, so the shared
+     * list is kept on the relay: every member sees the same suggestions.
+     */
+    fun publishSuggestion(
+        roomCode: String,
+        userId: String,
+        username: String,
+        suggestionId: String,
+        trackId: String,
+        title: String,
+        artist: String,
+        album: String,
+        duration: Long,
+        thumbnail: String,
+    ) {
+        val payload =
+            buildJsonObject {
+                put("topic", JsonPrimitive(topicFor(roomCode)))
+                put("kind", JsonPrimitive("suggestion"))
+                put("id", JsonPrimitive(suggestionId))
+                put("sender_id", JsonPrimitive(userId))
+                put("sender_name", JsonPrimitive(username))
+                put("room_code", JsonPrimitive(roomCode))
+                put("suggestion_id", JsonPrimitive(suggestionId))
+                put("track_id", JsonPrimitive(trackId))
+                put("track_title", JsonPrimitive(title))
+                put("track_artist", JsonPrimitive(artist))
+                put("track_album", JsonPrimitive(album))
+                put("track_duration", JsonPrimitive(duration))
+                put("track_thumbnail", JsonPrimitive(thumbnail))
+                put("timestamp", JsonPrimitive(System.currentTimeMillis()))
+            }
+        publishToRelay(payload)
+    }
+
+    /**
+     * The host acts on a suggestion: [action] is "play_now" (skip the current
+     * song and play it) or "queue" (play it after the current song).
+     */
+    fun publishSuggestionAction(
+        roomCode: String,
+        userId: String,
+        username: String,
+        suggestionId: String,
+        action: String,
+    ) {
+        val payload =
+            buildJsonObject {
+                put("topic", JsonPrimitive(topicFor(roomCode)))
+                put("kind", JsonPrimitive("suggestion_action"))
+                put("id", JsonPrimitive("action-$suggestionId"))
+                put("sender_id", JsonPrimitive(userId))
+                put("sender_name", JsonPrimitive(username))
+                put("room_code", JsonPrimitive(roomCode))
+                put("suggestion_id", JsonPrimitive(suggestionId))
+                put("suggestion_action", JsonPrimitive(action))
+                put("timestamp", JsonPrimitive(System.currentTimeMillis()))
+            }
+        publishToRelay(payload)
+    }
+
+    /** Drop a suggestion from the shared list (host rejected it). */
+    fun publishSuggestionRemoved(
+        roomCode: String,
+        userId: String,
+        username: String,
+        suggestionId: String,
+    ) {
+        val payload =
+            buildJsonObject {
+                put("topic", JsonPrimitive(topicFor(roomCode)))
+                put("kind", JsonPrimitive("suggestion_removed"))
+                put("id", JsonPrimitive("removed-$suggestionId"))
+                put("sender_id", JsonPrimitive(userId))
+                put("sender_name", JsonPrimitive(username))
+                put("room_code", JsonPrimitive(roomCode))
+                put("suggestion_id", JsonPrimitive(suggestionId))
+                put("timestamp", JsonPrimitive(System.currentTimeMillis()))
+            }
+        publishToRelay(payload)
+    }
+
+    /**
+     * Queue mode for the room: "once" (play through once) or "repeat" (start
+     * over from the first song when the queue ends).
+     */
+    fun publishQueueMode(
+        roomCode: String,
+        userId: String,
+        username: String,
+        mode: String,
+    ) {
+        val payload =
+            buildJsonObject {
+                put("topic", JsonPrimitive(topicFor(roomCode)))
+                put("kind", JsonPrimitive("queue_mode"))
+                put("id", JsonPrimitive("qmode-$mode"))
+                put("sender_id", JsonPrimitive(userId))
+                put("sender_name", JsonPrimitive(username))
+                put("room_code", JsonPrimitive(roomCode))
+                put("queue_mode", JsonPrimitive(mode))
+                put("timestamp", JsonPrimitive(System.currentTimeMillis()))
+            }
+        publishToRelay(payload)
+    }
+
+    /**
+     * Room-wide timer. Everyone (host included) stops when it runs out.
+     * Pass [durationMs] = 0 to cancel it.
+     */
+    fun publishTimer(
+        roomCode: String,
+        userId: String,
+        username: String,
+        durationMs: Long,
+    ) {
+        val payload =
+            buildJsonObject {
+                put("topic", JsonPrimitive(topicFor(roomCode)))
+                put("kind", JsonPrimitive("timer"))
+                put("id", JsonPrimitive("timer-$durationMs"))
+                put("sender_id", JsonPrimitive(userId))
+                put("sender_name", JsonPrimitive(username))
+                put("room_code", JsonPrimitive(roomCode))
+                put("duration_ms", JsonPrimitive(durationMs))
+                put("timestamp", JsonPrimitive(System.currentTimeMillis()))
+            }
+        publishToRelay(payload)
+    }
+
+    /**
+     * Host mengubah izin propose lagu untuk seorang anggota.
+     * Ini mencegah penyusup yang masuk room tapi tidak boleh proposes lagu.
+     */
+    fun publishSuggestionPermission(
+        roomCode: String,
+        userId: String,
+        username: String,
+        targetUserId: String,
+        allowed: Boolean,
+    ) {
+        val payload =
+            buildJsonObject {
+                put("topic", JsonPrimitive(topicFor(roomCode)))
+                put("kind", JsonPrimitive("suggestion_permission"))
+                put("id", JsonPrimitive("perm-$targetUserId-$allowed"))
+                put("sender_id", JsonPrimitive(userId))
+                put("sender_name", JsonPrimitive(username))
+                put("room_code", JsonPrimitive(roomCode))
+                put("target_user_id", JsonPrimitive(targetUserId))
+                put("allowed", JsonPrimitive(allowed))
+                put("timestamp", JsonPrimitive(System.currentTimeMillis()))
+            }
+        publishToRelay(payload)
+    }
+
+    /** Send a payload to the self-hosted relay. */
+    private fun publishToRelay(payload: JsonObject) {
+        val live = webSocket
+        if (activeRelay() == null || relayDisabled || live == null) return
+        try {
+            live.send(
+                json.encodeToString(
+                    JsonObject.serializer(),
+                    buildJsonObject {
+                        put("action", JsonPrimitive("publish"))
+                        put("payload", payload)
+                    },
+                ),
+            )
+        } catch (e: Exception) {
+            Timber.tag(TAG).w(e, "Relay publish failed")
         }
     }
 

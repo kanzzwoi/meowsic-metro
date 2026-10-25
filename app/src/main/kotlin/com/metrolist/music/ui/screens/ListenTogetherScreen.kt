@@ -156,6 +156,9 @@ fun ListenTogetherScreen(
     val chatMessages by listenTogetherManager.chatMessages.collectAsStateWithLifecycle()
     val chatError by listenTogetherManager.chatError.collectAsStateWithLifecycle()
     val memberProfiles by listenTogetherManager.memberProfiles.collectAsStateWithLifecycle()
+    val roomSuggestions by listenTogetherManager.roomSuggestions.collectAsStateWithLifecycle()
+    val roomQueueMode by listenTogetherManager.roomQueueMode.collectAsStateWithLifecycle()
+    val roomTimerRemaining by listenTogetherManager.roomTimerRemaining.collectAsStateWithLifecycle()
     val chatListState = rememberLazyListState()
     val chatScope = rememberCoroutineScope()
 
@@ -232,6 +235,16 @@ fun ListenTogetherScreen(
     if (selectedUserForMenu != null && selectedUsername != null) {
         UserActionDialog(
             username = selectedUsername ?: "",
+            canSuggest =
+                selectedUserForMenu?.let {
+                    listenTogetherManager.canSuggestToRoom(it)
+                } ?: true,
+            onToggleSuggestPermission = {
+                selectedUserForMenu?.let { targetId ->
+                    val allowed = listenTogetherManager.canSuggestToRoom(targetId)
+                    listenTogetherManager.setMemberSuggestionPermission(targetId, !allowed)
+                }
+            },
             onKick = {
                 selectedUserForMenu?.let {
                     listenTogetherManager.kickUser(it, "Removed by host")
@@ -363,15 +376,23 @@ fun ListenTogetherScreen(
                     }
                 }
 
-                // Pending suggestions (host only)
-                if (isHost && pendingSuggestions.isNotEmpty()) {
-                    item {
-                        PendingSuggestionsSection(
-                            suggestions = pendingSuggestions,
-                            onApprove = { listenTogetherManager.approveSuggestion(it) },
-                            onReject = { listenTogetherManager.rejectSuggestion(it, "Rejected by host") },
-                        )
-                    }
+                // Kotak antrian room: semua anggota melihat daftar yang sama.
+                item {
+                    RoomSuggestionBox(
+                        suggestions = roomSuggestions,
+                        isHost = isHost,
+                        queueMode = roomQueueMode,
+                        timerRemainingMs = roomTimerRemaining,
+                        onPlayNow = { listenTogetherManager.actOnSuggestion(it.id, "play_now") },
+                        onAddToQueue = { listenTogetherManager.actOnSuggestion(it.id, "queue") },
+                        onRemove = { listenTogetherManager.removeSuggestion(it.id) },
+                        onToggleRepeat = {
+                            listenTogetherManager.setRoomQueueMode(
+                                if (roomQueueMode == "repeat") "once" else "repeat",
+                            )
+                        },
+                        onSetTimer = { listenTogetherManager.setRoomTimer(it) },
+                    )
                 }
 
                 item { ChatPanel(messages = chatMessages, expanded = chatExpanded, onToggle = { chatExpanded = !chatExpanded }, input = chatInput, onInputChange = { chatInput = it }, onSend = { val m = chatInput.trim().take(RoomChatClient.MAX_CHAT_LENGTH); if (m.isNotBlank()) { listenTogetherManager.sendChatMessage(m); chatInput = "" } }, error = chatError, listState = chatListState, currentUserId = currentUserIdValue) }
@@ -1533,9 +1554,11 @@ private fun ProfileEditorDialog(
 @Composable
 private fun UserActionDialog(
     username: String,
+    canSuggest: Boolean = true,
     onKick: () -> Unit,
     onPermanentKick: () -> Unit,
     onTransferOwnership: () -> Unit,
+    onToggleSuggestPermission: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     DefaultDialog(
@@ -1569,6 +1592,65 @@ private fun UserActionDialog(
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            // Izin proposes lagu untuk anggota ini.
+            Surface(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onToggleSuggestPermission),
+                shape = RoundedCornerShape(12.dp),
+                color =
+                    if (canSuggest) {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.errorContainer
+                    },
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(16.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.queue_music),
+                        contentDescription = null,
+                        tint =
+                            if (canSuggest) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.allow_member_pick_song),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = stringResource(R.string.allow_member_pick_song_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(
+                        painter =
+                            painterResource(
+                                if (canSuggest) R.drawable.check else R.drawable.close,
+                            ),
+                        contentDescription = null,
+                        tint =
+                            if (canSuggest) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            }
+
             // Kick button
             Surface(
                 modifier =
