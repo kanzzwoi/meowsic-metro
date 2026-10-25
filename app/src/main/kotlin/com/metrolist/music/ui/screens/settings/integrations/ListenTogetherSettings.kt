@@ -217,6 +217,7 @@ fun ListenTogetherSettings(navController: NavController) {
                 stringResource(R.string.chat_relay_url_desc),
                 style = MaterialTheme.typography.bodySmall,
             )
+            Spacer(modifier = Modifier.height(4.dp))
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = tempRelay,
@@ -226,6 +227,12 @@ fun ListenTogetherSettings(navController: NavController) {
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             )
+            Spacer(modifier = Modifier.height(8.dp))
+            TextButton(onClick = {
+                tempRelay = "ntfy"
+            }) {
+                Text(stringResource(R.string.chat_relay_url_free))
+            }
         }
     }
 

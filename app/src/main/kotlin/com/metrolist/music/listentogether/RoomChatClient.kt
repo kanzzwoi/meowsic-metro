@@ -179,7 +179,9 @@ class RoomChatClient(
         ensureTopic(topic)
         openNtfySocket(topic)
         loadHistory(topic)
-        startPolling(topic)
+        // Polling the free service is only needed when there is no relay at all:
+        // it is the slow path that recovers messages after a dropped connection.
+        if (activeRelay() == null) startPolling(topic)
     }
 
     /** Second socket to the free service, used alongside the relay. */
@@ -441,10 +443,18 @@ class RoomChatClient(
                 put("timestamp", JsonPrimitive(timestamp))
             }
 
-        // Publish to every available transport. A member using a different setting
-        // still receives the message through at least one of them.
-        var delivered = false
+        val chatMessage =
+            ChatMessage(
+                id = id,
+                senderId = senderId,
+                senderName = senderName,
+                text = text,
+                timestamp = timestamp,
+            )
 
+        // 1) Self-hosted relay first: it is our own server, has no quota and is the
+        //    transport every member should end up on.
+        var delivered = false
         val relaySocket = webSocket
         if (activeRelay() != null && !relayDisabled && relaySocket != null) {
             delivered =
@@ -462,39 +472,37 @@ class RoomChatClient(
                 } catch (e: Exception) {
                     Timber.tag(TAG).w(e, "Relay publish failed")
                     false
-                } || delivered
+                }
+        }
+
+        if (delivered) {
+            // The message is on the relay already, so show it right away. The free
+            // service still receives it in the background for members that have not
+            // switched to the relay yet.
+            onSent?.invoke(chatMessage)
         }
 
         scope.launch {
-            try {
-                val request =
-                    Request
-                        .Builder()
-                        .url("$NTFY_BASE/$topic")
-                        .post(payload.toString().toRequestBody("application/json".toMediaType()))
-                        .build()
-                client.newCall(request).execute().use { response ->
-                    if (response.isSuccessful) {
-                        delivered = true
-                    } else {
-                        Timber.tag(TAG).w("Free-service publish failed: ${response.code}")
-                    }
+            // The free service always gets the message too, so members that have not
+            // switched to the relay yet still receive it.
+            val accepted =
+                try {
+                    val request =
+                        Request
+                            .Builder()
+                            .url("$NTFY_BASE/$topic")
+                            .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                            .build()
+                    client.newCall(request).execute().use { it.isSuccessful }
+                } catch (e: Exception) {
+                    Timber.tag(TAG).w(e, "Failed to publish chat message to free service")
+                    false
                 }
-            } catch (e: Exception) {
-                Timber.tag(TAG).w(e, "Failed to publish chat message to free service")
-            }
 
-            if (delivered) {
-                onSent?.invoke(
-                    ChatMessage(
-                        id = id,
-                        senderId = senderId,
-                        senderName = senderName,
-                        text = text,
-                        timestamp = timestamp,
-                    ),
-                )
-            } else {
+            // Only complain when neither transport accepted the message.
+            if (!delivered && accepted) {
+                onSent?.invoke(chatMessage)
+            } else if (!delivered) {
                 onError?.invoke("Gagal kirim pesan, cek koneksi")
             }
         }

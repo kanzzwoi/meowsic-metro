@@ -997,5 +997,6 @@
     <string name="other">Other</string>
     <string name="chat_relay_url">Server chat (relay)</string>
     <string name="chat_relay_url_desc">Kosongkan untuk memakai layanan gratis bawaan. Isi dengan alamat server chat milikmu, contoh: https://chat.example.com</string>
-    <string name="chat_relay_url_auto">Gratis bawaan (ntfy)</string>
+    <string name="chat_relay_url_auto">Server bawaan (relay)</string>
+    <string name="chat_relay_url_free">Layanan gratis (ntfy)</string>
 </resources>
