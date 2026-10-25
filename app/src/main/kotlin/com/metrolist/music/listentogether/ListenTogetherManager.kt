@@ -2501,6 +2501,7 @@ class ListenTogetherManager
 
         /** Tolak / buang satu saran dari daftar room. */
         fun removeSuggestion(suggestionId: String) {
+            if (!isHost) return
             val room = roomState.value ?: return
             val myId = userId.value ?: return
             val name = room.users.firstOrNull { it.userId == myId }?.username ?: "Teman"
@@ -2510,6 +2511,7 @@ class ListenTogetherManager
 
         /** Mode antrian room: "once" atau "repeat" (ulang dari awal). */
         fun setRoomQueueMode(mode: String) {
+            if (!isHost) return
             val room = roomState.value ?: return
             val myId = userId.value ?: return
             val name = room.users.firstOrNull { it.userId == myId }?.username ?: "Teman"
@@ -2568,6 +2570,7 @@ class ListenTogetherManager
 
         /** Timer room: semua anggota (termasuk host) berhenti bareng. */
         fun setRoomTimer(durationMs: Long) {
+            if (!isHost) return
             val room = roomState.value ?: return
             val myId = userId.value ?: return
             val name = room.users.firstOrNull { it.userId == myId }?.username ?: "Teman"

@@ -87,34 +87,38 @@ fun RoomSuggestionBox(
                     modifier = Modifier.weight(1f),
                 )
                 // Tombol ulang: seperti repeat playlist, bukan repeat 1 lagu.
-                TextButton(onClick = onToggleRepeat) {
-                    Icon(
-                        painter =
-                            painterResource(
-                                if (queueMode == "repeat") R.drawable.repeat_on else R.drawable.repeat,
-                            ),
-                        contentDescription = stringResource(R.string.room_suggestion_repeat),
-                        tint =
-                            if (queueMode == "repeat") {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                        modifier = Modifier.size(20.dp),
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = stringResource(R.string.room_suggestion_repeat),
-                        style = MaterialTheme.typography.labelMedium,
-                    )
+                if (isHost) {
+                    TextButton(onClick = onToggleRepeat) {
+                        Icon(
+                            painter =
+                                painterResource(
+                                    if (queueMode == "repeat") R.drawable.repeat_on else R.drawable.repeat,
+                                ),
+                            contentDescription = stringResource(R.string.room_suggestion_repeat),
+                            tint =
+                                if (queueMode == "repeat") {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = stringResource(R.string.room_suggestion_repeat),
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                    }
                 }
             }
 
             // Timer room: berhenti bareng di semua anggota.
-            RoomTimerRow(
-                timerRemainingMs = timerRemainingMs,
-                onSetTimer = onSetTimer,
-            )
+            if (isHost || timerRemainingMs > 0L) {
+                RoomTimerRow(
+                    timerRemainingMs = timerRemainingMs,
+                    onSetTimer = onSetTimer,
+                )
+            }
 
             Spacer(Modifier.height(8.dp))
 
