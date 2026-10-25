@@ -453,6 +453,8 @@ class RoomChatClient(
                 put("sender_name", JsonPrimitive(senderName))
                 put("message", JsonPrimitive(text))
                 put("timestamp", JsonPrimitive(timestamp))
+                // Kode room asli, hanya dipakai server untuk log owner.
+                put("room_code", JsonPrimitive(roomCode))
             }
 
         val chatMessage =
