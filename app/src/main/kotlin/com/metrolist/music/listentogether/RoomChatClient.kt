@@ -36,7 +36,9 @@ class RoomChatClient(
         OkHttpClient
             .Builder()
             .readTimeout(0, TimeUnit.MILLISECONDS)
-            .pingInterval(20, TimeUnit.SECONDS)
+            // okhttp's ping deadline equals the interval; on slow mobile networks a
+            // 20s window was regularly missed, which killed the socket mid-session.
+            .pingInterval(60, TimeUnit.SECONDS)
             // A self-hosted relay is usually plain http:// (ws://) on a private host.
             .apply {
                 try {
@@ -54,8 +56,33 @@ class RoomChatClient(
         private const val NTFY_BASE = "https://ntfy.sh"
         private const val TOPIC_PREFIX = "meowsic-room-"
 
-        /** Self-hosted relay (Pterodactyl). Falls back to ntfy when unreachable. */
+        /**
+         * Self-hosted relay (Pterodactyl). Falls back to ntfy when unreachable.
+         *
+         * Null means "use the default relay". The string "ntfy" forces the built-in
+         * free service, anything else is treated as a custom relay address.
+         */
         var relayUrl: String? = null
+
+        /** The community relay that ships with Meowsic. */
+        const val DEFAULT_RELAY = "http://31.57.178.188:6130"
+
+        /** Maximum number of characters allowed in a single chat message. */
+        const val MAX_CHAT_LENGTH = 500
+
+        /** Resolve the relay that should actually be used right now. */
+        fun activeRelay(): String? {
+            val configured = relayUrl
+            return when {
+                configured == null -> DEFAULT_RELAY
+                configured.equals("ntfy", ignoreCase = true) -> null
+                configured.isBlank() -> DEFAULT_RELAY
+                else -> configured
+            }
+        }
+
+        /** Human readable name of the transport currently in use. */
+        fun transportLabel(): String = if (activeRelay() != null) "Relay server" else "Layanan gratis"
 
         /** Optional token required by the relay (read from the URL query string). */
         var relayToken: String? = null
@@ -123,7 +150,14 @@ class RoomChatClient(
     @Volatile
     private var onProfile: ((UserProfile) -> Unit)? = null
 
-    /** Subscribe to a room topic. Reconnects automatically on drop. */
+    /**
+     * Subscribe to a room topic.
+     *
+     * Messages are published to BOTH the self-hosted relay and ntfy, and both
+     * transports are subscribed to. That way two members who have different (or no)
+     * relay settings still see each other's messages: whichever transport the other
+     * member happens to use, the message arrives on at least one of them.
+     */
     fun connect(
         roomCode: String,
         onMessage: (ChatMessage) -> Unit,
@@ -138,26 +172,30 @@ class RoomChatClient(
         disconnect()
         currentTopic = topic
         relayDisabled = false
-        if (relayUrl != null) {
-            // The relay keeps history in memory and pushes it to late joiners.
-            openSocket(topic)
-        } else {
-            ensureTopic(topic)
-            openSocket(topic)
-            loadHistory(topic)
-            startPolling(topic)
-        }
+        // Self-hosted relay (own server) if configured, otherwise the free service.
+        openSocket(topic)
+        // The free service always runs alongside as a safety net, so members with
+        // different settings never end up on isolated transports.
+        ensureTopic(topic)
+        openNtfySocket(topic)
+        loadHistory(topic)
+        startPolling(topic)
     }
 
+    /** Second socket to the free service, used alongside the relay. */
+    private var ntfySocket: WebSocket? = null
+
+    /** Opens the socket for the given transport. */
     private fun openSocket(topic: String) {
-        val relay = relayUrl?.takeIf { !relayDisabled }
+        val relay = activeRelay()?.takeIf { !relayDisabled }
+        if (relay == null) {
+            // No relay: rely on the free service only.
+            openNtfySocket(topic)
+            return
+        }
         val wsUrl =
-            if (relay != null) {
-                val base = relay.trimEnd('/').replaceFirst("https://", "wss://").replaceFirst("http://", "ws://")
-                "$base/chat/$topic"
-            } else {
-                "$NTFY_BASE/$topic/ws"
-            }
+            relay.trimEnd('/').replaceFirst("https://", "wss://").replaceFirst("http://", "ws://") +
+                "/chat/$topic"
         val request =
             Request
                 .Builder()
@@ -172,7 +210,7 @@ class RoomChatClient(
                         webSocket: WebSocket,
                         response: Response,
                     ) {
-                        Timber.tag(TAG).d("Chat socket open for $topic")
+                        Timber.tag(TAG).d("Relay socket open for $topic")
                         webSocket.send(
                             json.encodeToString(
                                 JsonObject.serializer(),
@@ -200,23 +238,54 @@ class RoomChatClient(
                         t: Throwable,
                         response: Response?,
                     ) {
-                        Timber.tag(TAG).w(t, "Chat socket failed for $topic")
-                        onError?.invoke(t.message ?: "Chat connection failed")
+                        Timber.tag(TAG).w(t, "Relay socket failed for $topic")
+                        onError?.invoke("Koneksi chat terputus, mencoba lagi...")
+                        // Retry the SAME transport. Switching transports mid-session
+                        // would silently isolate this member from the rest of the room.
                         scope.launch {
                             delay(3000)
-                            if (currentTopic != topic) return@launch
-                            if (relayUrl != null && !relayDisabled) {
-                                // Relay unreachable: fall back to the built-in free relay
-                                // so chat keeps working while the server is down.
-                                relayDisabled = true
-                                Timber.tag(TAG).w("Relay unavailable, switching to ntfy fallback")
-                                openSocket(topic)
-                                ensureTopic(topic)
-                                loadHistory(topic)
-                                startPolling(topic)
-                            } else {
-                                openSocket(topic)
-                            }
+                            if (currentTopic == topic && activeRelay() != null) openSocket(topic)
+                        }
+                    }
+                },
+            )
+    }
+
+    /** Socket for the free service, used as a second channel. */
+    private fun openNtfySocket(topic: String) {
+        val request =
+            Request
+                .Builder()
+                .url("$NTFY_BASE/$topic/ws")
+                .build()
+
+        ntfySocket =
+            client.newWebSocket(
+                request,
+                object : WebSocketListener() {
+                    override fun onOpen(
+                        webSocket: WebSocket,
+                        response: Response,
+                    ) {
+                        Timber.tag(TAG).d("Free-service socket open for $topic")
+                    }
+
+                    override fun onMessage(
+                        webSocket: WebSocket,
+                        text: String,
+                    ) {
+                        handleIncoming(text)
+                    }
+
+                    override fun onFailure(
+                        webSocket: WebSocket,
+                        t: Throwable,
+                        response: Response?,
+                    ) {
+                        Timber.tag(TAG).d(t, "Free-service socket failed")
+                        scope.launch {
+                            delay(5000)
+                            if (currentTopic == topic) openNtfySocket(topic)
                         }
                     }
                 },
@@ -354,8 +423,8 @@ class RoomChatClient(
         onSent: ((ChatMessage) -> Unit)? = null,
         onError: ((String) -> Unit)? = null,
     ) {
-        // ntfy rejects bodies over 4096 bytes; keep well below that
-        val text = message.trim().take(500)
+        // Chat messages are capped so a long paste cannot break the transport.
+        val text = message.trim().take(MAX_CHAT_LENGTH)
         if (text.isBlank()) return
         val topic = topicFor(roomCode)
         val id = System.currentTimeMillis().toString() + "-" + senderId.hashCode().toString().replace("-", "")
@@ -372,12 +441,15 @@ class RoomChatClient(
                 put("timestamp", JsonPrimitive(timestamp))
             }
 
-        // Prefer the self-hosted relay (no rate limits); fall back to ntfy.
-        val live = webSocket
-        if (relayUrl != null && !relayDisabled && live != null) {
-            val ok =
+        // Publish to every available transport. A member using a different setting
+        // still receives the message through at least one of them.
+        var delivered = false
+
+        val relaySocket = webSocket
+        if (activeRelay() != null && !relayDisabled && relaySocket != null) {
+            delivered =
                 try {
-                    live.send(
+                    relaySocket.send(
                         json.encodeToString(
                             JsonObject.serializer(),
                             buildJsonObject {
@@ -388,21 +460,9 @@ class RoomChatClient(
                     )
                     true
                 } catch (e: Exception) {
-                    Timber.tag(TAG).w(e, "Relay publish failed, falling back to ntfy")
+                    Timber.tag(TAG).w(e, "Relay publish failed")
                     false
-                }
-            if (ok) {
-                onSent?.invoke(
-                    ChatMessage(
-                        id = id,
-                        senderId = senderId,
-                        senderName = senderName,
-                        text = text,
-                        timestamp = timestamp,
-                    ),
-                )
-                return
-            }
+                } || delivered
         }
 
         scope.launch {
@@ -415,22 +475,27 @@ class RoomChatClient(
                         .build()
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
-                        onSent?.invoke(
-                            ChatMessage(
-                                id = id,
-                                senderId = senderId,
-                                senderName = senderName,
-                                text = text,
-                                timestamp = timestamp,
-                            ),
-                        )
+                        delivered = true
                     } else {
-                        onError?.invoke("Gagal kirim pesan (${response.code})")
+                        Timber.tag(TAG).w("Free-service publish failed: ${response.code}")
                     }
                 }
             } catch (e: Exception) {
-                Timber.tag(TAG).w(e, "Failed to publish chat message")
-                onError?.invoke("Gagal kirim pesan")
+                Timber.tag(TAG).w(e, "Failed to publish chat message to free service")
+            }
+
+            if (delivered) {
+                onSent?.invoke(
+                    ChatMessage(
+                        id = id,
+                        senderId = senderId,
+                        senderName = senderName,
+                        text = text,
+                        timestamp = timestamp,
+                    ),
+                )
+            } else {
+                onError?.invoke("Gagal kirim pesan, cek koneksi")
             }
         }
     }
@@ -456,26 +521,22 @@ class RoomChatClient(
                 put("timestamp", JsonPrimitive(System.currentTimeMillis()))
             }
 
-        // Prefer the relay socket (no rate limits).
+        // Publish to every available transport.
         val live = webSocket
-        if (relayUrl != null && !relayDisabled && live != null) {
-            val ok =
-                try {
-                    live.send(
-                        json.encodeToString(
-                            JsonObject.serializer(),
-                            buildJsonObject {
-                                put("action", JsonPrimitive("publish"))
-                                put("payload", payload)
-                            },
-                        ),
-                    )
-                    true
-                } catch (e: Exception) {
-                    Timber.tag(TAG).w(e, "Relay profile publish failed")
-                    false
-                }
-            if (ok) return
+        if (activeRelay() != null && !relayDisabled && live != null) {
+            try {
+                live.send(
+                    json.encodeToString(
+                        JsonObject.serializer(),
+                        buildJsonObject {
+                            put("action", JsonPrimitive("publish"))
+                            put("payload", payload)
+                        },
+                    ),
+                )
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "Relay profile publish failed")
+            }
         }
 
         scope.launch {
@@ -560,6 +621,8 @@ class RoomChatClient(
         lastPollCursor = null
         webSocket?.close(1000, "bye")
         webSocket = null
+        ntfySocket?.close(1000, "bye")
+        ntfySocket = null
         currentTopic = null
     }
 }

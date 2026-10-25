@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
@@ -191,22 +192,27 @@ class ListenTogetherManager
             // Announce our own avatar so members (including late joiners) can render it
             scope.launch {
                 val prefs = context.dataStore.data.first()
-                // Optional self-hosted relay (Pterodactyl). Blank = use the built-in free service.
-                val relayRaw = prefs[com.metrolist.music.constants.ChatRelayUrlKey]?.trim().orEmpty()
-                RoomChatClient.relayUrl = relayRaw.ifEmpty { null }
-                RoomChatClient.relayToken =
-                    relayRaw.substringAfter("token=", "").substringBefore("&").ifEmpty { null }
                 val emoji = prefs[com.metrolist.music.constants.ListenTogetherAvatarEmojiKey] ?: "🎧"
                 val color = prefs[com.metrolist.music.constants.ListenTogetherAvatarColorKey] ?: "#7C4DFF"
                 val myId = userId.value ?: return@launch
                 val name =
                     roomState.value?.users?.firstOrNull { it.userId == myId }?.username
-                        ?: context.dataStore.data.first()[com.metrolist.music.constants.ListenTogetherUsernameKey]
+                        ?: prefs[com.metrolist.music.constants.ListenTogetherUsernameKey]
                         ?: "Teman"
                 _memberProfiles.value =
                     _memberProfiles.value + (myId to RoomChatClient.UserProfile(myId, name, emoji, color))
                 chatClient.publishProfile(roomCode, myId, name, emoji, color)
             }
+            // Resolve the relay BEFORE connecting: the client must know which
+            // transport to use the moment the socket opens, otherwise two members can
+            // end up on different transports (relay vs ntfy) and never see each other.
+            val relayRaw = runBlocking { context.dataStore.data.first()[com.metrolist.music.constants.ChatRelayUrlKey] }
+                ?.trim()
+                .orEmpty()
+            RoomChatClient.relayUrl = relayRaw.ifEmpty { null }
+            RoomChatClient.relayToken =
+                relayRaw.substringAfter("token=", "").substringBefore("&").ifEmpty { null }
+
             chatClient.connect(
                 roomCode = roomCode,
                 onMessage = { message ->

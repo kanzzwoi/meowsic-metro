@@ -473,7 +473,11 @@ fun ListenTogetherSettings(navController: NavController) {
                             title = { Text(stringResource(R.string.chat_relay_url)) },
                             description = {
                                 Text(
-                                    chatRelayUrl.ifEmpty { stringResource(R.string.chat_relay_url_auto) },
+                                    if (chatRelayUrl.isBlank() || chatRelayUrl.equals("ntfy", ignoreCase = true)) {
+                                        stringResource(R.string.chat_relay_url_auto)
+                                    } else {
+                                        chatRelayUrl
+                                    },
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )

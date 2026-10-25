@@ -374,7 +374,7 @@ fun ListenTogetherScreen(
                     }
                 }
 
-                item { ChatPanel(messages = chatMessages, expanded = chatExpanded, onToggle = { chatExpanded = !chatExpanded }, input = chatInput, onInputChange = { chatInput = it }, onSend = { val m = chatInput.trim(); if (m.isNotBlank()) { listenTogetherManager.sendChatMessage(m); chatInput = "" } }, error = chatError, listState = chatListState, currentUserId = currentUserIdValue) }
+                item { ChatPanel(messages = chatMessages, expanded = chatExpanded, onToggle = { chatExpanded = !chatExpanded }, input = chatInput, onInputChange = { chatInput = it }, onSend = { val m = chatInput.trim().take(RoomChatClient.MAX_CHAT_LENGTH); if (m.isNotBlank()) { listenTogetherManager.sendChatMessage(m); chatInput = "" } }, error = chatError, listState = chatListState, currentUserId = currentUserIdValue) }
                 // Leave room button
                 item {
                     Button(
@@ -1420,7 +1420,23 @@ private fun ChatPanel(messages: List<RoomChatClient.ChatMessage>, expanded: Bool
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(value = input, onValueChange = onInputChange, placeholder = { Text("Ketik pesan...") }, singleLine = true, shape = RoundedCornerShape(24.dp), modifier = Modifier.weight(1f))
+                    OutlinedTextField(
+                        value = input,
+                        onValueChange = { onInputChange(it.take(RoomChatClient.MAX_CHAT_LENGTH)) },
+                        placeholder = { Text("Ketik pesan...") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(24.dp),
+                        modifier = Modifier.weight(1f),
+                        supportingText = {
+                            if (input.length >= RoomChatClient.MAX_CHAT_LENGTH) {
+                                Text(
+                                    "${input.length}/${RoomChatClient.MAX_CHAT_LENGTH}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        },
+                    )
                     Spacer(Modifier.width(8.dp))
                     androidx.compose.material3.FilledIconButton(onClick = onSend, enabled = input.isNotBlank()) { Icon(painterResource(R.drawable.send), contentDescription = "Kirim") }
                 }
