@@ -315,6 +315,11 @@ class ListenTogetherManager
                 onRoomState = { suggestions ->
                     _roomSuggestions.value = suggestions.takeLast(100)
                 },
+                onSuggestionDenied = { suggestionId ->
+                    // Member sarannya ditolak: hapus dari daftar lokal.
+                    _roomSuggestions.value = _roomSuggestions.value.filterNot { it.id == suggestionId }
+                    _chatError.value = "Saran lagu kamu ditolak host"
+                },
                 onSuggestionPermission = { targetUserId, allowed ->
                     _memberSuggestionPermissions.value =
                         _memberSuggestionPermissions.value + (targetUserId to allowed)
@@ -2380,6 +2385,19 @@ class ListenTogetherManager
                         thumbnail = thumbnail,
                         timestamp = System.currentTimeMillis(),
                     )).takeLast(100)
+
+            // Kirim juga ke server Together resmi supaya host bisa menyetujui
+            // dan masukkan ke antrian (diputar setelah lagu ini selesai).
+            client.suggestTrack(
+                TrackInfo(
+                    id = trackId,
+                    title = title,
+                    artist = artist,
+                    album = album,
+                    duration = duration,
+                    thumbnail = thumbnail,
+                ),
+            )
         }
 
         /**

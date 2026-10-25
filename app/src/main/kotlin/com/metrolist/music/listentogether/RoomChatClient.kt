@@ -198,6 +198,7 @@ class RoomChatClient(
     private var onRoomTimer: ((Long) -> Unit)? = null
     private var onRoomState: ((List<RoomSuggestion>) -> Unit)? = null
     private var onSuggestionPermission: ((String, Boolean) -> Unit)? = null
+    private var onSuggestionDenied: ((String) -> Unit)? = null
 
     /**
      * Subscribe to a room topic.
@@ -219,6 +220,7 @@ class RoomChatClient(
         onRoomTimer: ((Long) -> Unit)? = null,
         onRoomState: ((List<RoomSuggestion>) -> Unit)? = null,
         onSuggestionPermission: ((String, Boolean) -> Unit)? = null,
+        onSuggestionDenied: ((String) -> Unit)? = null,
     ) {
         this.onMessage = onMessage
         this.onError = onError
@@ -230,6 +232,7 @@ class RoomChatClient(
         this.onRoomTimer = onRoomTimer
         this.onRoomState = onRoomState
         this.onSuggestionPermission = onSuggestionPermission
+        this.onSuggestionDenied = onSuggestionDenied
         val topic = topicFor(roomCode)
         if (currentTopic == topic && webSocket != null) return
         disconnect()
@@ -524,6 +527,11 @@ class RoomChatClient(
                     timestamp = timestamp,
                 ),
             )
+            return
+        }
+
+        if (payload.kind == "suggestion_denied") {
+            onSuggestionDenied?.invoke(payload.suggestion_id)
             return
         }
 

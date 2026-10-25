@@ -376,6 +376,17 @@ fun ListenTogetherScreen(
                     }
                 }
 
+                // Saran dari server Together resmi (masuk antrian, cuma host).
+                if (isHost && pendingSuggestions.isNotEmpty()) {
+                    item {
+                        PendingSuggestionsSection(
+                            suggestions = pendingSuggestions,
+                            onApprove = { listenTogetherManager.approveSuggestion(it) },
+                            onReject = { listenTogetherManager.rejectSuggestion(it, "Rejected by host") },
+                        )
+                    }
+                }
+
                 // Kotak antrian room: semua anggota melihat daftar yang sama.
                 item {
                     RoomSuggestionBox(
