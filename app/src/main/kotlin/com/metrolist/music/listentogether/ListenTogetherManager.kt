@@ -312,6 +312,7 @@ class ListenTogetherManager
                 onSuggestionAction = { suggestionId, action -> handleSuggestionAction(suggestionId, action) },
                 onQueueModeChanged = { mode -> applyQueueMode(mode) },
                 onRoomTimer = { remaining -> applyRoomTimer(remaining) },
+                onTimerExpired = { stopPlaybackForRoom() },
                 onRoomState = { suggestions ->
                     _roomSuggestions.value = suggestions.takeLast(100)
                 },
@@ -329,12 +330,27 @@ class ListenTogetherManager
         private fun applyRoomTimer(remainingMs: Long) {
             timerJob?.cancel()
             timerJob = null
+            val connection = playerConnection
+            val sleepTimer = connection?.service?.sleepTimer
             if (remainingMs <= 0L) {
                 _roomTimerRemaining.value = 0L
+                sleepTimer?.clear()
                 return
             }
             _roomTimerRemaining.value = remainingMs
             val endAt = System.currentTimeMillis() + remainingMs
+            // Pakai sleep timer bawaan app: saat habis dia sudah otomatis pause
+            // playback + fade out, jadi tidak perlu job manual.
+            scope.launch(Dispatchers.Main) {
+                try {
+                    connection?.allowInternalSync = true
+                    sleepTimer?.start((remainingMs / 60_000L).toInt().coerceAtLeast(1))
+                } catch (e: Exception) {
+                    Timber.tag(TAG).w(e, "Gagal menyalakan timer room")
+                } finally {
+                    connection?.allowInternalSync = false
+                }
+            }
             timerJob = scope.launch {
                 while (true) {
                     val left = endAt - System.currentTimeMillis()
@@ -343,8 +359,6 @@ class ListenTogetherManager
                     delay(1000)
                 }
                 _roomTimerRemaining.value = 0L
-                // Timer habis: stop playback di perangkat ini.
-                stopPlaybackForRoom()
             }
         }
 

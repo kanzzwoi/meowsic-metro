@@ -196,6 +196,7 @@ class RoomChatClient(
     private var onSuggestionAction: ((String, String) -> Unit)? = null
     private var onQueueModeChanged: ((String) -> Unit)? = null
     private var onRoomTimer: ((Long) -> Unit)? = null
+    private var onTimerExpired: (() -> Unit)? = null
     private var onRoomState: ((List<RoomSuggestion>) -> Unit)? = null
     private var onSuggestionPermission: ((String, Boolean) -> Unit)? = null
 
@@ -217,6 +218,7 @@ class RoomChatClient(
         onSuggestionAction: ((String, String) -> Unit)? = null,
         onQueueModeChanged: ((String) -> Unit)? = null,
         onRoomTimer: ((Long) -> Unit)? = null,
+        onTimerExpired: (() -> Unit)? = null,
         onRoomState: ((List<RoomSuggestion>) -> Unit)? = null,
         onSuggestionPermission: ((String, Boolean) -> Unit)? = null,
     ) {
@@ -228,6 +230,7 @@ class RoomChatClient(
         this.onSuggestionAction = onSuggestionAction
         this.onQueueModeChanged = onQueueModeChanged
         this.onRoomTimer = onRoomTimer
+        this.onTimerExpired = onTimerExpired
         this.onRoomState = onRoomState
         this.onSuggestionPermission = onSuggestionPermission
         val topic = topicFor(roomCode)
@@ -558,6 +561,7 @@ class RoomChatClient(
 
         if (payload.kind == "timer_expired") {
             onRoomTimer?.invoke(0L)
+            onTimerExpired?.invoke()
             return
         }
 
