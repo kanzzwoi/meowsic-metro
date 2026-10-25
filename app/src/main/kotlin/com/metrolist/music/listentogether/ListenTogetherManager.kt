@@ -212,6 +212,9 @@ class ListenTogetherManager
             RoomChatClient.relayUrl = relayRaw.ifEmpty { null }
             RoomChatClient.relayToken =
                 relayRaw.substringAfter("token=", "").substringBefore("&").ifEmpty { null }
+            // Own server only by default; the free service is opt-in as a safety net.
+            RoomChatClient.useFreeServiceFallback =
+                runBlocking { context.dataStore.data.first()[com.metrolist.music.constants.ChatUseFreeServiceKey] } ?: false
 
             chatClient.connect(
                 roomCode = roomCode,

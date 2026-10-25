@@ -999,4 +999,6 @@
     <string name="chat_relay_url_desc">Kosongkan untuk memakai layanan gratis bawaan. Isi dengan alamat server chat milikmu, contoh: https://chat.example.com</string>
     <string name="chat_relay_url_auto">Server bawaan (relay)</string>
     <string name="chat_relay_url_free">Layanan gratis (ntfy)</string>
+    <string name="chat_free_service_fallback">Cadangan layanan gratis</string>
+    <string name="chat_free_service_fallback_desc">Also send chat to the free hosted service so members on an older build still receive messages. Turn off to use only your own server.</string>
 </resources>

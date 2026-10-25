@@ -83,6 +83,7 @@ import com.metrolist.music.constants.ListenTogetherAutoApproveSuggestionsKey
 import com.metrolist.music.constants.ListenTogetherServerUrlKey
 import com.metrolist.music.constants.ListenTogetherSyncVolumeKey
 import com.metrolist.music.constants.ChatRelayUrlKey
+import com.metrolist.music.constants.ChatUseFreeServiceKey
 import com.metrolist.music.listentogether.RoomChatClient
 import com.metrolist.music.constants.ListenTogetherUsernameKey
 import com.metrolist.music.LocalListenTogetherManager
@@ -120,6 +121,7 @@ fun ListenTogetherSettings(navController: NavController) {
     var serverUrl by rememberPreference(ListenTogetherServerUrlKey, ListenTogetherServers.defaultServerUrl)
     var username by rememberPreference(ListenTogetherUsernameKey, "")
     var chatRelayUrl by rememberPreference(ChatRelayUrlKey, "")
+    var chatUseFreeService by rememberPreference(ChatUseFreeServiceKey, false)
     var autoApprovalJoins by rememberPreference(ListenTogetherAutoApprovalKey, false)
     var autoApproveSuggestions by rememberPreference(ListenTogetherAutoApproveSuggestionsKey, false)
     var syncHostVolume by rememberPreference(ListenTogetherSyncVolumeKey, true)
@@ -198,6 +200,8 @@ fun ListenTogetherSettings(navController: NavController) {
                 TextButton(onClick = {
                     chatRelayUrl = ""
                     RoomChatClient.relayUrl = null
+                    chatUseFreeService = false
+                    RoomChatClient.useFreeServiceFallback = false
                     showChatRelayDialog = false
                 }) {
                     Text(stringResource(R.string.reset))
@@ -480,16 +484,37 @@ fun ListenTogetherSettings(navController: NavController) {
                             title = { Text(stringResource(R.string.chat_relay_url)) },
                             description = {
                                 Text(
-                                    if (chatRelayUrl.isBlank() || chatRelayUrl.equals("ntfy", ignoreCase = true)) {
-                                        stringResource(R.string.chat_relay_url_auto)
-                                    } else {
-                                        chatRelayUrl
+                                    when {
+                                        chatRelayUrl.isBlank() -> "31.57.178.188:6130 (bawaan)"
+                                        chatRelayUrl.equals("ntfy", ignoreCase = true) -> stringResource(R.string.chat_relay_url_free)
+                                        else -> chatRelayUrl
                                     },
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                             },
                             onClick = { showChatRelayDialog = true },
+                        ),
+                        IntegrationCardItem(
+                            icon = painterResource(R.drawable.done),
+                            title = { Text(stringResource(R.string.chat_free_service_fallback)) },
+                            description = {
+                                Text(stringResource(R.string.chat_free_service_fallback_desc))
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = chatUseFreeService,
+                                    onCheckedChange = { chatUseFreeService = it },
+                                    thumbContent = {
+                                        Icon(
+                                            painter = painterResource(id = if (chatUseFreeService) R.drawable.check else R.drawable.close),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(SwitchDefaults.IconSize),
+                                        )
+                                    },
+                                )
+                            },
+                            onClick = { chatUseFreeService = !chatUseFreeService },
                         ),
                         IntegrationCardItem(
                             icon = painterResource(R.drawable.done),

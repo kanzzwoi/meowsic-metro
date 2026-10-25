@@ -88,6 +88,12 @@ class RoomChatClient(
         var relayToken: String? = null
 
         /**
+         * When true the free service (ntfy) is also used as a safety net, so members
+         * running an older build still see each other. When false only the relay is used.
+         */
+        var useFreeServiceFallback: Boolean = true
+
+        /**
          * Topic name derived from the room code. The code is hashed so the ntfy topic
          * cannot be guessed from the room code alone (ntfy topics are world-readable).
          */
@@ -172,16 +178,22 @@ class RoomChatClient(
         disconnect()
         currentTopic = topic
         relayDisabled = false
-        // Self-hosted relay (own server) if configured, otherwise the free service.
-        openSocket(topic)
-        // The free service always runs alongside as a safety net, so members with
-        // different settings never end up on isolated transports.
-        ensureTopic(topic)
-        openNtfySocket(topic)
-        loadHistory(topic)
-        // Polling the free service is only needed when there is no relay at all:
-        // it is the slow path that recovers messages after a dropped connection.
-        if (activeRelay() == null) startPolling(topic)
+
+        if (activeRelay() != null) {
+            // Own server: the only transport we talk to.
+            openSocket(topic)
+            // The free service is only a safety net for members on an older build.
+            if (useFreeServiceFallback) {
+                ensureTopic(topic)
+                openNtfySocket(topic)
+            }
+        } else {
+            // No relay configured: the free service is the transport.
+            ensureTopic(topic)
+            openNtfySocket(topic)
+            loadHistory(topic)
+            startPolling(topic)
+        }
     }
 
     /** Second socket to the free service, used alongside the relay. */
@@ -475,6 +487,16 @@ class RoomChatClient(
                 }
         }
 
+        if (!useFreeServiceFallback && activeRelay() != null) {
+            // Relay only: the message is already on our own server, nothing else to do.
+            if (delivered) {
+                onSent?.invoke(chatMessage)
+            } else {
+                onError?.invoke("Gagal kirim pesan, cek koneksi")
+            }
+            return
+        }
+
         if (delivered) {
             // The message is on the relay already, so show it right away. The free
             // service still receives it in the background for members that have not
@@ -483,7 +505,7 @@ class RoomChatClient(
         }
 
         scope.launch {
-            // The free service always gets the message too, so members that have not
+            // The free service also gets the message, so members that have not
             // switched to the relay yet still receive it.
             val accepted =
                 try {
@@ -546,6 +568,8 @@ class RoomChatClient(
                 Timber.tag(TAG).w(e, "Relay profile publish failed")
             }
         }
+
+        if (!useFreeServiceFallback && activeRelay() != null) return
 
         scope.launch {
             try {
