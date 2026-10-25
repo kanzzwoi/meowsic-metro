@@ -100,6 +100,8 @@ import com.metrolist.music.models.MediaMetadata
 import com.metrolist.music.playback.CastConnectionHandler
 import com.metrolist.music.playback.PlayerConnection
 import com.metrolist.music.ui.screens.settings.DarkMode
+import com.metrolist.music.ui.theme.rememberIsDarkTheme
+import com.metrolist.music.ui.theme.DefaultDarkMode
 import com.metrolist.music.ui.utils.resize
 import com.metrolist.music.utils.joinToArtistString
 import com.metrolist.music.utils.rememberEnumPreference
@@ -196,7 +198,7 @@ private fun NewMiniPlayer(
     val context = LocalContext.current
     var gradientColors by remember { mutableStateOf<List<Color>>(emptyList()) }
     val isSystemInDarkTheme = isSystemInDarkTheme()
-    val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
+    val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DefaultDarkMode)
     val useDarkTheme =
         remember(darkTheme, isSystemInDarkTheme) {
             if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
@@ -688,6 +690,9 @@ private fun LegacyMiniPlayer(
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val pureBlack by rememberPreference(PureBlackMiniPlayerKey, defaultValue = false)
+    // The mini player follows the APP theme, not the system one, so it matches the
+    // rest of the UI on a fresh install.
+    val useDarkTheme = rememberIsDarkTheme()
 
     val playbackState by playerConnection.playbackState.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
@@ -750,7 +755,7 @@ private fun LegacyMiniPlayer(
                 .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
                 .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                 .background(
-                    if (pureBlack && isSystemInDarkTheme()) {
+                    if (pureBlack && useDarkTheme) {
                         Color.Black
                     } else {
                         MaterialTheme.colorScheme.surfaceContainer

@@ -138,6 +138,7 @@ import com.metrolist.music.ui.menu.LocalPlaylistMenu
 import com.metrolist.music.ui.menu.SelectionSongMenu
 import com.metrolist.music.ui.menu.SongMenu
 import com.metrolist.music.ui.screens.settings.DarkMode
+import com.metrolist.music.ui.theme.DefaultDarkMode
 import com.metrolist.music.ui.utils.backToMain
 import com.metrolist.music.utils.makeTimeString
 import com.metrolist.music.utils.rememberEnumPreference
@@ -912,7 +913,7 @@ fun LocalPlaylistHeader(
     val (darkMode, _) =
         rememberEnumPreference(
             DarkModeKey,
-            defaultValue = DarkMode.AUTO,
+            defaultValue = DefaultDarkMode,
         )
 
     val cropColor = MaterialTheme.colorScheme
