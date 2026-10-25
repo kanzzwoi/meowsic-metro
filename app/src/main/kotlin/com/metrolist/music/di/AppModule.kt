@@ -106,5 +106,6 @@ object AppModule {
     fun provideListenTogetherManager(
         @ApplicationContext context: Context,
         client: ListenTogetherClient,
-    ): ListenTogetherManager = ListenTogetherManager(client, context)
+        database: MusicDatabase,
+    ): ListenTogetherManager = ListenTogetherManager(client, context, database)
 }

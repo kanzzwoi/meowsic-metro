@@ -13,6 +13,9 @@ import androidx.media3.common.Player
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.WatchEndpoint
 import com.metrolist.music.constants.ListenTogetherSyncVolumeKey
+import com.metrolist.music.db.MusicDatabase
+import com.metrolist.music.db.entities.ChatCacheEntity
+import com.metrolist.music.db.entities.LOCAL_CHAT_RETENTION_MS
 import com.metrolist.music.extensions.currentMetadata
 import com.metrolist.music.extensions.metadata
 import com.metrolist.music.extensions.toMediaItem
@@ -81,6 +84,7 @@ class ListenTogetherManager
     constructor(
         private val client: ListenTogetherClient,
         @ApplicationContext private val context: Context,
+        private val database: MusicDatabase,
     ) {
         companion object {
             private const val TAG = "ListenTogetherManager"
@@ -216,17 +220,78 @@ class ListenTogetherManager
             RoomChatClient.useFreeServiceFallback =
                 runBlocking { context.dataStore.data.first()[com.metrolist.music.constants.ChatUseFreeServiceKey] } ?: false
 
+            // Muat dulu riwayat lokal dari sesi sebelumnya, supaya anggota yang
+            // sudah pernah ada di room ini tetap bisa membaca percakapan lama
+            // walaupun server sudah tidak menyimpannya lagi.
+            scope.launch {
+                val cached = loadCachedMessages(roomCode)
+                if (cached.isNotEmpty()) {
+                    _chatMessages.value = (cached + _chatMessages.value)
+                        .distinctBy { it.id }
+                        .sortedBy { it.timestamp }
+                        .takeLast(200)
+                }
+            }
+
             chatClient.connect(
                 roomCode = roomCode,
                 onMessage = { message ->
                     if (_chatMessages.value.any { it.id == message.id }) return@connect
                     _chatMessages.value = (_chatMessages.value + message).takeLast(200)
+                    cacheMessage(roomCode, message)
                 },
                 onError = { error -> _chatError.value = error },
                 onProfile = { profile ->
                     _memberProfiles.value = _memberProfiles.value + (profile.userId to profile)
                 },
             )
+        }
+
+        /**
+         * Menyimpan pesan ke cache lokal. Cache ini bertahan 6 jam, jadi anggota
+         * yang sudah ada di room sebelum ini masih bisa membaca percakapan
+         * walaupun server sudah menghapus riwayatnya.
+         */
+        private fun cacheMessage(roomCode: String, message: RoomChatClient.ChatMessage) {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    database.chatCacheDao.insert(
+                        ChatCacheEntity(
+                            id = message.id,
+                            roomCode = roomCode,
+                            senderId = message.senderId,
+                            senderName = message.senderName,
+                            text = message.text,
+                            timestamp = message.timestamp,
+                        ),
+                    )
+                    // Buang yang sudah lewat 6 jam
+                    database.chatCacheDao.deleteOlderThan(
+                        System.currentTimeMillis() - LOCAL_CHAT_RETENTION_MS,
+                    )
+                } catch (e: Exception) {
+                    Timber.tag(TAG).w(e, "Gagal menyimpan cache chat")
+                }
+            }
+        }
+
+        private suspend fun loadCachedMessages(roomCode: String): List<RoomChatClient.ChatMessage> {
+            return try {
+                database.chatCacheDao.getRoomMessages(roomCode)
+                    .filter { it.timestamp >= System.currentTimeMillis() - LOCAL_CHAT_RETENTION_MS }
+                    .map {
+                        RoomChatClient.ChatMessage(
+                            id = it.id,
+                            senderId = it.senderId,
+                            senderName = it.senderName,
+                            text = it.text,
+                            timestamp = it.timestamp,
+                        )
+                    }
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "Gagal memuat cache chat")
+                emptyList()
+            }
         }
 
         private fun disconnectChat() {
@@ -250,6 +315,7 @@ class ListenTogetherManager
                     if (_chatMessages.value.none { it.id == message.id }) {
                         _chatMessages.value = (_chatMessages.value + message).takeLast(200)
                     }
+                    cacheMessage(room.roomCode, message)
                 },
                 onError = { error -> _chatError.value = error },
             )

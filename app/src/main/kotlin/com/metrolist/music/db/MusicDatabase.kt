@@ -22,8 +22,10 @@ import androidx.room.migration.Migration
 import androidx.room.withTransaction
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
+import com.metrolist.music.db.daos.ChatCacheDao
 import com.metrolist.music.db.daos.SpeedDialDao
 import com.metrolist.music.db.entities.AlbumArtistMap
+import com.metrolist.music.db.entities.ChatCacheEntity
 import com.metrolist.music.db.entities.AlbumEntity
 import com.metrolist.music.db.entities.ArtistEntity
 import com.metrolist.music.db.entities.Event
@@ -59,6 +61,9 @@ class MusicDatabase(
 ) : DatabaseDao by delegate.dao {
     val speedDialDao: SpeedDialDao
         get() = delegate.speedDialDao
+
+    val chatCacheDao: ChatCacheDao
+        get() = delegate.chatCacheDao
 
     val openHelper: SupportSQLiteOpenHelper
         get() = delegate.openHelper
@@ -107,13 +112,14 @@ class MusicDatabase(
         RecognitionHistory::class,
         SpeedDialItem::class,
         PodcastEntity::class,
+        ChatCacheEntity::class,
     ],
     views = [
         SortedSongArtistMap::class,
         SortedSongAlbumMap::class,
         PlaylistSongMapPreview::class,
     ],
-    version = 38,
+    version = 39,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 2, to = 3),
@@ -152,12 +158,14 @@ class MusicDatabase(
         AutoMigration(from = 35, to = 36, spec = Migration35To36::class),
         AutoMigration(from = 36, to = 37),
         AutoMigration(from = 37, to = 38),
+        AutoMigration(from = 38, to = 39),
     ],
 )
 @TypeConverters(Converters::class)
 abstract class InternalDatabase : RoomDatabase() {
     abstract val dao: DatabaseDao
     abstract val speedDialDao: SpeedDialDao
+    abstract val chatCacheDao: ChatCacheDao
 
     companion object {
         const val DB_NAME = "song.db"
