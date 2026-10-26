@@ -79,7 +79,7 @@ import androidx.navigation.NavController
 import com.metrolist.music.LocalPlayerAwareWindowInsets
 import com.metrolist.music.R
 import com.metrolist.music.constants.ListenTogetherAutoApprovalKey
-import com.metrolist.music.constants.ListenTogetherAutoApproveSuggestionsKey
+import com.metrolist.music.constants.ListenTogetherAllowMemberPickKey
 import com.metrolist.music.constants.ListenTogetherServerUrlKey
 import com.metrolist.music.constants.ListenTogetherSyncVolumeKey
 import com.metrolist.music.constants.ChatRelayUrlKey
@@ -123,7 +123,7 @@ fun ListenTogetherSettings(navController: NavController) {
     var chatRelayUrl by rememberPreference(ChatRelayUrlKey, "")
     var chatUseFreeService by rememberPreference(ChatUseFreeServiceKey, false)
     var autoApprovalJoins by rememberPreference(ListenTogetherAutoApprovalKey, false)
-    var autoApproveSuggestions by rememberPreference(ListenTogetherAutoApproveSuggestionsKey, false)
+    var allowMemberPick by rememberPreference(ListenTogetherAllowMemberPickKey, false)
     var syncHostVolume by rememberPreference(ListenTogetherSyncVolumeKey, true)
 
     var showServerUrlDialog by rememberSaveable { mutableStateOf(false) }
@@ -551,15 +551,16 @@ fun ListenTogetherSettings(navController: NavController) {
                             },
                             trailingContent = {
                                 Switch(
-                                    checked = autoApproveSuggestions,
-                                    onCheckedChange = { autoApproveSuggestions = it },
-                                    // Only disable for guests in a room (hosts can always change)
-                                    enabled = roomState == null || role != RoomRole.GUEST,
+                                    checked = allowMemberPick,
+                                    onCheckedChange = {
+                                        allowMemberPick = it
+                                        manager.setAllowMemberPick(it)
+                                    },
                                     thumbContent = {
                                         Icon(
                                             painter =
                                                 painterResource(
-                                                    id = if (autoApproveSuggestions) R.drawable.check else R.drawable.close,
+                                                    id = if (allowMemberPick) R.drawable.check else R.drawable.close,
                                                 ),
                                             contentDescription = null,
                                             modifier = Modifier.size(SwitchDefaults.IconSize),
@@ -567,8 +568,10 @@ fun ListenTogetherSettings(navController: NavController) {
                                     },
                                 )
                             },
-                            // Allow clicking to see disabled state, but only change if enabled
-                            onClick = { if (roomState == null || role != RoomRole.GUEST) autoApproveSuggestions = !autoApproveSuggestions },
+                            onClick = {
+                                allowMemberPick = !allowMemberPick
+                                manager.setAllowMemberPick(allowMemberPick)
+                            },
                         ),
                         IntegrationCardItem(
                             icon = painterResource(R.drawable.volume_up),

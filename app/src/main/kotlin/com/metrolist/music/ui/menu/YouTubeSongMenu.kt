@@ -32,7 +32,9 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.metrolist.music.ui.component.DefaultDialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -110,6 +112,8 @@ fun YouTubeSongMenu(
     val syncUtils = LocalSyncUtils.current
     val listenTogetherManager = LocalListenTogetherManager.current
     val isPinned by database.speedDialDao.isPinned(song.id).collectAsStateWithLifecycle(initialValue = false)
+    var showSuggestToRoomDialog by rememberSaveable { mutableStateOf(false) }
+
     val artistNameAliases = LocalArtistNameAliases.current
     val artists = remember(song.artists, artistNameAliases) {
         song.artists.mapNotNull {
@@ -122,6 +126,49 @@ fun YouTubeSongMenu(
         }
     }
 
+    // Dialog konfirmasi: saran lagu ke room bersama.
+    if (showSuggestToRoomDialog) {
+        DefaultDialog(
+            onDismiss = { showSuggestToRoomDialog = false },
+            icon = {
+                Icon(
+                    painter = painterResource(R.drawable.queue_music),
+                    contentDescription = null,
+                )
+            },
+            title = { Text(stringResource(R.string.suggest_to_together_confirm_title)) },
+            buttons = {
+                TextButton(onClick = { showSuggestToRoomDialog = false }) {
+                    Text(stringResource(R.string.suggest_to_together_cancel))
+                }
+                TextButton(
+                    onClick = {
+                        showSuggestToRoomDialog = false
+                        val durationMs =
+                            if (song.duration != null && song.duration!! > 0) song.duration!! * 1000L else 180000L
+                        listenTogetherManager?.suggestSongToRoom(
+                            trackId = song.id,
+                            title = song.title,
+                            artist = artists.joinToString(", ") { it.name },
+                            album = song.album?.name ?: "",
+                            duration = durationMs,
+                            thumbnail = song.thumbnail,
+                        )
+                        onDismiss()
+                    },
+                ) {
+                    Text(stringResource(R.string.suggest_to_together_confirm))
+                }
+            },
+        ) {
+            Text(
+                stringResource(
+                    R.string.suggest_to_together_confirm_desc,
+                    song.title,
+                ),
+            )
+        }
+    }
     var showChoosePlaylistDialog by rememberSaveable {  
         mutableStateOf(false)  
     }  
@@ -354,9 +401,13 @@ fun YouTubeSongMenu(
         item {
             Material3MenuGroup(
                 items = listOfNotNull(
-                    if (listenTogetherManager != null && listenTogetherManager.isInRoom && !listenTogetherManager.isHost) {
+                    if (listenTogetherManager != null &&
+                        listenTogetherManager.isInRoom &&
+                        !listenTogetherManager.isHost &&
+                        listenTogetherManager.canPickSongs()
+                    ) {
                         Material3MenuItemData(
-                            title = { Text(text = stringResource(R.string.suggest_to_host)) },
+                            title = { Text(text = stringResource(R.string.suggest_to_together)) },
                             icon = {
                                 Icon(
                                     painter = painterResource(R.drawable.queue_music),
@@ -364,17 +415,7 @@ fun YouTubeSongMenu(
                                 )
                             },
                             onClick = {
-                                val durationMs = if (song.duration != null && song.duration!! > 0) song.duration!! * 1000L else 180000L
-                                val trackInfo = com.metrolist.music.listentogether.TrackInfo(
-                                    id = song.id,
-                                    title = song.title,
-                                    artist = artists.joinToString(", ") { it.name },
-                                    album = song.album?.name,
-                                    duration = durationMs,
-                                    thumbnail = song.thumbnail
-                                )
-                                listenTogetherManager.suggestTrack(trackInfo)
-                                onDismiss()
+                                showSuggestToRoomDialog = true
                             }
                         )
                     } else null,

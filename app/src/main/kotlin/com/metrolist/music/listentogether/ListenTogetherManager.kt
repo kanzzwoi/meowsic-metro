@@ -37,6 +37,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import androidx.datastore.preferences.core.edit
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -99,12 +100,19 @@ class ListenTogetherManager
 
         init {
             observePreferences()
+            scope.launch {
+                val enabled =
+                    context.dataStore.data.first()[com.metrolist.music.constants.ListenTogetherAllowMemberPickKey] ?: false
+                _allowMemberPick.value = enabled
+            }
         }
 
         private var playerConnection: PlayerConnection? = null
         private var eventCollectorJob: Job? = null
         private var queueObserverJob: Job? = null
         private var volumeObserverJob: Job? = null
+        private var timerJob: Job? = null
+
         private var playerListenerRegistered = false
 
         private val syncHostVolumeEnabled = MutableStateFlow(true)
@@ -172,6 +180,55 @@ class ListenTogetherManager
         // Per-user avatar details (emoji + color) broadcast through the room chat topic
         private val _memberProfiles = MutableStateFlow<Map<String, RoomChatClient.UserProfile>>(emptyMap())
         val memberProfiles: StateFlow<Map<String, RoomChatClient.UserProfile>> = _memberProfiles.asStateFlow()
+
+        /**
+         * Songs suggested to the room. Kept on the relay (not the Together
+         * server) because that server only forwards suggestions to the host,
+         * and every member should see the same list.
+         */
+        private val _roomSuggestions = MutableStateFlow<List<RoomChatClient.RoomSuggestion>>(emptyList())
+        val roomSuggestions: StateFlow<List<RoomChatClient.RoomSuggestion>> = _roomSuggestions.asStateFlow()
+
+        /** Queue mode for the room: "once" or "repeat" (start over from the top). */
+        private val _roomQueueMode = MutableStateFlow("once")
+        val roomQueueMode: StateFlow<String> = _roomQueueMode.asStateFlow()
+
+        /** Remaining time of the room-wide timer in ms; 0 means no timer. */
+        private val _roomTimerRemaining = MutableStateFlow(0L)
+        val roomTimerRemaining: StateFlow<Long> = _roomTimerRemaining.asStateFlow()
+
+        /** Izin propose lagu per anggota. False = anggota diblokir. */
+        private val _memberSuggestionPermissions = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+        val memberSuggestionPermissions: StateFlow<Map<String, Boolean>> = _memberSuggestionPermissions.asStateFlow()
+
+        /**
+         * Setelan lokal: apakah perangkat ini boleh proposes lagu ke room.
+         * Setiap member punya sendiri, jadi penyusup tidak otomatis bisa.
+         */
+        private val _allowMemberPick = MutableStateFlow(false)
+        val allowMemberPick: StateFlow<Boolean> = _allowMemberPick.asStateFlow()
+
+        /**
+         * Setelan lokal "Biarkan member memilih lagu". Kalau menyala, member
+         * ini boleh mengirim saran ke room. Host juga bisa memblokir member
+         * tertentu lewat [setMemberSuggestionPermission].
+         */
+        fun setAllowMemberPick(enabled: Boolean) {
+            scope.launch {
+                context.dataStore.edit {
+                    it[com.metrolist.music.constants.ListenTogetherAllowMemberPickKey] = enabled
+                }
+            }
+            _allowMemberPick.value = enabled
+        }
+
+        /** True kalau perangkat ini boleh proposes lagu ke room ini. */
+        fun canPickSongs(): Boolean {
+            if (!_allowMemberPick.value) return false
+            val myId = userId.value ?: return false
+            return canSuggestToRoom(myId)
+        }
+
 
         /** Publish the local user's avatar so other members can render it. */
         fun publishMyProfile(
@@ -244,7 +301,92 @@ class ListenTogetherManager
                 onProfile = { profile ->
                     _memberProfiles.value = _memberProfiles.value + (profile.userId to profile)
                 },
+                onSuggestion = { suggestion ->
+                    _roomSuggestions.value =
+                        (_roomSuggestions.value.filterNot { it.id == suggestion.id } + suggestion)
+                            .takeLast(100)
+                },
+                onSuggestionRemoved = { suggestionId ->
+                    _roomSuggestions.value = _roomSuggestions.value.filterNot { it.id == suggestionId }
+                },
+                onSuggestionAction = { suggestionId, action -> handleSuggestionAction(suggestionId, action) },
+                onQueueModeChanged = { mode -> applyQueueMode(mode) },
+                onRoomTimer = { remaining -> applyRoomTimer(remaining) },
+                onTimerExpired = { stopPlaybackForRoom() },
+                onRoomState = { suggestions ->
+                    _roomSuggestions.value = suggestions.takeLast(100)
+                },
+                onSuggestionPermission = { targetUserId, allowed ->
+                    _memberSuggestionPermissions.value =
+                        _memberSuggestionPermissions.value + (targetUserId to allowed)
+                },
             )
+        }
+
+        /**
+         * Room-wide timer. Saat habis, semua anggota (termasuk host) berhenti.
+         * Server yang menentukan waktu selesai supaya semua device sinkron.
+         */
+        private fun applyRoomTimer(remainingMs: Long) {
+            timerJob?.cancel()
+            timerJob = null
+            val connection = playerConnection
+            val sleepTimer = connection?.service?.sleepTimer
+            if (remainingMs <= 0L) {
+                _roomTimerRemaining.value = 0L
+                sleepTimer?.clear()
+                return
+            }
+            _roomTimerRemaining.value = remainingMs
+            val endAt = System.currentTimeMillis() + remainingMs
+            // Pakai sleep timer bawaan app: saat habis dia sudah otomatis pause
+            // playback + fade out, jadi tidak perlu job manual.
+            scope.launch(Dispatchers.Main) {
+                try {
+                    connection?.allowInternalSync = true
+                    sleepTimer?.start((remainingMs / 60_000L).toInt().coerceAtLeast(1))
+                } catch (e: Exception) {
+                    Timber.tag(TAG).w(e, "Gagal menyalakan timer room")
+                } finally {
+                    connection?.allowInternalSync = false
+                }
+            }
+            timerJob = scope.launch {
+                while (true) {
+                    val left = endAt - System.currentTimeMillis()
+                    if (left <= 0L) break
+                    _roomTimerRemaining.value = left
+                    delay(1000)
+                }
+                _roomTimerRemaining.value = 0L
+            }
+        }
+
+        /** Hentikan playback lokal karena timer room habis. */
+        private fun stopPlaybackForRoom() {
+            val connection = playerConnection ?: return
+            scope.launch {
+                try {
+                    connection.pause()
+                } catch (e: Exception) {
+                    Timber.tag(TAG).w(e, "Gagal menghentikan playback saat timer habis")
+                }
+            }
+        }
+
+        /** Host (atau anggota) bertindak atas satu saran. */
+        /**
+         * Seseorang mengambil satu saran dari daftar.
+         *
+         * Relay hanya bertugas managing daftar; playback-nya tetap lewat
+         * server Together resmi (CHANGE_TRACK / SYNC_QUEUE). Jadi di sini
+         * cukup hapus sarannya dari daftar.
+         */
+        private fun handleSuggestionAction(
+            suggestionId: String,
+            action: String,
+        ) {
+            _roomSuggestions.value = _roomSuggestions.value.filterNot { it.id == suggestionId }
         }
 
         /**
@@ -2206,6 +2348,249 @@ class ListenTogetherManager
          * Suggest the given track to the host (guest only)
          */
         fun suggestTrack(track: TrackInfo) = client.suggestTrack(track)
+
+        /**
+         * Sarankan lagu ke room. Berbeda dengan [suggestTrack] yang cuma sampai
+         * ke host, ini lewat relay sehingga SEMUA anggota melihat daftarnya.
+         */
+        fun suggestSongToRoom(
+            trackId: String,
+            title: String,
+            artist: String,
+            album: String,
+            duration: Long,
+            thumbnail: String,
+        ) {
+            val room = roomState.value ?: return
+            val myId = userId.value ?: return
+            val name =
+                room.users.firstOrNull { it.userId == myId }?.username
+                    ?: "Teman"
+            val suggestionId = "$myId-${System.currentTimeMillis()}"
+            chatClient.publishSuggestion(
+                roomCode = room.roomCode,
+                userId = myId,
+                username = name,
+                suggestionId = suggestionId,
+                trackId = trackId,
+                title = title,
+                artist = artist,
+                album = album,
+                duration = duration,
+                thumbnail = thumbnail,
+            )
+            // Langsung tampil di daftar lokal supaya tidak menunggu echo server.
+            _roomSuggestions.value =
+                (_roomSuggestions.value +
+                    RoomChatClient.RoomSuggestion(
+                        id = suggestionId,
+                        fromUserId = myId,
+                        fromUsername = name,
+                        trackId = trackId,
+                        title = title,
+                        artist = artist,
+                        album = album,
+                        duration = duration,
+                        thumbnail = thumbnail,
+                        timestamp = System.currentTimeMillis(),
+                    )).takeLast(100)
+
+        }
+
+        /**
+         * Hostputation: terima satu saran.
+         * "play_now" = langsung ganti lagu sekarang (skip yang sedang jalan).
+         * "queue" = masuk antrian, diputar setelah lagu ini selesai.
+         */
+        fun actOnSuggestion(
+            suggestionId: String,
+            action: String,
+        ) {
+            val room = roomState.value ?: return
+            val myId = userId.value ?: return
+            val name = room.users.firstOrNull { it.userId == myId }?.username ?: "Teman"
+            // Ambil datanya DULU, baru hapus dari daftar.
+            val suggestion = _roomSuggestions.value.firstOrNull { it.id == suggestionId } ?: return
+            chatClient.publishSuggestionAction(room.roomCode, myId, name, suggestionId, action)
+            _roomSuggestions.value = _roomSuggestions.value.filterNot { it.id == suggestionId }
+
+            when (action) {
+                "play_now" -> playSuggestionNow(suggestion)
+                "queue" -> queueSuggestion(suggestion)
+            }
+        }
+
+        /**
+         * Host memutar lagu dari daftar saran sekarang (skip lagu yang sedang
+         * jalan). Semua anggota ikut karena perubahan dikirim lewat server
+         * Together sebagai CHANGE_TRACK.
+         */
+        private fun playSuggestionNow(suggestion: RoomChatClient.RoomSuggestion) {
+            if (!isHost) return
+            val trackInfo =
+                TrackInfo(
+                    id = suggestion.trackId,
+                    title = suggestion.title,
+                    artist = suggestion.artist,
+                    album = suggestion.album,
+                    duration = suggestion.duration,
+                    thumbnail = suggestion.thumbnail,
+                    suggestedBy = suggestion.fromUsername,
+                )
+            // Host memakai alur yang sama dengan memilih lagu biasa: pemutar
+            // berubah, lalu listener host otomatis menyiarkan CHANGE_TRACK ke
+            // semua anggota lewat server Together.
+            scope.launch(Dispatchers.Main) {
+                try {
+                    val connection = playerConnection ?: return@launch
+                    val mediaItem = trackInfo.toMediaMetadata().toMediaItem()
+                    // Tandai dulu supaya listener host tidak broadcast dua kali.
+                    lastSyncedTrackId = trackInfo.id
+                    lastSyncedIsPlaying = false
+                    connection.player.setMediaItem(mediaItem)
+                    connection.player.prepare()
+                    connection.play()
+
+                    // Broadcast eksplisit: metadata di ExoPlayer belum tentu siap
+                    // saat transisi, jadi tidak boleh bergantung pada listener.
+                    val currentQueue =
+                        try {
+                            upcomingQueueItems(connection.queueWindows.value, connection.currentWindowIndex.value)
+                                .map { it.toTrackInfo() }
+                        } catch (e: Exception) {
+                            null
+                        }
+                    val currentTitle =
+                        try {
+                            connection.queueTitle.value
+                        } catch (e: Exception) {
+                            null
+                        }
+                    client.sendPlaybackAction(
+                        PlaybackActions.CHANGE_TRACK,
+                        queueTitle = currentTitle,
+                        trackInfo = trackInfo,
+                        queue = currentQueue ?: listOf(trackInfo),
+                    )
+                    client.sendPlaybackAction(
+                        PlaybackActions.PLAY,
+                        trackId = trackInfo.id,
+                        position = 0L,
+                    )
+                    lastSyncedIsPlaying = true
+                } catch (e: Exception) {
+                    Timber.tag(TAG).w(e, "Gagal memutar lagu dari saran")
+                }
+            }
+        }
+
+        /**
+         * Host memasukkan lagu dari daftar saran ke antrian. Lagu diputar
+         * setelah lagu yang sedang berjalan selesai.
+         */
+        private fun queueSuggestion(suggestion: RoomChatClient.RoomSuggestion) {
+            if (!isHost) return
+            val connection = playerConnection ?: return
+            val trackInfo =
+                TrackInfo(
+                    id = suggestion.trackId,
+                    title = suggestion.title,
+                    artist = suggestion.artist,
+                    album = suggestion.album,
+                    duration = suggestion.duration,
+                    thumbnail = suggestion.thumbnail,
+                    suggestedBy = suggestion.fromUsername,
+                )
+            scope.launch(Dispatchers.Main) {
+                try {
+                    val mediaItem = trackInfo.toMediaMetadata().toMediaItem()
+                    // Observer antrian host otomatis mengirim SYNC_QUEUE ke
+                    // semua anggota, jadi tidak perlu broadcast manual.
+                    connection.addToQueue(mediaItem)
+                } catch (e: Exception) {
+                    Timber.tag(TAG).w(e, "Gagal menambahkan lagu dari saran ke antrian")
+                }
+            }
+        }
+
+        /** Tolak / buang satu saran dari daftar room. */
+        fun removeSuggestion(suggestionId: String) {
+            if (!isHost) return
+            val room = roomState.value ?: return
+            val myId = userId.value ?: return
+            val name = room.users.firstOrNull { it.userId == myId }?.username ?: "Teman"
+            chatClient.publishSuggestionRemoved(room.roomCode, myId, name, suggestionId)
+            _roomSuggestions.value = _roomSuggestions.value.filterNot { it.id == suggestionId }
+        }
+
+        /** Mode antrian room: "once" atau "repeat" (ulang dari awal). */
+        fun setRoomQueueMode(mode: String) {
+            if (!isHost) return
+            val room = roomState.value ?: return
+            val myId = userId.value ?: return
+            val name = room.users.firstOrNull { it.userId == myId }?.username ?: "Teman"
+            chatClient.publishQueueMode(room.roomCode, myId, name, mode)
+            applyQueueMode(mode)
+        }
+
+        /**
+         * Terapkan mode antrian room ke pemutar lokal.
+         *
+         * "repeat" memakai REPEAT_MODE_ALL, jadi saat antrian habis playback
+         * kembali ke lagu pertama (bukan mengulang satu lagu). Semua device
+         * menerapkan mode yang sama, sehingga tetap sinkron.
+         */
+        private fun applyQueueMode(mode: String) {
+            _roomQueueMode.value = mode
+            val connection = playerConnection ?: return
+            val target =
+                if (mode == "repeat") {
+                    Player.REPEAT_MODE_ALL
+                } else {
+                    Player.REPEAT_MODE_OFF
+                }
+            scope.launch(Dispatchers.Main) {
+                try {
+                    connection.allowInternalSync = true
+                    connection.player.repeatMode = target
+                } catch (e: Exception) {
+                    Timber.tag(TAG).w(e, "Gagal mengubah mode antrian room")
+                } finally {
+                    connection.allowInternalSync = false
+                }
+            }
+        }
+
+        /**
+         * Host mengizinkan / memblokir seorang anggota untuk proposes lagu.
+         * Dipakai supaya penyusup tidak bisa mengganggu isi kotak antrian.
+         */
+        fun setMemberSuggestionPermission(
+            targetUserId: String,
+            allowed: Boolean,
+        ) {
+            if (!isHost) return
+            val room = roomState.value ?: return
+            val myId = userId.value ?: return
+            val name = room.users.firstOrNull { it.userId == myId }?.username ?: "Teman"
+            chatClient.publishSuggestionPermission(room.roomCode, myId, name, targetUserId, allowed)
+            _memberSuggestionPermissions.value =
+                _memberSuggestionPermissions.value + (targetUserId to allowed)
+        }
+
+        /** True kalau anggota boleh proposes lagu ke room ini. */
+        fun canSuggestToRoom(memberUserId: String): Boolean =
+            _memberSuggestionPermissions.value[memberUserId] != false
+
+        /** Timer room: semua anggota (termasuk host) berhenti bareng. */
+        fun setRoomTimer(durationMs: Long) {
+            if (!isHost) return
+            val room = roomState.value ?: return
+            val myId = userId.value ?: return
+            val name = room.users.firstOrNull { it.userId == myId }?.username ?: "Teman"
+            chatClient.publishTimer(room.roomCode, myId, name, durationMs)
+            applyRoomTimer(durationMs)
+        }
 
         /**
          * Approve a suggestion (host only)
