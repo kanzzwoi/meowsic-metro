@@ -8,6 +8,9 @@ package com.metrolist.music.ui.screens.settings
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -26,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -79,7 +84,8 @@ import com.metrolist.music.viewmodels.HomeViewModel
 fun AccountSettings(
     navController: NavController,
     onClose: () -> Unit,
-    latestVersionName: String
+    latestVersionName: String,
+    isSettingsScreen: Boolean = true,
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
@@ -317,6 +323,42 @@ fun AccountSettings(
             useLowContrast = true
         )
 
+        // Khusus tampilan menu akun (bukan halaman Settings): tile grid Login/Token di atas,
+        // lalu Pengaturan + Join Channel di bawah, dengan toggle di tengah.
+        if (!isSettingsScreen) {
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                if (isLoggedIn) {
+                    AccountTile(stringResource(R.string.switch_youtube_channel), R.drawable.account, Modifier.weight(1f)) {
+                        onClose()
+                        navController.navigate("switch_channel")
+                    }
+                } else {
+                    AccountTile(stringResource(R.string.login), R.drawable.login, Modifier.weight(1f)) {
+                        onClose()
+                        navController.navigate("login")
+                    }
+                }
+                AccountTile(
+                    when {
+                        !isLoggedIn -> stringResource(R.string.advanced_login)
+                        showToken -> stringResource(R.string.token_shown)
+                        else -> stringResource(R.string.token_hidden)
+                    },
+                    R.drawable.token,
+                    Modifier.weight(1f),
+                ) {
+                    if (!isLoggedIn) showTokenEditor = true
+                    else if (!showToken) showToken = true
+                    else showTokenEditor = true
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+
         Spacer(Modifier.height(8.dp))
 
         Material3SettingsGroup(
@@ -389,40 +431,79 @@ fun AccountSettings(
 
         Spacer(Modifier.height(12.dp))
 
-        Material3SettingsGroup(
-            items = buildList {
-                add(
-                    Material3SettingsItem(
-                        title = { Text(stringResource(R.string.join_channel)) },
-                        icon = painterResource(R.drawable.whatsapp),
-                        onClick = {
-                            onClose()
-                            runCatching {
-                                context.startActivity(
-                                    Intent(Intent.ACTION_VIEW, Uri.parse("https://whatsapp.com/channel/0029VamAXeQ2975Go0mfiL2y"))
-                                )
+        if (isSettingsScreen) {
+            Material3SettingsGroup(
+                items = buildList {
+                    add(
+                        Material3SettingsItem(
+                            title = { Text(stringResource(R.string.join_channel)) },
+                            icon = painterResource(R.drawable.whatsapp),
+                            onClick = {
+                                onClose()
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_VIEW, Uri.parse("https://whatsapp.com/channel/0029VamAXeQ2975Go0mfiL2y"))
+                                    )
+                                }
                             }
-                        }
+                        )
                     )
-                )
-                add(
-                    Material3SettingsItem(
-                        title = { Text(stringResource(R.string.settings)) },
-                        icon = painterResource(R.drawable.settings),
-                        showBadge = BuildConfig.UPDATER_AVAILABLE &&
-                            latestVersionName != BuildConfig.BASE_VERSION_NAME,
-                        onClick = {
-                            onClose()
-                            navController.navigate("settings")
-                        }
+                    add(
+                        Material3SettingsItem(
+                            title = { Text(stringResource(R.string.settings)) },
+                            icon = painterResource(R.drawable.settings),
+                            showBadge = BuildConfig.UPDATER_AVAILABLE &&
+                                latestVersionName != BuildConfig.BASE_VERSION_NAME,
+                            onClick = {
+                                onClose()
+                                navController.navigate("settings")
+                            }
+                        )
                     )
-                )
 
-                if (BuildConfig.UPDATER_AVAILABLE && latestVersionName != BuildConfig.BASE_VERSION_NAME) {
-                    val releaseInfo = Updater.getCachedLatestRelease()
-                    val downloadUrl = releaseInfo?.let { Updater.getDownloadUrlForCurrentVariant(it) }
-                    if (downloadUrl != null) {
-                        add(
+                    if (BuildConfig.UPDATER_AVAILABLE && latestVersionName != BuildConfig.BASE_VERSION_NAME) {
+                        val releaseInfo = Updater.getCachedLatestRelease()
+                        val downloadUrl = releaseInfo?.let { Updater.getDownloadUrlForCurrentVariant(it) }
+                        if (downloadUrl != null) {
+                            add(
+                                Material3SettingsItem(
+                                    title = { Text(stringResource(R.string.new_version_available)) },
+                                    description = { Text(latestVersionName) },
+                                    icon = painterResource(R.drawable.update),
+                                    showBadge = true,
+                                    onClick = { uriHandler.openUri(downloadUrl) }
+                                )
+                            )
+                        }
+                    }
+                },
+                useLowContrast = true
+            )
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                AccountTile(stringResource(R.string.settings), R.drawable.settings, Modifier.weight(1f)) {
+                    onClose()
+                    navController.navigate("settings")
+                }
+                AccountTile(stringResource(R.string.join_channel), R.drawable.whatsapp, Modifier.weight(1f)) {
+                    onClose()
+                    runCatching {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://whatsapp.com/channel/0029VamAXeQ2975Go0mfiL2y"))
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            if (BuildConfig.UPDATER_AVAILABLE && latestVersionName != BuildConfig.BASE_VERSION_NAME) {
+                val releaseInfo = Updater.getCachedLatestRelease()
+                val downloadUrl = releaseInfo?.let { Updater.getDownloadUrlForCurrentVariant(it) }
+                if (downloadUrl != null) {
+                    Material3SettingsGroup(
+                        items = listOf(
                             Material3SettingsItem(
                                 title = { Text(stringResource(R.string.new_version_available)) },
                                 description = { Text(latestVersionName) },
@@ -430,11 +511,46 @@ fun AccountSettings(
                                 showBadge = true,
                                 onClick = { uriHandler.openUri(downloadUrl) }
                             )
-                        )
-                    }
+                        ),
+                        useLowContrast = true
+                    )
                 }
-            },
-            useLowContrast = true
-        )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountTile(
+    label: String,
+    iconRes: Int,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = modifier.height(88.dp).clip(RoundedCornerShape(20.dp)).clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = null,
+                modifier = Modifier.size(26.dp),
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 2,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }

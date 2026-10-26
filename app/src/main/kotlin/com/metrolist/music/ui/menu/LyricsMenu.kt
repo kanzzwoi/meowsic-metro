@@ -114,6 +114,13 @@ fun LyricsMenu(
     var respectAgentPositioning by rememberPreference(RespectAgentPositioningKey, true)
     var showIntervalIndicator by rememberPreference(ShowIntervalIndicatorKey, true)
 
+    var showShareDialog by remember { mutableStateOf(false) }
+    var shareCardStyle by rememberSaveable { mutableStateOf(LyricsShareStyle.COLOR) }
+    var shareCardLines by remember { mutableStateOf<List<String>>(emptyList()) }
+    var shareCardSelection by remember { mutableStateOf<IntRange?>(null) }
+    var shareCardView by remember { mutableStateOf<android.view.View?>(null) }
+    val shareCard = rememberLyricsCardSharer()
+
     val isKeylessProvider = aiProvider == "Google" || aiProvider == "DeepLFree"
     val hasApiKey = isKeylessProvider || (if (aiProvider == "DeepL") deeplApiKey.isNotBlank() else openRouterApiKey.isNotBlank())
     
@@ -287,6 +294,11 @@ fun LyricsMenu(
                                     ),
                                 )
                             }
+                            shareCardLines = plainLyricsOf(result.lyrics)
+                                .lines()
+                                .map { it.trim() }
+                                .filter { it.isNotBlank() }
+                            showShareDialog = true
                         }
                         .padding(12.dp)
                         .animateContentSize(),
@@ -396,6 +408,24 @@ fun LyricsMenu(
             NewActionGrid(
                 actions =
                     listOf(
+                        NewAction(
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.share),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(28.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            text = stringResource(R.string.share_lyrics),
+                            onClick = {
+                                shareCardLines = lyricsProvider()?.lyrics?.let { raw ->
+                                    plainLyricsOf(raw).lines().map { it.trim() }.filter { it.isNotBlank() }
+                                } ?: emptyList()
+                                shareCardSelection = null
+                                showShareDialog = true
+                            },
+                        ),
                         NewAction(
                             icon = {
                                 Icon(
@@ -688,5 +718,34 @@ fun LyricsMenu(
                 }
             )
         }
+    }
+    if (showShareDialog) {
+        val meta = mediaMetadataProvider()
+        val selectedLines = shareCardSelection?.let { range ->
+            shareCardLines.filterIndexed { i, _ -> i in range }
+        } ?: emptyList()
+        val selectedText = selectedLines.joinToString("\n").trim()
+
+        LyricsShareDialog(
+            lines = shareCardLines,
+            style = shareCardStyle,
+            onStyleChange = { shareCardStyle = it },
+            title = meta.title,
+            artist = meta.artists.joinToString(", ") { it.name },
+            thumbnailUrl = meta.thumbnailUrl,
+            selectedText = selectedText,
+            onLineClick = { index ->
+                val cur = shareCardSelection
+                shareCardSelection = when {
+                    cur == null -> index..index
+                    index < cur.first -> index..cur.last
+                    index > cur.last -> cur.first..index
+                    else -> null
+                }
+            },
+            onCardView = { _, v -> shareCardView = v },
+            onShare = { shareCardView?.let { v -> shareCard(v, selectedText) } },
+            onDismiss = { showShareDialog = false },
+        )
     }
 }

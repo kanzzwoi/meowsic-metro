@@ -175,6 +175,7 @@ fun AccountSettingsDialog(
                     navController = navController,
                     onClose = onDismiss,
                     latestVersionName = latestVersionName,
+                    isSettingsScreen = false,
                 )
             }
         }
