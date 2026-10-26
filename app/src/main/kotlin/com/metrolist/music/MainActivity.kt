@@ -195,6 +195,7 @@ import com.metrolist.music.ui.screens.navigationBuilder
 import com.metrolist.music.ui.screens.settings.ChangelogScreen
 import com.metrolist.music.ui.screens.settings.DarkMode
 import com.metrolist.music.ui.theme.DefaultDarkMode
+import com.metrolist.music.ui.theme.ThemeSwitch
 import com.metrolist.music.ui.screens.settings.NavigationTab
 import com.metrolist.music.ui.theme.ColorSaver
 import com.metrolist.music.ui.theme.DefaultThemeColor
@@ -1069,17 +1070,15 @@ class MainActivity : FragmentActivity() {
                                         },
                                         actions = {
                                             val scope = rememberCoroutineScope()
-                                            IconButton(onClick = {
-                                                scope.launch {
-                                                    val next = if (useDarkTheme) com.metrolist.music.ui.screens.settings.DarkMode.OFF else com.metrolist.music.ui.screens.settings.DarkMode.ON
-                                                    applicationContext.safeDataStoreEdit { it[com.metrolist.music.constants.DarkModeKey] = next.name }
-                                                }
-                                            }) {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.contrast),
-                                                    contentDescription = if (useDarkTheme) "Mode terang" else "Mode gelap",
-                                                )
-                                            }
+                                            ThemeSwitch(
+                                                checked = useDarkTheme,
+                                                onCheckedChange = {
+                                                    scope.launch {
+                                                        val next = if (useDarkTheme) com.metrolist.music.ui.screens.settings.DarkMode.OFF else com.metrolist.music.ui.screens.settings.DarkMode.ON
+                                                        applicationContext.safeDataStoreEdit { it[com.metrolist.music.constants.DarkModeKey] = next.name }
+                                                    }
+                                                },
+                                            )
                                             if (showHistoryButton) {
                                                 IconButton(onClick = { navController.navigate("history") }) {
                                                     Icon(
