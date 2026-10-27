@@ -106,7 +106,7 @@ fun LyricsMenu(
     val openRouterApiKey by rememberPreference(OpenRouterApiKey, "")
     val deeplApiKey by rememberPreference(DeeplApiKey, "")
     val aiProvider by rememberPreference(AiProviderKey, "Google")
-    val translateLanguage by rememberPreference(TranslateLanguageKey, "en")
+    val translateLanguage by rememberPreference(TranslateLanguageKey, "id")
     val translateMode by rememberPreference(TranslateModeKey, "Literal")
     val openRouterBaseUrl by rememberPreference(OpenRouterBaseUrlKey, OpenRouterDefaultBaseUrl)
     val openRouterModel by rememberPreference(OpenRouterModelKey, OpenRouterDefaultModel)
