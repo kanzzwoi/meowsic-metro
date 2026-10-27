@@ -118,8 +118,6 @@ fun LyricsMenu(
     var shareCardStyle by rememberSaveable { mutableStateOf(LyricsShareStyle.COLOR) }
     var shareCardLines by remember { mutableStateOf<List<String>>(emptyList()) }
     var shareCardSelection by remember { mutableStateOf<IntRange?>(null) }
-    var shareCardView by remember { mutableStateOf<android.view.View?>(null) }
-    val shareCard = rememberLyricsCardSharer()
 
     val isKeylessProvider = aiProvider == "Google" || aiProvider == "DeepLFree"
     val hasApiKey = isKeylessProvider || (if (aiProvider == "DeepL") deeplApiKey.isNotBlank() else openRouterApiKey.isNotBlank())
@@ -743,8 +741,6 @@ fun LyricsMenu(
                     else -> null
                 }
             },
-            onCardView = { _, v -> shareCardView = v },
-            onShare = { shareCardView?.let { v -> shareCard(v, selectedText) } },
             onDismiss = { showShareDialog = false },
         )
     }

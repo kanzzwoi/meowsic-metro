@@ -1030,4 +1030,7 @@
     <string name="share_style_color">Warna</string>
     <string name="share_style_light">Putih</string>
     <string name="share_pick_lines">Pilih baris lirik</string>
+    <string name="share_download_png">Unduh ke PNG</string>
+    <string name="share_saved_to_gallery">Gambar disimpan ke Galeri</string>
+    <string name="share_save_failed">Gagal menyimpan gambar</string>
 </resources>
