@@ -113,7 +113,7 @@ fun LyricsMenu(
     var showIntervalIndicator by rememberPreference(ShowIntervalIndicatorKey, true)
 
     var showShareDialog by remember { mutableStateOf(false) }
-    var shareCardStyle by rememberSaveable { mutableStateOf(LyricsShareStyle.COLOR) }
+    var shareCardStyle by rememberSaveable { mutableStateOf(LyricsShareStyle.GLASS) }
     var shareCardLines by remember { mutableStateOf<List<String>>(emptyList()) }
     var shareCardSelection by remember { mutableStateOf<IntRange?>(null) }
 
