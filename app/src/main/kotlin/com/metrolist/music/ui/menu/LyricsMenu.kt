@@ -6,8 +6,6 @@
 package com.metrolist.music.ui.menu
 
 import android.app.SearchManager
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -409,7 +407,7 @@ fun LyricsMenu(
                         NewAction(
                             icon = {
                                 Icon(
-                                    painter = painterResource(R.drawable.share),
+                                    painter = painterResource(R.drawable.share_lyrics_card),
                                     contentDescription = null,
                                     modifier = Modifier.size(28.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -465,33 +463,6 @@ fun LyricsMenu(
                             text = stringResource(R.string.search),
                             onClick = {
                                 showSearchDialog = true
-                            },
-                        ),
-                        NewAction(
-                            icon = {
-                                Icon(
-                                    painter = painterResource(R.drawable.content_copy),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(28.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            },
-                            text = stringResource(R.string.copy),
-                            onClick = {
-                                lyricsProvider()?.lyrics?.let { lyrics ->
-                                    val plainLyrics =
-                                        if (lyrics.startsWith("[")) {
-                                            LyricsUtils.parseLyrics(lyrics)
-                                                .joinToString("\n") { it.text }
-                                        } else {
-                                            lyrics
-                                        }
-
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText("Lyrics", plainLyrics)
-                                    clipboard.setPrimaryClip(clip)
-                                    Toast.makeText(context, R.string.copied_to_clipboard, Toast.LENGTH_SHORT).show()
-                                }
                             },
                         ),
                     ),
