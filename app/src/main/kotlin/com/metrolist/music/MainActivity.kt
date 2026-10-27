@@ -1075,7 +1075,10 @@ class MainActivity : FragmentActivity() {
                                                 }
                                             }) {
                                                 Icon(
-                                                    painter = painterResource(R.drawable.contrast),
+                                                    painter = painterResource(
+                                                        if (useDarkTheme) R.drawable.ic_toolbar_moon
+                                                        else R.drawable.ic_toolbar_sun,
+                                                    ),
                                                     contentDescription = if (useDarkTheme) "Mode terang" else "Mode gelap",
                                                 )
                                             }
@@ -1089,7 +1092,7 @@ class MainActivity : FragmentActivity() {
                                             }
                                             IconButton(onClick = { navController.navigate("stats") }) {
                                                 Icon(
-                                                    painter = painterResource(R.drawable.stats),
+                                                    painter = painterResource(R.drawable.ic_toolbar_stats),
                                                     contentDescription = stringResource(R.string.stats),
                                                 )
                                             }
@@ -1118,7 +1121,7 @@ class MainActivity : FragmentActivity() {
                                                         )
                                                     } else {
                                                         Icon(
-                                                            painter = painterResource(R.drawable.account),
+                                                            painter = painterResource(R.drawable.ic_toolbar_account),
                                                             contentDescription = stringResource(R.string.account),
                                                             modifier = Modifier.size(24.dp),
                                                         )
