@@ -98,9 +98,6 @@ private data class CardPalette(
  */
 private object LyricsCardRenderer {
 
-    private const val BOLD = 0
-    private const val EXTRA = 1
-
     fun render(
         context: Context,
         style: LyricsShareStyle,
@@ -130,8 +127,9 @@ private object LyricsCardRenderer {
 
         // ---- background ----
         var bgBlur: Bitmap? = null
+        var zoomed: Bitmap? = null
         if (useGlass) {
-            val zoomed = zoomCover(cover!!, size, 1.35f)
+            zoomed = zoomCover(cover!!, size, 1.35f)
             bgBlur = blurDownscale(zoomed, 0.10f)
             canvas.drawBitmap(bgBlur, 0f, 0f, null)
         } else {
@@ -157,7 +155,13 @@ private object LyricsCardRenderer {
             titlePaint.textSize -= 2f
             titleLines = wrapWords(titlePaint, title, maxTW)
         }
-        if (titleLines.size > 2) titleLines = titleLines.subList(0, 2)
+        if (titleLines.size > 2) {
+            // Baris ke-2 yang terpotong diberi ellipsis supaya jelas teksnya dipangkas.
+            titleLines = listOf(
+                titleLines[0],
+                ellipsize(titleLines[1], titlePaint, maxTW),
+            )
+        }
         val titleLineH = titlePaint.descent() - titlePaint.ascent()
         val gapT = titlePaint.textSize * 0.16f
 
@@ -169,17 +173,16 @@ private object LyricsCardRenderer {
         val headerH = max(thumb, blockH)
 
         // ---- lyrics autofit (lebar + tinggi) ----
-        val lyricLines = lyrics.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+        var lyricLines = lyrics.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
         val lyricsPaint = textPaint(palette.fg, CW * 0.095f, extra)
         val minLyricSize = CW * 0.05f
         var lyricSize = CW * 0.095f
         var lineH = lyricSize * 1.16f
 
-        fun cardHeight(): Float {
-            val lyricsH = lineH * lyricLines.size
-            return p + headerH + CW * 0.075f + lyricsH + CW * 0.06f +
-                max(2f, CW * 0.003f) + CW * 0.05f + CW * 0.09f + p
-        }
+        val fixedH = p + headerH + CW * 0.075f + CW * 0.06f +
+            max(2f, CW * 0.003f) + CW * 0.05f + CW * 0.09f + p
+
+        fun cardHeight(): Float = fixedH + lineH * lyricLines.size
 
         lyricsPaint.textSize = lyricSize
         var guard = 0
@@ -193,25 +196,32 @@ private object LyricsCardRenderer {
             guard++
         }
 
+        // Kalau masih tidak muat di ukuran minimum, buang baris paling akhir supaya
+        // kartu tidak pernah tergambar keluar kanvas.
+        val maxLines = (((S * 0.98f) - fixedH) / lineH).toInt().coerceAtLeast(1)
+        if (lyricLines.size > maxLines) lyricLines = lyricLines.take(maxLines)
+
         val lyricsH = lineH * lyricLines.size
         val gapH = CW * 0.075f
         val gapDiv = CW * 0.06f
         val gapDivWm = CW * 0.05f
         val wmH = CW * 0.09f
         val divH = max(2f, CW * 0.003f)
-        val cardH = p + headerH + gapH + lyricsH + gapDiv + divH + gapDivWm + wmH + p
+        var cardH = p + headerH + gapH + lyricsH + gapDiv + divH + gapDivWm + wmH + p
         val y0 = ((S - cardH) / 2f).coerceAtLeast(p * 0.5f)
         val cardRect = RectF(x0, y0, x0 + Wc, y0 + cardH)
         val radius = Wc * 0.05f
 
         // ---- card surface ----
+        var region: Bitmap? = null
+        var frost: Bitmap? = null
         if (useGlass && bgBlur != null) {
             val cw = cardRect.width().toInt().coerceAtMost(bgBlur.width)
             val ch = cardRect.height().toInt().coerceAtMost(bgBlur.height)
             val cx = cardRect.left.toInt().coerceIn(0, (bgBlur.width - cw).coerceAtLeast(0))
             val cy = cardRect.top.toInt().coerceIn(0, (bgBlur.height - ch).coerceAtLeast(0))
-            val region = Bitmap.createBitmap(bgBlur, cx, cy, cw, ch)
-            val frost = blurDownscale(region, 0.18f)
+            region = Bitmap.createBitmap(bgBlur, cx, cy, cw, ch)
+            frost = blurDownscale(region, 0.18f)
             canvas.save()
             canvas.clipPath(Path().apply { addRoundRect(cardRect, radius, radius, Path.Direction.CW) })
             canvas.drawBitmap(frost, cardRect.left, cardRect.top, Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true })
@@ -283,6 +293,12 @@ private object LyricsCardRenderer {
         val lockY = wy + (wmH - lockH) / 2f
         canvas.drawText("MEOWSIC", wmX, lockY - wmPaint.ascent(), wmPaint)
         canvas.drawText("by kanz", wmX, lockY + wt + bt * 0.35f - bkPaint.ascent(), bkPaint)
+
+        // Lepas bitmap antara supaya ganti gaya berulang tidak menumpuk memori.
+        zoomed?.recycle()
+        bgBlur?.recycle()
+        region?.recycle()
+        frost?.recycle()
 
         return bitmap
     }
@@ -367,6 +383,8 @@ private object LyricsCardRenderer {
         small.getPixels(px, 0, w, 0, 0, w, h)
         val counts = HashMap<Int, Int>()
         for (pix in px) {
+            // Lewati pixel transparan (PNG cover) supaya warna dominan tidak jadi hitam.
+            if (((pix ushr 24) and 0xFF) < 32) continue
             val r = (pix shr 16) and 0xFF
             val g = (pix shr 8) and 0xFF
             val b = pix and 0xFF
