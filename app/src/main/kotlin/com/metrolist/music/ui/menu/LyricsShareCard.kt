@@ -166,8 +166,13 @@ private object LyricsCardRenderer {
         val textX = coverRect.right + contentWidth * 0.05f
         val maxTextWidth = right - textX
 
-        val titlePaint = textPaint(palette.fg, titleSize, bold = true)
-        val artistPaint = textPaint(palette.muted, artistSize, bold = false)
+        // Font kartu lirik: Plus Jakarta Sans (regular + bold), fallback ke SANS_SERIF sistem
+        // kalau font gagal dimuat.
+        val jakartaRegular = ResourcesCompat.getFont(context, R.font.plus_jakarta_sans_regular)
+        val jakartaBold = ResourcesCompat.getFont(context, R.font.plus_jakarta_sans_bold)
+
+        val titlePaint = textPaint(palette.fg, titleSize, bold = true, jakartaRegular, jakartaBold)
+        val artistPaint = textPaint(palette.muted, artistSize, bold = false, jakartaRegular, jakartaBold)
 
         val blockHeight = titleSize + artistSize * 1.45f
         val blockTop = coverRect.centerY() - blockHeight / 2f
@@ -189,7 +194,7 @@ private object LyricsCardRenderer {
         val logoBottom = margin + cardWidth - padding
         val iconRect = RectF(left, logoBottom - iconSize, left + iconSize, logoBottom)
         drawMeowsicMark(canvas, context, iconRect, palette)
-        val wordPaint = textPaint(palette.fg, iconSize * 0.82f, bold = true).apply {
+        val wordPaint = textPaint(palette.fg, iconSize * 0.82f, bold = true, jakartaRegular, jakartaBold).apply {
             letterSpacing = 0.06f
         }
         val wordX = iconRect.right + contentWidth * 0.03f
@@ -207,19 +212,28 @@ private object LyricsCardRenderer {
             widthPx = contentWidth.toInt(),
             heightPx = (lyricsBottom - lyricsTop).toInt(),
             palette = palette,
+            jakartaRegular = jakartaRegular,
+            jakartaBold = jakartaBold,
         )
 
         return bitmap
     }
 
-    private fun textPaint(color: Int, size: Float, bold: Boolean): TextPaint =
+    private fun textPaint(
+        color: Int,
+        size: Float,
+        bold: Boolean,
+        jakartaRegular: Typeface? = null,
+        jakartaBold: Typeface? = null,
+    ): TextPaint =
         TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             this.color = color
             textSize = size
-            typeface = Typeface.create(
-                Typeface.SANS_SERIF,
-                if (bold) Typeface.BOLD else Typeface.NORMAL,
-            )
+            typeface = if (bold) {
+                jakartaBold ?: Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            } else {
+                jakartaRegular ?: Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+            }
         }
 
     private fun drawCover(
@@ -280,11 +294,13 @@ private object LyricsCardRenderer {
         widthPx: Int,
         heightPx: Int,
         palette: CardPalette,
+        jakartaRegular: Typeface? = null,
+        jakartaBold: Typeface? = null,
     ) {
         val content = text.trim()
         if (content.isEmpty() || widthPx <= 0 || heightPx <= 0) return
 
-        val paint = textPaint(palette.fg, widthPx * 0.085f, bold = true)
+        val paint = textPaint(palette.fg, widthPx * 0.085f, bold = true, jakartaRegular, jakartaBold)
         val minSize = widthPx * 0.038f
         var size = widthPx * 0.085f
         paint.textSize = size
