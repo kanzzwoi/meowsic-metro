@@ -159,7 +159,9 @@ fun ThemeScreen(
             pureBlack = pureBlack,
             onPureBlackChange = onPureBlackChange,
             selectedThemeColor = selectedThemeColor,
-            onSelectedThemeColorChange = handleColorSelection
+            onSelectedThemeColorChange = handleColorSelection,
+            liquidBackground = liquidBackground,
+            onLiquidBackgroundChange = onLiquidBackgroundChange
         )
     } else {
         PortraitThemeLayout(
@@ -169,7 +171,9 @@ fun ThemeScreen(
             pureBlack = pureBlack,
             onPureBlackChange = onPureBlackChange,
             selectedThemeColor = selectedThemeColor,
-            onSelectedThemeColorChange = handleColorSelection
+            onSelectedThemeColorChange = handleColorSelection,
+            liquidBackground = liquidBackground,
+            onLiquidBackgroundChange = onLiquidBackgroundChange
         )
     }
 
