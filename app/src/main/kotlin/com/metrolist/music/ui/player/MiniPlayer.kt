@@ -254,6 +254,27 @@ private fun NewMiniPlayer(
             (600 / (1f + kotlin.math.exp(-(-11.44748 * swipeSensitivity + 9.04945)))).roundToInt()
         }
 
+    // Preload thumbnail agar latar BLUR/GRADIENT langsung ada saat app dibuka,
+    // tidak menunggu pindah layar. Warmed ke memori cache Coil, jadi AsyncImage
+    // di bawah langsung render tanpa flicker.
+    LaunchedEffect(mediaMetadata?.id, mediaMetadata?.thumbnailUrl, miniPlayerBackground) {
+        val url = mediaMetadata?.thumbnailUrl ?: return@LaunchedEffect
+        if (miniPlayerBackground != MiniPlayerBackgroundStyle.BLUR &&
+            miniPlayerBackground != MiniPlayerBackgroundStyle.GRADIENT
+        ) return@LaunchedEffect
+        withContext(Dispatchers.IO) {
+            runCatching {
+                context.imageLoader.execute(
+                    ImageRequest.Builder(context)
+                        .data(url.resize(120, 120))
+                        .size(120, 120)
+                        .allowHardware(false)
+                        .build()
+                )
+            }
+        }
+    }
+
     LaunchedEffect(mediaMetadata?.id, miniPlayerBackground) {
         gradientColors = emptyList()
         if (miniPlayerBackground == MiniPlayerBackgroundStyle.GRADIENT) {
@@ -399,9 +420,16 @@ private fun NewMiniPlayer(
             when (miniPlayerBackground) {
                 MiniPlayerBackgroundStyle.BLUR -> {
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                        mediaMetadata?.thumbnailUrl?.let { url ->
+                        // Kunci pada id lagu, bukan URL: URL bisa sama antar lagu
+                        // (mis. thumbnail di-cache) dan thumbnailUrl bisa null
+                        // sesaat setelah ganti lagu, sehingga latar tertinggal.
+                        val blurUrl =
+                            remember(mediaMetadata?.id, mediaMetadata?.thumbnailUrl) {
+                                mediaMetadata?.thumbnailUrl?.resize(120, 120)
+                            }
+                        if (blurUrl != null) {
                             AsyncImage(
-                                model = url,
+                                model = blurUrl,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
