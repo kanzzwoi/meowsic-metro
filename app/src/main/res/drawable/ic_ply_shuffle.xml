@@ -1,9 +1,0 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp"
-    android:height="24dp"
-    android:viewportWidth="16"
-    android:viewportHeight="16">
-    <!-- shuffle / acak -->
-    <path android:fillColor="#FF000000" android:pathData="M13 1H12V3H10.5858L7 6.58579L3.41421 3H0V5H2.58579L5.58579 8L2.58579 11H0V13H3.41421L11.4142 5H12V7H13L16 4L13 1Z" />
-    <path android:fillColor="#FF000000" android:pathData="M12 9H13L16 12L13 15H12V13H10.5858L8.41421 10.8284L9.82843 9.41421L11.4142 11H12V9Z" />
-</vector>

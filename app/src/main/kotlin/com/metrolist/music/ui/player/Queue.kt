@@ -285,7 +285,7 @@ fun Queue(
                     val repeatShape = RoundedCornerShape(2.dp)
 
                     PlayerQueueButton(
-                        icon = R.drawable.ic_ply_queue,
+                        icon = R.drawable.queue_music,
                         onClick = { state.expandSoft() },
                         isActive = false,
                         shape = queueShape,
@@ -299,7 +299,7 @@ fun Queue(
                     )
 
                     PlayerQueueButton(
-                        icon = R.drawable.ic_ply_timer,
+                        icon = R.drawable.bedtime,
                         onClick = {
                             if (sleepTimerEnabled) {
                                 playerConnection.service.sleepTimer?.clear()
@@ -322,7 +322,7 @@ fun Queue(
 
                     val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsStateWithLifecycle()
                     PlayerQueueButton(
-                        icon = R.drawable.ic_ply_shuffle,
+                        icon = R.drawable.shuffle,
                         onClick = {
                             playerConnection.player.shuffleModeEnabled = !shuffleModeEnabled
                         },
@@ -339,7 +339,7 @@ fun Queue(
                     )
 
                     PlayerQueueButton(
-                        icon = R.drawable.ic_ply_lyrics,
+                        icon = R.drawable.lyrics,
                         onClick = { onToggleLyrics() },
                         label = "Lirik",
                         isActive = showInlineLyrics,
@@ -353,7 +353,12 @@ fun Queue(
                     )
 
                     PlayerQueueButton(
-                        icon = R.drawable.ic_ply_repeat,
+                        icon =
+                            when (repeatMode) {
+                                Player.REPEAT_MODE_ALL -> R.drawable.repeat
+                                Player.REPEAT_MODE_ONE -> R.drawable.repeat_one
+                                else -> R.drawable.repeat
+                            },
                         label = when (repeatMode) {
                             Player.REPEAT_MODE_ONE -> "Ulang 1"
                             Player.REPEAT_MODE_ALL -> "Ulang"
