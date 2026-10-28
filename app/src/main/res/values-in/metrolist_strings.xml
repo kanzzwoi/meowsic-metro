@@ -94,6 +94,9 @@
     <string name="percentage_format">%d%%</string>
     <string name="import_online">Impor playlist M3U</string>
     <string name="import_csv">Impor playlist CSV</string>
+    <string name="import_spotify">Impor dari Spotify</string>
+    <string name="import_spotify_hint">https://open.spotify.com/playlist/...</string>
+    <string name="import_spotify_failed">Impor Spotify gagal</string>
     <string name="playlist_add_local_to_synced_note">CATATAN: Menambahkan lagu lokal ke playlist yang disinkronkan atau jarak jauh tidak didukung. Kombinasi lainnya berlaku</string>
     <string name="auto_download_on_like">Unduh otomatis saat disukai</string>
     <string name="auto_download_on_like_desc">Unduh lagu secara otomatis saat Anda menyukainya</string>

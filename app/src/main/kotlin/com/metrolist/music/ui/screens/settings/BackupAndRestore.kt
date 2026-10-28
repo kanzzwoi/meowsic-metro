@@ -41,12 +41,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import android.widget.Toast
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
@@ -57,6 +59,7 @@ import com.metrolist.music.ui.component.DefaultDialog
 import com.metrolist.music.ui.component.IconButton
 import com.metrolist.music.ui.component.Material3SettingsGroup
 import com.metrolist.music.ui.component.Material3SettingsItem
+import com.metrolist.music.ui.component.TextFieldDialog
 import com.metrolist.music.ui.menu.AddToPlaylistDialogOnline
 import com.metrolist.music.ui.menu.CsvColumnMappingDialog
 import com.metrolist.music.ui.menu.CsvImportProgressDialog
@@ -68,6 +71,7 @@ import com.metrolist.music.viewmodels.ConvertedSongLog
 import com.metrolist.music.viewmodels.CsvImportState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -106,6 +110,10 @@ fun BackupAndRestore(
     var backupPreviewInfo by remember { mutableStateOf<BackupPreviewInfo?>(null) }
     var isLoadingAccountInfo by remember { mutableStateOf(false) }
     var accountCheckFailed by remember { mutableStateOf(false) }
+
+    // Status impor Spotify
+    var showSpotifyUrlDialog by rememberSaveable { mutableStateOf(false) }
+    var isSpotifyImporting by rememberSaveable { mutableStateOf(false) }
 
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -213,6 +221,13 @@ fun BackupAndRestore(
                             )
                         },
                     ),
+                    Material3SettingsItem(
+                        title = { Text(stringResource(R.string.import_spotify)) },
+                        icon = painterResource(R.drawable.language),
+                        onClick = {
+                            showSpotifyUrlDialog = true
+                        },
+                    ),
                 ),
         )
     }
@@ -230,6 +245,46 @@ fun BackupAndRestore(
                 )
             }
         },
+    )
+
+    // Dialog impor Spotify
+    if (showSpotifyUrlDialog) {
+        TextFieldDialog(
+            title = { Text(stringResource(R.string.import_spotify)) },
+            placeholder = {
+                Text(stringResource(R.string.import_spotify_hint))
+            },
+            keyboardType = KeyboardType.Uri,
+            onDismiss = { showSpotifyUrlDialog = false },
+            onDone = { url ->
+                showSpotifyUrlDialog = false
+                isSpotifyImporting = true
+                coroutineScope.launch(Dispatchers.IO) {
+                    val result = viewModel.importSpotifyPlaylist(context, url.trim())
+                    withContext(Dispatchers.Main) {
+                        isSpotifyImporting = false
+                        if (result != null && result.songs.isNotEmpty()) {
+                            importedTitle = result.playlistName
+                            importedSongs.clear()
+                            importedSongs.addAll(result.songs)
+                            showChoosePlaylistDialogOnline = true
+                        } else {
+                            Toast.makeText(
+                                context,
+                                R.string.import_spotify_failed,
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    }
+                }
+            },
+        )
+    }
+
+    LoadingScreen(
+        isVisible = isSpotifyImporting,
+        value = 0,
+        songTitle = "",
     )
 
     AddToPlaylistDialogOnline(

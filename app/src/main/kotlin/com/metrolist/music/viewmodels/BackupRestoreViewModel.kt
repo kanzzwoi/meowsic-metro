@@ -17,6 +17,7 @@ import com.metrolist.innertube.utils.parseCookieString
 import com.metrolist.innertube.utils.sha1
 import com.metrolist.music.R
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -657,7 +658,91 @@ class BackupRestoreViewModel @Inject constructor(
         return songs
     }
 
+    /**
+     * Import playlist dari Spotify berdasarkan URL publik.
+     *
+     * Cara kerja: ambil halaman embed publik playlist, baca blok
+     * __NEXT_DATA__ (JSON), lalu petakan tiap track ke Song internal
+     * (judul + artis). Pencocokan ke lagu YouTube Music terjadi di alur
+     * impor yang sama dengan CSV, lewat dialog "pilih playlist".
+     */
+    suspend fun importSpotifyPlaylist(context: Context, url: String): SpotifyImportResult? =
+        withContext(Dispatchers.IO) {
+            val spotifyId = extractSpotifyId(url) ?: return@withContext null
+            val client = OkHttpClient()
+            runCatching {
+                val request =
+                    Request
+                        .Builder()
+                        .url("https://open.spotify.com/embed/playlist/$spotifyId")
+                        .header(
+                            "User-Agent",
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        ).build()
+                val response = client.newCall(request).execute()
+                val html = response.body?.string() ?: return@runCatching null
+
+                val jsonText =
+                    Regex(
+                        "<script id=\"__NEXT_DATA__\" type=\"application/json\">(.*?)</script>",
+                        RegexOption.DOT_MATCHES_ALL,
+                    ).find(html)?.groupValues?.get(1) ?: return@runCatching null
+
+                val json = Json { ignoreUnknownKeys = true }
+                val root = json.parseToJsonElement(jsonText).jsonObject
+                val entity =
+                    root["props"]
+                        ?.jsonObject
+                        ?.get("pageProps")
+                        ?.jsonObject
+                        ?.get("state")
+                        ?.jsonObject
+                        ?.get("data")
+                        ?.jsonObject
+                        ?.get("entity")
+                        ?.jsonObject ?: return@runCatching null
+
+                val playlistName = entity["name"]?.jsonPrimitive?.content ?: "Spotify Import"
+                val trackList = entity["trackList"]?.jsonArray ?: JsonArray(emptyList())
+
+                val songs = arrayListOf<Song>()
+                trackList.forEach { t ->
+                    val item = t.jsonObject
+                    val title =
+                        item["title"]?.jsonPrimitive?.content
+                            ?: item["name"]?.jsonPrimitive?.content ?: return@forEach
+                    val subtitle = item["subtitle"]?.jsonPrimitive?.content ?: ""
+                    val artists =
+                        subtitle
+                            .split(",", "·")
+                            .map { it.trim() }
+                            .filter { it.isNotEmpty() }
+                            .map { ArtistEntity(id = "", name = it) }
+                    if (artists.isEmpty()) return@forEach
+                    songs.add(
+                        Song(
+                            song = SongEntity(id = "", title = title),
+                            artists = artists,
+                        ),
+                    )
+                }
+
+                SpotifyImportResult(playlistName = playlistName, songs = songs)
+            }.onFailure { reportException(it) }.getOrNull()
+        }
+
+    /** Ambil ID playlist dari URL Spotify, mis. .../playlist/37i9dQZF1DXcBWIGoYBM5M */
+    private fun extractSpotifyId(url: String): String? =
+        Regex("playlist/([A-Za-z0-9]{15,40})").find(url)?.groupValues?.get(1)
+
     companion object {
         const val SETTINGS_FILENAME = "settings.preferences_pb"
     }
 }
+
+/** Hasil impor playlist Spotify: nama playlist + daftar lagu hasil pemetaan. */
+data class SpotifyImportResult(
+    val playlistName: String,
+    val songs: ArrayList<Song>,
+)
