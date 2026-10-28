@@ -570,13 +570,16 @@ private fun ThumbnailItem(
                     item.mediaMetadata.artworkUri?.toString()
                 }
                 // Jangan kosongkan gambar saat URI belum tersedia: turunkan ke
-                // thumbnail lagu ini di mediaMetadata, lalu ke lagu aktif.
-                // Tanpa ini, kotak abu-abu placeholder tampil lama setelah
-                // lagu berganti (mis. saat skip di full player).
+                // thumbnail lagu ini, lalu ke lagu aktif. Tanpa ini, kotak abu-abu
+                // placeholder tampil lama setelah lagu berganti (mis. saat skip).
+                // Catatan: item.mediaMetadata bertipe MediaMetadata media3 yang
+                // TIDAK punya properti thumbnailUrl; thumbnail disimpan di extras
+                // "artwork_uri" oleh MediaItemExt.toMediaItem().
+                val ownArtworkUri = item.mediaMetadata.extras?.getString("artwork_uri")
                 val resolvedArtworkUri =
-                    remember(artworkUriToUse, item.mediaMetadata.thumbnailUrl, currentMediaThumbnail) {
+                    remember(artworkUriToUse, ownArtworkUri, currentMediaThumbnail) {
                         artworkUriToUse?.takeIf { it.isNotBlank() }
-                            ?: item.mediaMetadata.thumbnailUrl
+                            ?: ownArtworkUri?.takeIf { it.isNotBlank() }
                             ?: currentMediaThumbnail
                     }
 
