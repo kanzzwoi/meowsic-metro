@@ -34,7 +34,8 @@ fun Bitmap.stackBlur(radius: Int): Bitmap {
         blurPass(out, pixels, w, h, radius, div, horizontal = false)
     }
 
-    val result = if (config != null) copy(config, false) else Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    val result = config?.let { copy(it, false) }
+        ?: Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
     result.setPixels(pixels, 0, w, 0, 0, w, h)
     return result
 }
