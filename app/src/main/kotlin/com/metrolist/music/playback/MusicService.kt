@@ -2669,9 +2669,12 @@ class MusicService :
                 scope.launch(Dispatchers.IO) { markCachedIfFullyDownloaded(mediaId) }
             }
 
-            // Check sleep timer guard - don't autoplay/repeat if sleep timer will pause
-            val timer = sleepTimer ?: return
-            if (timer.isActive && timer.pauseWhenSongEnd) {
+            // Cek sleep timer. JANGAN return di sini: `sleepTimer ?: return`
+            // membuat blok repeat di bawah tak pernah tercapai ketika sleep
+            // timer belum pernah dibuat, sehingga mode Ulang (ALL) tidak
+            // pernah mengulang daftar. Cukup lewati repeat jika timer aktif.
+            val timer = sleepTimer
+            if (timer != null && timer.isActive && timer.pauseWhenSongEnd) {
                 return
             }
 
