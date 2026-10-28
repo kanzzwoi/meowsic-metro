@@ -163,6 +163,7 @@ import com.metrolist.music.constants.PauseSearchHistoryKey
 import com.metrolist.music.constants.PreferredLyricsProvider
 import com.metrolist.music.constants.PreferredLyricsProviderKey
 import com.metrolist.music.constants.PureBlackKey
+import com.metrolist.music.constants.LiquidBackgroundKey
 import com.metrolist.music.constants.SYSTEM_DEFAULT
 import com.metrolist.music.constants.SelectedThemeColorKey
 import com.metrolist.music.constants.SimpMusicMigrationDoneKey
@@ -205,6 +206,7 @@ import com.metrolist.music.ui.screens.settings.NavigationTab
 import com.metrolist.music.ui.theme.ColorSaver
 import com.metrolist.music.ui.theme.DefaultThemeColor
 import com.metrolist.music.ui.theme.MetrolistTheme
+import com.metrolist.music.ui.theme.LiquidGradientBackground
 import com.metrolist.music.ui.theme.extractThemeColor
 import com.metrolist.music.ui.utils.appBarScrollBehavior
 import com.metrolist.music.ui.utils.resetHeightOffset
@@ -695,11 +697,24 @@ class MainActivity : FragmentActivity() {
                 }
         }
 
+        val liquidBackgroundEnabled by rememberPreference(LiquidBackgroundKey, defaultValue = false)
+
         MetrolistTheme(
             darkTheme = useDarkTheme,
             pureBlack = pureBlack,
             themeColor = themeColor,
         ) {
+            // Wallpaper "liquid": gradien bergerak di belakang seluruh layar.
+            // Ditaruh paling bawah (zIndex terendah) sehingga semua konten
+            // tetap di atasnya. Bila dimatikan, tidak ada yang dirender dan
+            // tampilan kembali seperti semula.
+            if (liquidBackgroundEnabled) {
+                LiquidGradientBackground(
+                    darkTheme = useDarkTheme,
+                    seedColor = themeColor,
+                )
+            }
+
             val currentDensity = LocalDensity.current
             val windowInfo = LocalWindowInfo.current
             val containerSize = windowInfo.containerDpSize

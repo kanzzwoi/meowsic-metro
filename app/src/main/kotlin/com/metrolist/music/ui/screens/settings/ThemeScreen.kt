@@ -46,6 +46,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -76,6 +77,7 @@ import com.metrolist.music.R
 import com.metrolist.music.constants.DarkModeKey
 import com.metrolist.music.constants.DynamicThemeKey
 import com.metrolist.music.constants.PureBlackKey
+import com.metrolist.music.constants.LiquidBackgroundKey
 import com.metrolist.music.constants.PureBlackMiniPlayerKey
 import com.metrolist.music.constants.SelectedThemeColorKey
 import com.metrolist.music.ui.theme.DefaultThemeColor
@@ -133,6 +135,8 @@ fun ThemeScreen(
         DefaultThemeColor.toArgb()
     )
     val (_, onDynamicThemeChange) = rememberPreference(DynamicThemeKey, defaultValue = true)
+    val (liquidBackground, onLiquidBackgroundChange) =
+        rememberPreference(LiquidBackgroundKey, defaultValue = false)
 
     val selectedThemeColor = Color(selectedThemeColorInt)
     val configuration = LocalConfiguration.current
@@ -190,7 +194,9 @@ fun PortraitThemeLayout(
     pureBlack: Boolean,
     onPureBlackChange: (Boolean) -> Unit,
     selectedThemeColor: Color,
-    onSelectedThemeColorChange: (Color) -> Unit
+    onSelectedThemeColorChange: (Color) -> Unit,
+    liquidBackground: Boolean,
+    onLiquidBackgroundChange: (Boolean) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -221,7 +227,9 @@ fun PortraitThemeLayout(
             pureBlack = pureBlack,
             onPureBlackChange = onPureBlackChange,
             selectedThemeColor = selectedThemeColor,
-            onSelectedThemeColorChange = onSelectedThemeColorChange
+            onSelectedThemeColorChange = onSelectedThemeColorChange,
+            liquidBackground = liquidBackground,
+            onLiquidBackgroundChange = onLiquidBackgroundChange
         )
 
         Spacer(modifier = Modifier.height(120.dp))
@@ -236,7 +244,9 @@ fun LandscapeThemeLayout(
     pureBlack: Boolean,
     onPureBlackChange: (Boolean) -> Unit,
     selectedThemeColor: Color,
-    onSelectedThemeColorChange: (Color) -> Unit
+    onSelectedThemeColorChange: (Color) -> Unit,
+    liquidBackground: Boolean,
+    onLiquidBackgroundChange: (Boolean) -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -278,7 +288,9 @@ fun LandscapeThemeLayout(
                 pureBlack = pureBlack,
                 onPureBlackChange = onPureBlackChange,
                 selectedThemeColor = selectedThemeColor,
-                onSelectedThemeColorChange = onSelectedThemeColorChange
+                onSelectedThemeColorChange = onSelectedThemeColorChange,
+                liquidBackground = liquidBackground,
+                onLiquidBackgroundChange = onLiquidBackgroundChange
             )
 
             Spacer(modifier = Modifier.height(80.dp))
@@ -293,7 +305,9 @@ fun ThemeControls(
     pureBlack: Boolean,
     onPureBlackChange: (Boolean) -> Unit,
     selectedThemeColor: Color,
-    onSelectedThemeColorChange: (Color) -> Unit
+    onSelectedThemeColorChange: (Color) -> Unit,
+    liquidBackground: Boolean,
+    onLiquidBackgroundChange: (Boolean) -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -378,6 +392,30 @@ fun ThemeControls(
                         showIcon = false
                     )
                 }
+            }
+
+            // Latar "liquid glass": gradien bergerak sebagai wallpaper app.
+            // Nonaktif memakai tampilan biasa, jadi perilaku lama tetap utuh.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.liquid_background),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = stringResource(R.string.liquid_background_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = liquidBackground,
+                    onCheckedChange = onLiquidBackgroundChange,
+                )
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
