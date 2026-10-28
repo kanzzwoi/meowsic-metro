@@ -939,11 +939,15 @@ fun PlaylistListItem(
             placeHolder = {
                 val painter = when (playlist.playlist.name) {
                     stringResource(R.string.liked) -> R.drawable.favorite_border
-                    stringResource(R.string.offline) -> R.drawable.offline
-                    stringResource(R.string.cached_playlist) -> R.drawable.cached
-                    // R.drawable.backup as placeholder
-                    stringResource(R.string.uploaded_playlist) -> R.drawable.backup
-                    else -> if (autoPlaylist) R.drawable.trending_up else R.drawable.queue_music
+                    stringResource(R.string.offline) -> R.drawable.ic_lib_downloaded
+                    stringResource(R.string.cached_playlist) -> R.drawable.ic_lib_cached
+                    stringResource(R.string.uploaded_playlist) -> R.drawable.ic_lib_uploaded
+                    else ->
+                        if (autoPlaylist) {
+                            if (playlist.playlist.name.startsWith(stringResource(R.string.my_top))) {
+                                R.drawable.ic_lib_top
+                            } else R.drawable.trending_up
+                        } else R.drawable.queue_music
                 }
                 Icon(
                     painter = painterResource(painter),
@@ -1039,11 +1043,15 @@ fun PlaylistGridItem(
             placeHolder = {
                 val painter = when (playlist.playlist.name) {
                     stringResource(R.string.liked) -> R.drawable.favorite_border
-                    stringResource(R.string.offline) -> R.drawable.offline
-                    stringResource(R.string.cached_playlist) -> R.drawable.cached
-                    // R.drawable.backup as placeholder
-                    stringResource(R.string.uploaded_playlist) -> R.drawable.backup
-                    else -> if (autoPlaylist) R.drawable.trending_up else R.drawable.queue_music
+                    stringResource(R.string.offline) -> R.drawable.ic_lib_downloaded
+                    stringResource(R.string.cached_playlist) -> R.drawable.ic_lib_cached
+                    stringResource(R.string.uploaded_playlist) -> R.drawable.ic_lib_uploaded
+                    else ->
+                        if (autoPlaylist) {
+                            if (playlist.playlist.name.startsWith(stringResource(R.string.my_top))) {
+                                R.drawable.ic_lib_top
+                            } else R.drawable.trending_up
+                        } else R.drawable.queue_music
                 }
                 Box(
                     contentAlignment = Alignment.Center,
