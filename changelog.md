@@ -1,3 +1,19 @@
+---v0.5.0
+# Liquid glass, perbaikan Ulang, dan pembaruan kecil
+- Latar liquid glass: wallpaper gradien biru tua yang bergerak pelan di
+  belakang aplikasi. Sangat ringan (tanpa bitmap, tanpa blur per-frame),
+  dan warnanya mengikuti warna tema. Aktifkan di Tema & Warna.
+- Bottom navigation bergaya kaca saat liquid aktif: pil mengapung,
+  semi-transparan, border tipis terang, dan sorotan pada item aktif.
+- Tombol Ulang diperbaiki: pencet 1x = lagu mengulang terus, 2x = Ulang 1
+  (sekali lalu lanjut), 3x = mati. Mode ulang ikut mati saat ganti lagu.
+- Ikon notifikasi / lock screen memakai logo Meowsic baru.
+- Kartu bagikan lirik default berlatar buram, dan judulnya mengecil
+  otomatis sampai maksimal 2 baris sebelum dipotong elipsis.
+- Tombol Unduh pada dialog bagikan lirik: menyimpan kartu langsung ke
+  galeri tanpa membuka dialog bagikan.
+- Pilihan warna tema baru: Biru tua (#071B85).
+
 ---v0.4.4
 # Latar buram benar-benar tampil & tombol Ulang diperbaiki
 - Akar masalah latar buram ditemukan: fungsi stackBlur sendiri menghasilkan
