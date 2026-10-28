@@ -180,6 +180,7 @@ import com.metrolist.music.ui.theme.PlayerColorExtractor
 import com.metrolist.music.ui.theme.PlayerSliderColors
 import com.metrolist.music.ui.utils.ShowMediaInfo
 import com.metrolist.music.ui.utils.ShowOffsetDialog
+import com.metrolist.music.ui.utils.resize
 import com.metrolist.music.utils.dataStore
 import com.metrolist.music.utils.makeTimeString
 import com.metrolist.music.utils.rememberEnumPreference
@@ -842,13 +843,23 @@ fun BottomSheetPlayer(
             ) {
                 when (playerBackground) {
                     PlayerBackgroundStyle.BLUR -> {
+                        // Kunci fade pada thumbnailUrl (bukan hanya target), agar
+                        // transisi tidak menggantung ketika thumbnailUrl null
+                        // sesaat setelah ganti lagu. key() memaksa gambar baru
+                        // dibuat ulang tiap lagu berganti.
                         AnimatedContent(
-                            targetState = mediaMetadata?.thumbnailUrl,
+                            targetState = mediaMetadata?.id,
                             transitionSpec = {
-                                fadeIn(tween(800)).togetherWith(fadeOut(tween(800)))
+                                fadeIn(tween(400)) togetherWith fadeOut(tween(400))
                             },
                             label = "blurBackground",
-                        ) { thumbnailUrl ->
+                        ) { songId ->
+                            val thumbnailUrl =
+                                remember(songId, mediaMetadata?.thumbnailUrl) {
+                                    mediaMetadata?.thumbnailUrl?.let {
+                                        if (it.startsWith("http")) it.resize(100, 100) else it
+                                    }
+                                }
                             if (thumbnailUrl != null) {
                                 Box(modifier = Modifier.alpha(backgroundAlpha)) {
                                     AsyncImage(
@@ -858,6 +869,8 @@ fun BottomSheetPlayer(
                                                 .data(thumbnailUrl)
                                                 .size(100, 100)
                                                 .allowHardware(false)
+                                                .memoryCacheKey(thumbnailUrl)
+                                                .diskCacheKey(thumbnailUrl)
                                                 .build(),
                                         contentDescription = null,
                                         contentScale = ContentScale.Crop,
