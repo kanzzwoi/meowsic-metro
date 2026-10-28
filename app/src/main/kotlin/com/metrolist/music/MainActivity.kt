@@ -29,6 +29,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -70,6 +72,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.contentColorFor
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -1068,18 +1071,32 @@ class MainActivity : FragmentActivity() {
                                         },
                                         actions = {
                                             val scope = rememberCoroutineScope()
-                                            IconButton(onClick = {
-                                                scope.launch {
-                                                    val next = if (useDarkTheme) com.metrolist.music.ui.screens.settings.DarkMode.OFF else com.metrolist.music.ui.screens.settings.DarkMode.ON
-                                                    applicationContext.safeDataStoreEdit { it[com.metrolist.music.constants.DarkModeKey] = next.name }
-                                                }
-                                            }) {
+                                            // Area sentuh diperbesar 48dp (standar minimum
+                                            // aksesibilitas). Sebelumnya ikon 24dp dengan
+                                            // hitbox kecil, sehingga sering butuh 3x tekan
+                                            // karena IconButton bertumpuk dengan action lain.
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(48.dp)
+                                                    .clip(CircleShape)
+                                                    .clickable(
+                                                        interactionSource = remember { MutableInteractionSource() },
+                                                        indication = ripple(),
+                                                    ) {
+                                                        scope.launch {
+                                                            val next = if (useDarkTheme) com.metrolist.music.ui.screens.settings.DarkMode.OFF else com.metrolist.music.ui.screens.settings.DarkMode.ON
+                                                            applicationContext.safeDataStoreEdit { it[com.metrolist.music.constants.DarkModeKey] = next.name }
+                                                        }
+                                                    },
+                                                contentAlignment = Alignment.Center,
+                                            ) {
                                                 Icon(
                                                     painter = painterResource(
                                                         if (useDarkTheme) R.drawable.ic_toolbar_moon
                                                         else R.drawable.ic_toolbar_sun,
                                                     ),
                                                     contentDescription = if (useDarkTheme) "Mode terang" else "Mode gelap",
+                                                    modifier = Modifier.size(24.dp),
                                                 )
                                             }
                                             if (showHistoryButton) {
