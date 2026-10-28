@@ -1283,6 +1283,7 @@ class MainActivity : FragmentActivity() {
                                         onItemClick = onNavItemClick,
                                         pureBlack = pureBlack,
                                         slimNav = slimNav,
+                                        glass = liquidBackgroundEnabled,
                                         onSearchLongClick = onSearchLongClick,
                                         onHomeLongHold = { showAccountDialog = true },
                                         modifier =

@@ -5,6 +5,24 @@
 
 package com.metrolist.music.ui.component
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Spacer
@@ -138,17 +156,23 @@ fun AppNavigationBar(
     slimNav: Boolean = false,
     onSearchLongClick: (() -> Unit)? = null,
     onHomeLongHold: (() -> Unit)? = null,
+    glass: Boolean = false,
 ) {
     val containerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.surfaceContainer
     val contentColor = if (pureBlack) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
     val haptics = LocalHapticFeedback.current
     val viewConfiguration = LocalViewConfiguration.current
 
-    NavigationBar(
+    Column(
         modifier = modifier,
-        containerColor = containerColor,
-        contentColor = contentColor
+        verticalArrangement = Arrangement.Bottom,
     ) {
+        GlassNavBarContainer(glass = glass, pureBlack = pureBlack) {
+        Row(
+            modifier = Modifier.fillMaxWidth().height(if (slimNav) 64.dp else 80.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
         navigationItems.forEach { screen ->
             val isSelected = remember(currentRoute, screen.route) {
                 isRouteSelected(currentRoute, screen.route, navigationItems)
@@ -188,31 +212,133 @@ fun AppNavigationBar(
                 }
             }
 
-            NavigationBarItem(
-                selected = isSelected,
-                onClick = {
-                    if (!isSearchItem && !isHomeHoldItem) {
-                        onItemClick(screen, currentIsSelected)
-                    }
-                    // Long presses are handled via InteractionSource
-                },
-                interactionSource = interactionSource,
-                icon = {
+            // Item kustom agar gaya kaca bisa diterapkan tanpa memakai
+            // NavigationBarItem bawaan (yang selalu menggambar indikator pill
+            // dengan warna permukaan solid).
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(percent = 50))
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = null,
+                        ) {
+                            if (!isSearchItem && !isHomeHoldItem) {
+                                onItemClick(screen, currentIsSelected)
+                            }
+                        },
+            ) {
+                // Sorotan "liquid" untuk item aktif: lapisan lebih terang
+                // yang membungkus ikon, seperti pada contoh desain.
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier =
+                        Modifier
+                            .size(width = 64.dp, height = 32.dp)
+                            .clip(RoundedCornerShape(percent = 50))
+                            .background(
+                                if (isSelected) {
+                                    Color.White.copy(alpha = if (pureBlack) 0.22f else 0.30f)
+                                } else {
+                                    Color.Transparent
+                                },
+                            ),
+                ) {
                     Icon(
                         painter = painterResource(id = iconRes),
-                        contentDescription = stringResource(screen.titleId)
+                        contentDescription = stringResource(screen.titleId),
+                        tint = if (isSelected) Color.White else contentColor,
+                        modifier = Modifier.size(22.dp),
                     )
-                },
-                label = if (!slimNav) {
-                    {
-                        Text(
-                            text = stringResource(screen.titleId),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                } else null
-            )
+                }
+                if (!slimNav) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = stringResource(screen.titleId),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isSelected) Color.White else contentColor,
+                    )
+                }
+            }
+        }
+        }
+        }
+    }
+}
+
+/**
+ * Wadah nav bar bergaya kaca (liquid glass).
+ *
+ * Saat [glass] false, tampil seperti sebelumnya: persegi penuh dengan warna
+ * permukaan solid, sehingga perilaku lama tetap utuh.
+ *
+ * Saat [glass] true, kontainer menjadi pil yang mengapung dengan:
+ * - latar semi-transparan (frosted tipis, bukan blur konten asli),
+ * - border tipis terang di tepi atas sebagai pantulan cahaya,
+ * - bayangan lembut agar terlepas dari latar.
+ *
+ * Sengaja TIDAK memakai blur per-frame agar tidak membebani GPU; kesan kaca
+ * dibangun dari transparansi + border + bayangan.
+ */
+@Composable
+private fun GlassNavBarContainer(
+    glass: Boolean,
+    pureBlack: Boolean,
+    content: @Composable () -> Unit,
+) {
+    if (!glass) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(if (pureBlack) Color.Black else MaterialTheme.colorScheme.surfaceContainer),
+        ) {
+            content()
+        }
+        return
+    }
+
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val glassTint =
+        if (isDark) {
+            Color.Black.copy(alpha = 0.28f)
+        } else {
+            Color.White.copy(alpha = 0.42f)
+        }
+    val rimColor =
+        if (isDark) {
+            Color.White.copy(alpha = 0.22f)
+        } else {
+            Color.White.copy(alpha = 0.85f)
+        }
+
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .shadow(elevation = 12.dp, shape = RoundedCornerShape(percent = 50), clip = false)
+                    .clip(RoundedCornerShape(percent = 50))
+                    .background(glassTint)
+                    .border(
+                        width = 1.dp,
+                        color = rimColor,
+                        shape = RoundedCornerShape(percent = 50),
+                    ),
+        ) {
+            content()
         }
     }
 }
