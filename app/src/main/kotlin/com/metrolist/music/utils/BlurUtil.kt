@@ -40,7 +40,7 @@ fun Bitmap.stackBlur(radius: Int): Bitmap {
 
     val out =
         if (config != null && config != Bitmap.Config.HARDWARE) {
-            Bitmap.createBitmap(w, h, config)
+            Bitmap.createBitmap(w, h, config!!)
         } else {
             Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         }
