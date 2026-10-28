@@ -54,7 +54,7 @@ object ComposeToImage {
         width: Int,
         height: Int,
         backgroundColor: Int? = null,
-        backgroundStyle: LyricsBackgroundStyle = LyricsBackgroundStyle.SOLID,
+        backgroundStyle: LyricsBackgroundStyle = LyricsBackgroundStyle.BLUR,
         textColor: Int? = null,
         secondaryTextColor: Int? = null,
         lyricsAlignment: Layout.Alignment = Layout.Alignment.ALIGN_CENTER,

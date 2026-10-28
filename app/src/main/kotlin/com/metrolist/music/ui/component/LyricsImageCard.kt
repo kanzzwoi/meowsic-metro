@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -155,7 +156,7 @@ fun LyricsImageCard(
     mediaMetadata: MediaMetadata,
     darkBackground: Boolean = true,
     backgroundColor: Color? = null,
-    backgroundStyle: LyricsBackgroundStyle = LyricsBackgroundStyle.SOLID,
+    backgroundStyle: LyricsBackgroundStyle = LyricsBackgroundStyle.BLUR,
     textColor: Color? = null,
     secondaryTextColor: Color? = null,
     textAlign: TextAlign = TextAlign.Center
@@ -323,10 +324,20 @@ fun LyricsImageCard(
                         Text(
                             text = mediaMetadata.title,
                             color = mainTextColor,
+                            // Judul mengecil sendiri bila tidak muat, maksimal 2 baris.
+                            // Baru dipotong dengan elipsis kalau tetap tidak muat
+                            // dalam 2 baris pada ukuran minimum.
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
-                            maxLines = 1,
+                            maxLines = 2,
+                            minLines = 1,
                             overflow = TextOverflow.Ellipsis,
+                            autoSize = TextAutoSize.StepBased(
+                                minFontSize = 12.sp,
+                                maxFontSize = 20.sp,
+                                stepSize = 1.sp,
+                            ),
+                            lineHeight = 22.sp,
                             modifier = Modifier.padding(bottom = 2.dp)
                         )
                         Text(

@@ -1906,7 +1906,7 @@ fun OriginalLyrics(
             val coverUrl = mediaMetadata?.thumbnailUrl
             val paletteColors = remember { mutableStateListOf<Color>() }
 
-            var previewBackgroundStyle by remember { mutableStateOf(LyricsBackgroundStyle.SOLID) }
+            var previewBackgroundStyle by remember { mutableStateOf(LyricsBackgroundStyle.BLUR) }
 
             val previewCardWidth = configuration.containerDpSize.width * 0.90f
             val previewPadding = 20.dp * 2

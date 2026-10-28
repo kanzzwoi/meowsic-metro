@@ -306,7 +306,7 @@ internal fun LyricsColorPickerDialog(
     val scope = rememberCoroutineScope()
     
     val pal = remember { mutableStateListOf<Color>() }
-    var bgStyle by remember { mutableStateOf(LyricsBackgroundStyle.SOLID) }
+    var bgStyle by remember { mutableStateOf(LyricsBackgroundStyle.BLUR) }
     var previewBackgroundColor by remember { mutableStateOf(Color(0xFF242424)) }
     var previewTextColor by remember { mutableStateOf(Color.White) }
     var previewSecondaryTextColor by remember { mutableStateOf(Color.White.copy(alpha = 0.7f)) }
