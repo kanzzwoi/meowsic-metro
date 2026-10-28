@@ -164,6 +164,7 @@ import com.metrolist.music.constants.PreferredLyricsProvider
 import com.metrolist.music.constants.PreferredLyricsProviderKey
 import com.metrolist.music.constants.PureBlackKey
 import com.metrolist.music.constants.LiquidBackgroundKey
+import com.metrolist.music.constants.LiquidBackgroundDefaultMigrationKey
 import com.metrolist.music.constants.SYSTEM_DEFAULT
 import com.metrolist.music.constants.SelectedThemeColorKey
 import com.metrolist.music.constants.SimpMusicMigrationDoneKey
@@ -484,6 +485,18 @@ class MainActivity : FragmentActivity() {
                     settings[WavySliderDefaultMigrationKey] = true
                 }
             }
+
+            // Latar liquid glass kini default AKTIF. User yang sudah pernah
+            // membuka versi sebelumnya menyimpan nilai false, sehingga default
+            // baru tidak berlaku bagi mereka. Nyalakan sekali di sini.
+            if (preferences[LiquidBackgroundDefaultMigrationKey] != true) {
+                safeDataStoreEdit { settings ->
+                    if (settings[LiquidBackgroundKey] != true) {
+                        settings[LiquidBackgroundKey] = true
+                    }
+                    settings[LiquidBackgroundDefaultMigrationKey] = true
+                }
+            }
         }
 
         lifecycleScope.launch(Dispatchers.IO) {
@@ -697,7 +710,7 @@ class MainActivity : FragmentActivity() {
                 }
         }
 
-        val liquidBackgroundEnabled by rememberPreference(LiquidBackgroundKey, defaultValue = false)
+        val liquidBackgroundEnabled by rememberPreference(LiquidBackgroundKey, defaultValue = true)
 
         MetrolistTheme(
             darkTheme = useDarkTheme,

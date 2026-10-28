@@ -1,3 +1,9 @@
+---v0.5.1
+# Liquid glass langsung aktif
+- Latar liquid glass kini menyala secara default, jadi bisa langsung
+  terlihat tanpa perlu mencarinya di pengaturan.
+- Tetap bisa dimatikan di Tema & Warna bila tidak diinginkan.
+
 ---v0.5.0
 # Liquid glass, perbaikan Ulang, dan pembaruan kecil
 - Latar liquid glass: wallpaper gradien biru tua yang bergerak pelan di
