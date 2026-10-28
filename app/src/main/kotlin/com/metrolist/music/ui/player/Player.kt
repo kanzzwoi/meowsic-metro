@@ -95,6 +95,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -862,6 +864,11 @@ fun BottomSheetPlayer(
                                 }
                             if (thumbnailUrl != null) {
                                 Box(modifier = Modifier.alpha(backgroundAlpha)) {
+                                    // Modifier.blur() tidak andal untuk AsyncImage/Coil;
+                                    // pakai RenderEffect di graphicsLayer agar blur pasti
+                                    // dirender. Overscale 1.5x mencegah tepi berkerut.
+                                    val blurRadiusPx =
+                                        with(LocalDensity.current) { 100.dp.toPx() }
                                     AsyncImage(
                                         model =
                                             ImageRequest
@@ -877,7 +884,17 @@ fun BottomSheetPlayer(
                                         modifier =
                                             Modifier
                                                 .fillMaxSize()
-                                                .blur(if (useDarkTheme) 150.dp else 100.dp),
+                                                .graphicsLayer {
+                                                    scaleX = 1.5f
+                                                    scaleY = 1.5f
+                                                    renderEffect =
+                                                        android.graphics.RenderEffect
+                                                            .createBlurEffect(
+                                                                blurRadiusPx,
+                                                                blurRadiusPx,
+                                                                android.graphics.Shader.TileMode.CLAMP,
+                                                            ).asComposeRenderEffect()
+                                                },
                                     )
                                     Box(
                                         modifier =

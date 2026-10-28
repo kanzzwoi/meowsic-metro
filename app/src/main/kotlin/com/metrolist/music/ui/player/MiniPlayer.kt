@@ -69,6 +69,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -420,21 +422,32 @@ private fun NewMiniPlayer(
             when (miniPlayerBackground) {
                 MiniPlayerBackgroundStyle.BLUR -> {
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                        // Kunci pada id lagu, bukan URL: URL bisa sama antar lagu
-                        // (mis. thumbnail di-cache) dan thumbnailUrl bisa null
-                        // sesaat setelah ganti lagu, sehingga latar tertinggal.
                         val blurUrl =
                             remember(mediaMetadata?.id, mediaMetadata?.thumbnailUrl) {
                                 mediaMetadata?.thumbnailUrl?.resize(120, 120)
                             }
                         if (blurUrl != null) {
+                            // Modifier.blur() tidak reliable untuk AsyncImage/Coil:
+                            // blur hanya bekerja bila konten dirasterisasi ke layer.
+                            // Pakai RenderEffect langsung di graphicsLayer agar pasti
+                            // diterapkan, lalu hybrid overscale (3x + ambang alpha) supaya
+                            // tepi gambar tidak berkerut karena blur menembus batas layout.
+                            val blurRadiusPx =
+                                with(LocalDensity.current) { 45.dp.toPx() }
                             AsyncImage(
                                 model = blurUrl,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .blur(60.dp),
+                                    .graphicsLayer {
+                                        scaleX = 1.5f
+                                        scaleY = 1.5f
+                                        renderEffect =
+                                            android.graphics.RenderEffect
+                                                .createBlurEffect(blurRadiusPx, blurRadiusPx, android.graphics.Shader.TileMode.CLAMP)
+                                                .asComposeRenderEffect()
+                                    },
                             )
                             Box(
                                 Modifier
