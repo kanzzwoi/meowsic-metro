@@ -501,7 +501,7 @@ class MusicService :
     @Volatile
     private var cachedAutoplay = true
     @Volatile
-    private var cachedDisableLoadMoreWhenRepeatAll = false
+    private var cachedDisableLoadMoreWhenRepeatAll = true
     @Volatile
     private var cachedHideExplicit = false
     @Volatile
@@ -1172,7 +1172,7 @@ class MusicService :
             dataStore.data.map { it[AutoplayKey] ?: true }.distinctUntilChanged().collect { cachedAutoplay = it }
         }
         scope.launch {
-            dataStore.data.map { it[DisableLoadMoreWhenRepeatAllKey] ?: false }.distinctUntilChanged().collect { cachedDisableLoadMoreWhenRepeatAll = it }
+            dataStore.data.map { it[DisableLoadMoreWhenRepeatAllKey] ?: true }.distinctUntilChanged().collect { cachedDisableLoadMoreWhenRepeatAll = it }
         }
         scope.launch {
             dataStore.data.map { it[HideExplicitKey] ?: false }.distinctUntilChanged().collect { cachedHideExplicit = it }
@@ -1964,7 +1964,7 @@ class MusicService :
 
     fun getAutomix(playlistId: String) {
         if (dataStore.get(SimilarContent, true) &&
-            !(dataStore.get(DisableLoadMoreWhenRepeatAllKey, false) && player.repeatMode == REPEAT_MODE_ALL)
+            !(dataStore.get(DisableLoadMoreWhenRepeatAllKey, true) && player.repeatMode == REPEAT_MODE_ALL)
         ) {
             scope.launch(SilentHandler) {
                 try {
@@ -2487,6 +2487,12 @@ class MusicService :
     }
 
     private var previousMediaItemIndex = C.INDEX_UNSET
+
+    // "Ulang 1" = putar ulang lagu SEKALI lagi lalu lanjut ke lagu berikut.
+    // repeatOnceCount: sudah berapa kali lagu ini diulang.
+    // repeatOnceSeeking: penanda agar seekTo kita sendiri tidak dihitung transisi.
+    private var repeatOnceCount = 0
+    private var repeatOnceSeeking = false
     private var previousEpisodeId: String? = null
 
     // Tracks the mediaId that was playing immediately before the current
@@ -2566,14 +2572,37 @@ class MusicService :
             }
         }
 
-        // Force Repeat One if the player ignored it and auto-advanced
-        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-            if (player.repeatMode == REPEAT_MODE_ONE &&
+        // ---- Mode "Ulang 1": ulangi lagu SEKALI lagi, lalu lanjut & matikan ----
+        if (repeatOnceSeeking) {
+            // Transisi ini berasal dari seekTo kita sendiri saat mengulang; abaikan.
+            repeatOnceSeeking = false
+        } else if (player.repeatMode == REPEAT_MODE_ONE) {
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
+                // Player sudah mengulang sendiri (putaran kedua mulai). Matikan agar
+                // putaran ini berakhir dengan pindah ke lagu berikut.
+                repeatOnceCount = 0
+                player.repeatMode = REPEAT_MODE_OFF
+            } else if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO &&
                 previousMediaItemIndex != C.INDEX_UNSET &&
                 previousMediaItemIndex != player.currentMediaItemIndex
             ) {
-                player.seekTo(previousMediaItemIndex, 0)
+                // Player auto-advanced tanpa mengulang: putar ulang sekali,
+                // kali berikutnya biarkan lanjut.
+                if (repeatOnceCount < 1) {
+                    repeatOnceCount++
+                    repeatOnceSeeking = true
+                    player.seekTo(previousMediaItemIndex, 0)
+                } else {
+                    repeatOnceCount = 0
+                    player.repeatMode = REPEAT_MODE_OFF
+                }
+            } else {
+                // Pindah lagu manual / transisi lain -> mode ulang selesai.
+                repeatOnceCount = 0
+                player.repeatMode = REPEAT_MODE_OFF
             }
+        } else {
+            repeatOnceCount = 0
         }
         previousMediaItemIndex = player.currentMediaItemIndex
 

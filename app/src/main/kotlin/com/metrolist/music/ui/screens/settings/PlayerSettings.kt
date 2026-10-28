@@ -168,7 +168,7 @@ fun PlayerSettings(
     )
     val (disableLoadMoreWhenRepeatAll, onDisableLoadMoreWhenRepeatAllChange) = rememberPreference(
         DisableLoadMoreWhenRepeatAllKey,
-        defaultValue = false
+        defaultValue = true
     )
     val (autoDownloadOnLike, onAutoDownloadOnLikeChange) = rememberPreference(
         AutoDownloadOnLikeKey,
