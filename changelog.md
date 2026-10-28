@@ -1,3 +1,11 @@
+---v0.4.1
+# Perbaikan latar buram
+- Latar buram (blur) mini-player dan full player kini benar-benar tampil.
+  Sebelumnya Modifier.blur() diabaikan saat memuat gambar via Coil,
+  sehingga latar tetap berwarna polos (bug juga ada di upstream).
+- Ganti ke RenderEffect langsung di graphicsLayer + overscale 1.5x
+  agar blur pasti dirender dan tepi gambar tidak berkerut.
+
 ---v13.7.0
 # KMP status update
 Metrolist-KMP remains in alpha, but tester feedback has been very positive. To try it, join our Discord and donate at least $1 to support development.
