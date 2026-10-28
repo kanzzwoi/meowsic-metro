@@ -14,6 +14,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
@@ -71,6 +72,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asComposeRenderEffect
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -103,6 +105,7 @@ import com.metrolist.music.playback.CastConnectionHandler
 import com.metrolist.music.playback.PlayerConnection
 import com.metrolist.music.ui.screens.settings.DarkMode
 import com.metrolist.music.ui.utils.resize
+import com.metrolist.music.utils.stackBlur
 import com.metrolist.music.utils.joinToArtistString
 import com.metrolist.music.utils.rememberEnumPreference
 import com.metrolist.music.utils.rememberPreference
@@ -422,32 +425,45 @@ private fun NewMiniPlayer(
             when (miniPlayerBackground) {
                 MiniPlayerBackgroundStyle.BLUR -> {
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                        // Blur di ruang bitmap (CPU), bukan RenderEffect GPU:
+                        // Modifier.blur()/RenderEffect diabaikan saat kontennya
+                        // AsyncImage/Coil, sehingga latar tampil polos. Jalur
+                        // bitmap + stackBlur deterministik di semua perangkat.
                         val blurUrl =
                             remember(mediaMetadata?.id, mediaMetadata?.thumbnailUrl) {
                                 mediaMetadata?.thumbnailUrl?.resize(120, 120)
                             }
-                        if (blurUrl != null) {
-                            // Modifier.blur() tidak reliable untuk AsyncImage/Coil:
-                            // blur hanya bekerja bila konten dirasterisasi ke layer.
-                            // Pakai RenderEffect langsung di graphicsLayer agar pasti
-                            // diterapkan, lalu hybrid overscale (3x + ambang alpha) supaya
-                            // tepi gambar tidak berkerut karena blur menembus batas layout.
-                            val blurRadiusPx =
-                                with(LocalDensity.current) { 45.dp.toPx() }
-                            AsyncImage(
-                                model = blurUrl,
+                        var blurBitmap by
+                            remember(mediaMetadata?.id) {
+                                mutableStateOf<android.graphics.Bitmap?>(null)
+                            }
+                        LaunchedEffect(blurUrl) {
+                            if (blurUrl == null) {
+                                blurBitmap = null
+                                return@LaunchedEffect
+                            }
+                            val bmp =
+                                withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        val request =
+                                            ImageRequest.Builder(context)
+                                                .data(blurUrl)
+                                                .size(100, 100)
+                                                .allowHardware(false)
+                                                .build()
+                                        context.imageLoader.execute(request)
+                                            .image?.toBitmap()
+                                            ?.stackBlur(8)
+                                    }.getOrNull()
+                                }
+                            blurBitmap = bmp
+                        }
+                        blurBitmap?.let { bmp ->
+                            Image(
+                                bitmap = bmp.asImageBitmap(),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer {
-                                        scaleX = 1.5f
-                                        scaleY = 1.5f
-                                        renderEffect =
-                                            android.graphics.RenderEffect
-                                                .createBlurEffect(blurRadiusPx, blurRadiusPx, android.graphics.Shader.TileMode.CLAMP)
-                                                .asComposeRenderEffect()
-                                    },
+                                modifier = Modifier.fillMaxSize(),
                             )
                             Box(
                                 Modifier

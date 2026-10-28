@@ -156,6 +156,7 @@ import com.metrolist.music.constants.PlayerVolumeKey
 import com.metrolist.music.constants.PreventDuplicateTracksInQueueKey
 import com.metrolist.music.constants.RememberShuffleAndRepeatKey
 import com.metrolist.music.constants.RepeatModeKey
+import com.metrolist.music.constants.RepeatOnceOnlyKey
 import com.metrolist.music.constants.ResumeOnBluetoothConnectKey
 import com.metrolist.music.constants.ScrobbleDelayPercentKey
 import com.metrolist.music.constants.ScrobbleDelaySecondsKey
@@ -502,6 +503,7 @@ class MusicService :
     private var cachedAutoplay = true
     @Volatile
     private var cachedDisableLoadMoreWhenRepeatAll = true
+    private var cachedRepeatOnceOnly = false
     @Volatile
     private var cachedHideExplicit = false
     @Volatile
@@ -1173,6 +1175,9 @@ class MusicService :
         }
         scope.launch {
             dataStore.data.map { it[DisableLoadMoreWhenRepeatAllKey] ?: true }.distinctUntilChanged().collect { cachedDisableLoadMoreWhenRepeatAll = it }
+        }
+        scope.launch {
+            dataStore.data.map { it[RepeatOnceOnlyKey] ?: false }.distinctUntilChanged().collect { cachedRepeatOnceOnly = it }
         }
         scope.launch {
             dataStore.data.map { it[HideExplicitKey] ?: false }.distinctUntilChanged().collect { cachedHideExplicit = it }
@@ -2572,32 +2577,26 @@ class MusicService :
             }
         }
 
-        // ---- Mode "Ulang 1": ulangi lagu SEKALI lagi, lalu lanjut & matikan ----
+        // ---- Mode Ulang ----
+        // "Ulang"   = REPEAT_MODE_ONE tanpa flag  -> lagu mengulang terus
+        //             (native loop, tidak diintersepsi) sampai dimatikan user
+        //             atau user pindah lagu (reason SEEK/ lainnya -> OFF).
+        // "Ulang 1" = REPEAT_MODE_ONE + flag      -> saat player mengulang
+        //             (reason REPEAT), mode dimatikan; putaran kedua tetap
+        //             diputar penuh lalu lanjut ke lagu berikutnya normal.
         if (repeatOnceSeeking) {
             // Transisi ini berasal dari seekTo kita sendiri saat mengulang; abaikan.
             repeatOnceSeeking = false
         } else if (player.repeatMode == REPEAT_MODE_ONE) {
-            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
-                // Player sudah mengulang sendiri (putaran kedua mulai). Matikan agar
-                // putaran ini berakhir dengan pindah ke lagu berikut.
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT && !cachedRepeatOnceOnly) {
+                // "Ulang": biarkan player mengulang terus (tanpa aksi).
+            } else if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
+                // "Ulang 1": satu pengulangan selesai; putaran kedua berjalan
+                // penuh karena mode kini OFF, lalu lanjut lagu berikutnya.
                 repeatOnceCount = 0
                 player.repeatMode = REPEAT_MODE_OFF
-            } else if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO &&
-                previousMediaItemIndex != C.INDEX_UNSET &&
-                previousMediaItemIndex != player.currentMediaItemIndex
-            ) {
-                // Player auto-advanced tanpa mengulang: putar ulang sekali,
-                // kali berikutnya biarkan lanjut.
-                if (repeatOnceCount < 1) {
-                    repeatOnceCount++
-                    repeatOnceSeeking = true
-                    player.seekTo(previousMediaItemIndex, 0)
-                } else {
-                    repeatOnceCount = 0
-                    player.repeatMode = REPEAT_MODE_OFF
-                }
             } else {
-                // Pindah lagu manual / transisi lain -> mode ulang selesai.
+                // Pindah lagu manual / transisi lain -> mode ulang dimatikan.
                 repeatOnceCount = 0
                 player.repeatMode = REPEAT_MODE_OFF
             }

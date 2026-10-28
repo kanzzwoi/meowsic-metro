@@ -97,6 +97,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asComposeRenderEffect
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -151,6 +152,7 @@ import com.metrolist.music.constants.PlayerBackgroundStyleKey
 import com.metrolist.music.constants.PlayerButtonsStyle
 import com.metrolist.music.constants.PlayerButtonsStyleKey
 import com.metrolist.music.constants.PlayerHorizontalPadding
+import com.metrolist.music.constants.RepeatOnceOnlyKey
 import com.metrolist.music.constants.QueuePeekHeight
 import com.metrolist.music.constants.SleepTimerDefaultKey
 import com.metrolist.music.constants.SleepTimerFadeOutKey
@@ -163,7 +165,6 @@ import com.metrolist.music.constants.UseNewPlayerDesignKey
 import com.metrolist.music.db.entities.LyricsEntity
 import com.metrolist.music.extensions.metadata
 import com.metrolist.music.extensions.togglePlayPause
-import com.metrolist.music.extensions.toggleRepeatMode
 import com.metrolist.music.listentogether.RoomRole
 import com.metrolist.music.models.MediaMetadata
 import com.metrolist.music.ui.component.BottomSheet
@@ -183,6 +184,7 @@ import com.metrolist.music.ui.theme.PlayerSliderColors
 import com.metrolist.music.ui.utils.ShowMediaInfo
 import com.metrolist.music.ui.utils.ShowOffsetDialog
 import com.metrolist.music.ui.utils.resize
+import com.metrolist.music.utils.stackBlur
 import com.metrolist.music.utils.dataStore
 import com.metrolist.music.utils.makeTimeString
 import com.metrolist.music.utils.rememberEnumPreference
@@ -325,6 +327,7 @@ fun BottomSheetPlayer(
     val currentSong by playerConnection.currentSong.collectAsStateWithLifecycle(initialValue = null)
     val automix by playerConnection.service.automixItems.collectAsStateWithLifecycle()
     val repeatMode by playerConnection.repeatMode.collectAsStateWithLifecycle()
+    val repeatOnceOnly by rememberPreference(RepeatOnceOnlyKey, defaultValue = false)
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsStateWithLifecycle()
     val canSkipNext by playerConnection.canSkipNext.collectAsStateWithLifecycle()
     val isMuted by playerConnection.isMuted.collectAsStateWithLifecycle()
@@ -778,18 +781,6 @@ fun BottomSheetPlayer(
     LaunchedEffect(playbackState, mediaMetadata?.id) {
         val currentId = mediaMetadata?.id
 
-        // Only switch from REPEAT_ONE to REPEAT_ALL when playback naturally ended
-        // (i.e., the player transitioned to ENDED state and then moved to next track).
-        // Do NOT switch on manual skips.
-        if (currentId != null &&
-            currentId != previousMediaId &&
-            previousMediaId != null &&
-            playbackState == Player.STATE_ENDED &&
-            repeatMode == Player.REPEAT_MODE_ONE &&
-            !isListenTogetherGuest) {
-            playerConnection.player.setRepeatMode(Player.REPEAT_MODE_ALL)
-        }
-
         previousMediaId = currentId
     }
 
@@ -864,44 +855,51 @@ fun BottomSheetPlayer(
                                 }
                             if (thumbnailUrl != null) {
                                 Box(modifier = Modifier.alpha(backgroundAlpha)) {
-                                    // Modifier.blur() tidak andal untuk AsyncImage/Coil;
-                                    // pakai RenderEffect di graphicsLayer agar blur pasti
-                                    // dirender. Overscale 1.5x mencegah tepi berkerut.
-                                    val blurRadiusPx =
-                                        with(LocalDensity.current) { 100.dp.toPx() }
-                                    AsyncImage(
-                                        model =
-                                            ImageRequest
-                                                .Builder(context)
-                                                .data(thumbnailUrl)
-                                                .size(100, 100)
-                                                .allowHardware(false)
-                                                .memoryCacheKey(thumbnailUrl)
-                                                .diskCacheKey(thumbnailUrl)
-                                                .build(),
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier =
-                                            Modifier
-                                                .fillMaxSize()
-                                                .graphicsLayer {
-                                                    scaleX = 1.5f
-                                                    scaleY = 1.5f
-                                                    renderEffect =
-                                                        android.graphics.RenderEffect
-                                                            .createBlurEffect(
-                                                                blurRadiusPx,
-                                                                blurRadiusPx,
-                                                                android.graphics.Shader.TileMode.CLAMP,
-                                                            ).asComposeRenderEffect()
-                                                },
-                                    )
-                                    Box(
-                                        modifier =
-                                            Modifier
-                                                .fillMaxSize()
-                                                .background(Color.Black.copy(alpha = 0.3f)),
-                                    )
+                                    // Blur di ruang bitmap (CPU), bukan RenderEffect GPU
+                                    // (lihat MiniPlayer.kt) — deterministik di semua device.
+                                    val blurUrl =
+                                        remember(mediaMetadata?.id, thumbnailUrl) {
+                                            thumbnailUrl?.takeIf { it.isNotBlank() }
+                                        }
+                                    var blurBitmap by
+                                        remember(mediaMetadata?.id) {
+                                            mutableStateOf<android.graphics.Bitmap?>(null)
+                                        }
+                                    LaunchedEffect(blurUrl) {
+                                        if (blurUrl == null) {
+                                            blurBitmap = null
+                                            return@LaunchedEffect
+                                        }
+                                        val bmp =
+                                            withContext(Dispatchers.IO) {
+                                                runCatching {
+                                                    val request =
+                                                        ImageRequest.Builder(context)
+                                                            .data(blurUrl)
+                                                            .size(100, 100)
+                                                            .allowHardware(false)
+                                                            .build()
+                                                    context.imageLoader.execute(request)
+                                                        .image?.toBitmap()
+                                                        ?.stackBlur(12)
+                                                }.getOrNull()
+                                            }
+                                        blurBitmap = bmp
+                                    }
+                                    blurBitmap?.let { bmp ->
+                                        Image(
+                                            bitmap = bmp.asImageBitmap(),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize(),
+                                        )
+                                        Box(
+                                            modifier =
+                                                Modifier
+                                                    .fillMaxSize()
+                                                    .background(Color.Black.copy(alpha = 0.3f)),
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1714,12 +1712,17 @@ fun BottomSheetPlayer(
                                     .padding(horizontal = PlayerHorizontalPadding),
                         ) {
                             Box(modifier = Modifier.weight(1f)) {
+                                // Siklus: OFF -> Ulang (lagu berulang terus) ->
+                                // Ulang 1 (berulang sekali lalu lanjut) -> OFF.
+                                // Flag RepeatOnceOnlyKey dibaca MusicService untuk
+                                // membedakan "Ulang" dan "Ulang 1" (sama-sama
+                                // REPEAT_MODE_ONE di level ExoPlayer).
                                 ResizableIconButton(
                                     icon =
-                                        when (repeatMode) {
-                                            Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ALL -> R.drawable.repeat
-                                            Player.REPEAT_MODE_ONE -> R.drawable.repeat_one
-                                            else -> throw IllegalStateException()
+                                        when {
+                                            repeatMode == Player.REPEAT_MODE_ONE && !repeatOnceOnly -> R.drawable.repeat_on
+                                            repeatMode == Player.REPEAT_MODE_ONE -> R.drawable.repeat_one_on
+                                            else -> R.drawable.repeat
                                         },
                                     color = TextBackgroundColor,
                                     modifier =
@@ -1732,7 +1735,28 @@ fun BottomSheetPlayer(
                                             ),
                                     enabled = !isListenTogetherGuest,
                                     onClick = {
-                                        playerConnection.player.toggleRepeatMode()
+                                        when {
+                                            repeatMode == Player.REPEAT_MODE_OFF -> {
+                                                // "Ulang": lagu mengulang terus
+                                                playerConnection.player.setRepeatMode(Player.REPEAT_MODE_ONE)
+                                                scope.launch {
+                                                    context.safeDataStoreEdit { it[RepeatOnceOnlyKey] = false }
+                                                }
+                                            }
+                                            repeatMode == Player.REPEAT_MODE_ONE && !repeatOnceOnly -> {
+                                                // "Ulang 1": ulang sekali lalu lanjut
+                                                scope.launch {
+                                                    context.safeDataStoreEdit { it[RepeatOnceOnlyKey] = true }
+                                                }
+                                            }
+                                            else -> {
+                                                // Matikan
+                                                playerConnection.player.setRepeatMode(Player.REPEAT_MODE_OFF)
+                                                scope.launch {
+                                                    context.safeDataStoreEdit { it[RepeatOnceOnlyKey] = false }
+                                                }
+                                            }
+                                        }
                                     },
                                 )
                             }

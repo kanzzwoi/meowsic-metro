@@ -510,6 +510,7 @@ val SleepTimerDefaultKey = floatPreferencesKey("sleepTimerDefault")
 val SleepTimerStopAfterCurrentSongKey = booleanPreferencesKey("sleepTimerStopAfterCurrentSong")
 val SleepTimerFadeOutKey = booleanPreferencesKey("sleepTimerFadeOut")
 val RepeatModeKey = intPreferencesKey("repeatMode")
+val RepeatOnceOnlyKey = booleanPreferencesKey("repeatOnceOnly")
 
 val SearchSourceKey = stringPreferencesKey("searchSource")
 val SwipeThumbnailKey = booleanPreferencesKey("swipeThumbnail")

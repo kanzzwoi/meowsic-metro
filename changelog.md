@@ -1,3 +1,13 @@
+---v0.4.2
+# Perbaikan latar buram & tombol Ulang
+- Latar buram kini dirender di ruang bitmap (CPU) alih-alih RenderEffect
+  GPU: Modifier.blur()/RenderEffect diabaikan saat kontennya AsyncImage
+  (Coil), sehingga latar tampil polos. Jalur bitmap + stackBlur
+  deterministik di semua perangkat.
+- Tombol Ulang disesuaikan: pencet 1x = lagu mengulang terus sampai
+  dimatikan atau pindah lagu; pencet 2x = Ulang 1 (mengulang sekali lalu
+  lanjut); pencet 3x = mati. Ikon: repeat_on / repeat_one_on.
+
 ---v0.4.1
 # Perbaikan latar buram
 - Latar buram (blur) mini-player dan full player kini benar-benar tampil.
