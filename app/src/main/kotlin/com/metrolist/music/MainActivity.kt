@@ -166,6 +166,10 @@ import com.metrolist.music.constants.PureBlackKey
 import com.metrolist.music.constants.SYSTEM_DEFAULT
 import com.metrolist.music.constants.SelectedThemeColorKey
 import com.metrolist.music.constants.SimpMusicMigrationDoneKey
+import com.metrolist.music.constants.SliderStyle
+import com.metrolist.music.constants.SliderStyleKey
+import com.metrolist.music.constants.SquigglySliderKey
+import com.metrolist.music.constants.WavySliderDefaultMigrationKey
 import com.metrolist.music.constants.SlimNavBarHeight
 import com.metrolist.music.constants.SlimNavBarKey
 import com.metrolist.music.constants.StopMusicOnTaskClearKey
@@ -461,6 +465,21 @@ class MainActivity : FragmentActivity() {
                 database.repairMissingVideoThumbnails()
                 safeDataStoreEdit { settings ->
                     settings[VideoThumbnailMigrationDoneKey] = true
+                }
+            }
+
+            // Migrasi gaya slider: default baru = Bergelombang (squiggly).
+            // User lama sudah punya nilai tersimpan (DEFAULT/false) sehingga
+            // default baru tidak berlaku bagi mereka. Terapkan sekali saja.
+            // Tidak menimpa user yang pernah memilih gaya lain (SLIM).
+            if (preferences[WavySliderDefaultMigrationKey] != true) {
+                safeDataStoreEdit { settings ->
+                    val stored = settings[SliderStyleKey]
+                    if (stored == null || stored == SliderStyle.DEFAULT.name) {
+                        settings[SliderStyleKey] = SliderStyle.WAVY.name
+                        settings[SquigglySliderKey] = true
+                    }
+                    settings[WavySliderDefaultMigrationKey] = true
                 }
             }
         }

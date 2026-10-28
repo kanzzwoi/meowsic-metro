@@ -244,12 +244,12 @@ fun AppearanceSettings(
     val (sliderStyle, onSliderStyleChange) =
         rememberEnumPreference(
             SliderStyleKey,
-            defaultValue = SliderStyle.DEFAULT,
+            defaultValue = SliderStyle.WAVY,
         )
     val (squigglySlider, onSquigglySliderChange) =
         rememberPreference(
             SquigglySliderKey,
-            defaultValue = false,
+            defaultValue = true,
         )
     val (swipeThumbnail, onSwipeThumbnailChange) =
         rememberPreference(
