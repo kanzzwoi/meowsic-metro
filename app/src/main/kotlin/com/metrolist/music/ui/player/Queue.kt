@@ -285,7 +285,7 @@ fun Queue(
                     val repeatShape = RoundedCornerShape(2.dp)
 
                     PlayerQueueButton(
-                        icon = R.drawable.queue_music,
+                        icon = R.drawable.ic_ply_queue,
                         onClick = { state.expandSoft() },
                         isActive = false,
                         shape = queueShape,
@@ -299,7 +299,7 @@ fun Queue(
                     )
 
                     PlayerQueueButton(
-                        icon = R.drawable.bedtime,
+                        icon = R.drawable.ic_ply_timer,
                         onClick = {
                             if (sleepTimerEnabled) {
                                 playerConnection.service.sleepTimer?.clear()
@@ -322,7 +322,7 @@ fun Queue(
 
                     val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsStateWithLifecycle()
                     PlayerQueueButton(
-                        icon = R.drawable.shuffle,
+                        icon = R.drawable.ic_ply_shuffle,
                         onClick = {
                             playerConnection.player.shuffleModeEnabled = !shuffleModeEnabled
                         },
@@ -339,7 +339,7 @@ fun Queue(
                     )
 
                     PlayerQueueButton(
-                        icon = R.drawable.lyrics,
+                        icon = R.drawable.ic_ply_lyrics,
                         onClick = { onToggleLyrics() },
                         label = "Lirik",
                         isActive = showInlineLyrics,
@@ -353,12 +353,7 @@ fun Queue(
                     )
 
                     PlayerQueueButton(
-                        icon =
-                            when (repeatMode) {
-                                Player.REPEAT_MODE_ALL -> R.drawable.repeat
-                                Player.REPEAT_MODE_ONE -> R.drawable.repeat_one
-                                else -> R.drawable.repeat
-                            },
+                        icon = R.drawable.ic_ply_repeat,
                         label = when (repeatMode) {
                             Player.REPEAT_MODE_ONE -> "Ulang 1"
                             Player.REPEAT_MODE_ALL -> "Ulang"
