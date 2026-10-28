@@ -97,7 +97,6 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asComposeRenderEffect
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -184,7 +183,6 @@ import com.metrolist.music.ui.theme.PlayerSliderColors
 import com.metrolist.music.ui.utils.ShowMediaInfo
 import com.metrolist.music.ui.utils.ShowOffsetDialog
 import com.metrolist.music.ui.utils.resize
-import com.metrolist.music.utils.stackBlur
 import com.metrolist.music.utils.dataStore
 import com.metrolist.music.utils.makeTimeString
 import com.metrolist.music.utils.rememberEnumPreference
@@ -855,51 +853,14 @@ fun BottomSheetPlayer(
                                 }
                             if (thumbnailUrl != null) {
                                 Box(modifier = Modifier.alpha(backgroundAlpha)) {
-                                    // Blur di ruang bitmap (CPU), bukan RenderEffect GPU
-                                    // (lihat MiniPlayer.kt) — deterministik di semua device.
-                                    val blurUrl =
-                                        remember(mediaMetadata?.id, thumbnailUrl) {
-                                            thumbnailUrl?.takeIf { it.isNotBlank() }
-                                        }
-                                    var blurBitmap by
-                                        remember(mediaMetadata?.id) {
-                                            mutableStateOf<android.graphics.Bitmap?>(null)
-                                        }
-                                    LaunchedEffect(blurUrl) {
-                                        if (blurUrl == null) {
-                                            blurBitmap = null
-                                            return@LaunchedEffect
-                                        }
-                                        val bmp =
-                                            withContext(Dispatchers.IO) {
-                                                runCatching {
-                                                    val request =
-                                                        ImageRequest.Builder(context)
-                                                            .data(blurUrl)
-                                                            .size(100, 100)
-                                                            .allowHardware(false)
-                                                            .build()
-                                                    context.imageLoader.execute(request)
-                                                        .image?.toBitmap()
-                                                        ?.stackBlur(12)
-                                                }.getOrNull()
-                                            }
-                                        blurBitmap = bmp
-                                    }
-                                    blurBitmap?.let { bmp ->
-                                        Image(
-                                            bitmap = bmp.asImageBitmap(),
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize(),
-                                        )
-                                        Box(
-                                            modifier =
-                                                Modifier
-                                                    .fillMaxSize()
-                                                    .background(Color.Black.copy(alpha = 0.3f)),
-                                        )
-                                    }
+                                    BlurBackground(
+                                        thumbnailUrl = thumbnailUrl,
+                                        songId = mediaMetadata?.id,
+                                        radius = 12,
+                                        scrimAlpha = 0.3f,
+                                        modifier = Modifier.fillMaxSize(),
+                                        fadeIn = true,
+                                    )
                                 }
                             }
                         }

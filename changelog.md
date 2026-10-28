@@ -1,3 +1,11 @@
+---v0.4.3
+# Latar buram: tulis ulang sebagai komponen mandiri
+- Blur dipindah ke komponen `BlurBackground` yang memegang state-nya sendiri,
+  bukan state di dalam blok `when`. State di dalam cabang `when` mudah
+  dibuang saat recomposition sehingga bitmap tidak pernah tampil.
+- Tetap blur di CPU (stackBlur) untuk 100x100, tidak bergantung pada
+  RenderEffect maupun Android 12+.
+
 ---v0.4.2
 # Perbaikan latar buram & tombol Ulang
 - Latar buram kini dirender di ruang bitmap (CPU) alih-alih RenderEffect
