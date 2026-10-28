@@ -8,84 +8,111 @@ package com.metrolist.music.utils
 import android.graphics.Bitmap
 
 /**
- * Gaussian-like blur murni Kotlin (3x box blur) yang berjalan di CPU.
+ * Blur kotak berulang (3 pass) untuk latar mini-player dan full player.
  *
- * Dipakai untuk latar buram mini-player/full player karena Modifier.blur()
- * (RenderEffect GPU) tidak andal saat kontennya AsyncImage/Coil: blur bisa
- * diabaikan total sehingga latar jatuh ke warna polos. Blur di ruang bitmap
- * bersifat deterministik di semua perangkat dan semua versi Android.
+ * Menggantikan Modifier.blur()/RenderEffect yang tidak andal untuk konten
+ * AsyncImage/Coil. Dikerjakan di ruang bitmap sehingga hasilnya sama di semua
+ * perangkat dan versi Android.
  *
- * Sumber idealnya bitmap KECIL (mis. 100x100 dari sampul album); hasilnya
- * nanti di-upscale oleh Compose (ContentScale.Crop), jadi kualitas tetap
- * lembut tanpa biaya komputasi berarti.
+ * Akumulator jendela geser hanya boleh memakai piksel dalam rentang citra;
+ * nilai di luar tepi diganti piksel tepi terdekat dan pembaginya selalu
+ * diameter penuh (2*radius+1). Versi sebelumnya mencampur jumlah pembagi
+ * yang berbeda dengan akumulator penuh, sehingga nilai meluber keluar
+ * rentang 0..255 dan gambarnya rusak.
+ *
+ * Sumber sebaiknya bitmap kecil (mis. 100x100); Compose meng-upscale-nya
+ * lewat ContentScale.Crop sehingga hasilnya tetap terlihat lembut.
  */
 fun Bitmap.stackBlur(radius: Int): Bitmap {
-    if (radius < 1) return this
+    if (radius < 1 || width < 1 || height < 1) return this
+
     val w = width
     val h = height
-    val pixels = IntArray(w * h)
-    getPixels(pixels, 0, w, 0, 0, w, h)
+    val src = IntArray(w * h)
+    getPixels(src, 0, w, 0, 0, w, h)
+    val tmp = IntArray(w * h)
 
-    val div = 2 * radius + 1
-    val out = IntArray(w * h)
-
+    // 3 pass bolak-balik memberi hasil mendekati Gaussian.
     repeat(3) {
-        blurPass(pixels, out, w, h, radius, div, horizontal = true)
-        blurPass(out, pixels, w, h, radius, div, horizontal = false)
+        boxBlurHorizontal(src, tmp, w, h, radius)
+        boxBlurVertical(tmp, src, w, h, radius)
     }
 
-    val result = config?.let { copy(it, false) }
-        ?: Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-    result.setPixels(pixels, 0, w, 0, 0, w, h)
-    return result
+    val out =
+        if (config != null && config != Bitmap.Config.HARDWARE) {
+            Bitmap.createBitmap(w, h, config)
+        } else {
+            Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        }
+    out.setPixels(src, 0, w, 0, 0, w, h)
+    return out
 }
 
-private fun blurPass(
-    src: IntArray,
-    dst: IntArray,
-    w: Int,
-    h: Int,
-    radius: Int,
-    div: Int,
-    horizontal: Boolean,
-) {
-    val outer = if (horizontal) h else w
-    val inner = if (horizontal) w else h
-    val step = if (horizontal) 1 else w
+/** Rata-rata arah horizontal: src -> dst. */
+private fun boxBlurHorizontal(src: IntArray, dst: IntArray, w: Int, h: Int, radius: Int) {
+    val diameter = radius * 2 + 1
+    for (y in 0 until h) {
+        val row = y * w
+        var sumA = 0
+        var sumR = 0
+        var sumG = 0
+        var sumB = 0
 
-    for (o in 0 until outer) {
-        val base = o * (if (horizontal) w else 1)
-        var aSum = 0; var rSum = 0; var gSum = 0; var bSum = 0
-
-        // Jendela awal: -radius..radius, di-clamp di tepi.
         for (i in -radius..radius) {
-            val idx = base + (i.coerceIn(0, inner - 1)) * step
-            val p = src[idx]
-            aSum += p ushr 24 and 0xFF
-            rSum += p ushr 16 and 0xFF
-            gSum += p ushr 8 and 0xFF
-            bSum += p and 0xFF
+            val p = src[row + i.coerceIn(0, w - 1)]
+            sumA += (p ushr 24) and 0xFF
+            sumR += (p ushr 16) and 0xFF
+            sumG += (p ushr 8) and 0xFF
+            sumB += p and 0xFF
         }
 
-        for (i in 0 until inner) {
-            val dstIdx = base + i * step
-            val count = minOf(i + radius, inner - 1) - maxOf(i - radius, 0) + 1
-            val p = src[dstIdx]
-            dst[dstIdx] = ((aSum / count) shl 24) or
-                ((rSum / count) shl 16) or
-                ((gSum / count) shl 8) or
-                (bSum / count)
+        for (x in 0 until w) {
+            dst[row + x] =
+                ((sumA / diameter) shl 24) or
+                ((sumR / diameter) shl 16) or
+                ((sumG / diameter) shl 8) or
+                (sumB / diameter)
 
-            // Geser jendela: keluarkan piksel kiri, masukkan piksel kanan.
-            val outIdx = base + (i - radius).coerceAtLeast(0) * step
-            val inIdx = base + (i + radius + 1).coerceAtMost(inner - 1) * step
-            val po = src[outIdx]
-            val pi = src[inIdx]
-            aSum += (pi ushr 24 and 0xFF) - (po ushr 24 and 0xFF)
-            rSum += (pi ushr 16 and 0xFF) - (po ushr 16 and 0xFF)
-            gSum += (pi ushr 8 and 0xFF) - (po ushr 8 and 0xFF)
-            bSum += (pi and 0xFF) - (po and 0xFF)
+            val po = src[row + (x - radius).coerceIn(0, w - 1)]
+            val pi = src[row + (x + radius + 1).coerceIn(0, w - 1)]
+            sumA += ((pi ushr 24) and 0xFF) - ((po ushr 24) and 0xFF)
+            sumR += ((pi ushr 16) and 0xFF) - ((po ushr 16) and 0xFF)
+            sumG += ((pi ushr 8) and 0xFF) - ((po ushr 8) and 0xFF)
+            sumB += (pi and 0xFF) - (po and 0xFF)
         }
-        @Suppress("UNUSED_EXPRESSION") div
+    }
+}
+
+/** Rata-rata arah vertikal: src -> dst. */
+private fun boxBlurVertical(src: IntArray, dst: IntArray, w: Int, h: Int, radius: Int) {
+    val diameter = radius * 2 + 1
+    for (x in 0 until w) {
+        var sumA = 0
+        var sumR = 0
+        var sumG = 0
+        var sumB = 0
+
+        for (i in -radius..radius) {
+            val p = src[i.coerceIn(0, h - 1) * w + x]
+            sumA += (p ushr 24) and 0xFF
+            sumR += (p ushr 16) and 0xFF
+            sumG += (p ushr 8) and 0xFF
+            sumB += p and 0xFF
+        }
+
+        for (y in 0 until h) {
+            dst[y * w + x] =
+                ((sumA / diameter) shl 24) or
+                ((sumR / diameter) shl 16) or
+                ((sumG / diameter) shl 8) or
+                (sumB / diameter)
+
+            val po = src[(y - radius).coerceIn(0, h - 1) * w + x]
+            val pi = src[(y + radius + 1).coerceIn(0, h - 1) * w + x]
+            sumA += ((pi ushr 24) and 0xFF) - ((po ushr 24) and 0xFF)
+            sumR += ((pi ushr 16) and 0xFF) - ((po ushr 16) and 0xFF)
+            sumG += ((pi ushr 8) and 0xFF) - ((po ushr 8) and 0xFF)
+            sumB += (pi and 0xFF) - (po and 0xFF)
+        }
     }
 }

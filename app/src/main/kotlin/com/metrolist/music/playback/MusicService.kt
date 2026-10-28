@@ -2494,10 +2494,8 @@ class MusicService :
     private var previousMediaItemIndex = C.INDEX_UNSET
 
     // "Ulang 1" = putar ulang lagu SEKALI lagi lalu lanjut ke lagu berikut.
-    // repeatOnceCount: sudah berapa kali lagu ini diulang.
-    // repeatOnceSeeking: penanda agar seekTo kita sendiri tidak dihitung transisi.
+    // repeatOnceCount: sudah berapa kali lagu ini diulang pada mode "Ulang 1".
     private var repeatOnceCount = 0
-    private var repeatOnceSeeking = false
     private var previousEpisodeId: String? = null
 
     // Tracks the mediaId that was playing immediately before the current
@@ -2578,30 +2576,18 @@ class MusicService :
         }
 
         // ---- Mode Ulang ----
-        // "Ulang"   = REPEAT_MODE_ONE tanpa flag  -> lagu mengulang terus
-        //             (native loop, tidak diintersepsi) sampai dimatikan user
-        //             atau user pindah lagu (reason SEEK/ lainnya -> OFF).
-        // "Ulang 1" = REPEAT_MODE_ONE + flag      -> saat player mengulang
-        //             (reason REPEAT), mode dimatikan; putaran kedua tetap
-        //             diputar penuh lalu lanjut ke lagu berikutnya normal.
-        if (repeatOnceSeeking) {
-            // Transisi ini berasal dari seekTo kita sendiri saat mengulang; abaikan.
-            repeatOnceSeeking = false
-        } else if (player.repeatMode == REPEAT_MODE_ONE) {
-            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT && !cachedRepeatOnceOnly) {
-                // "Ulang": biarkan player mengulang terus (tanpa aksi).
-            } else if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
-                // "Ulang 1": satu pengulangan selesai; putaran kedua berjalan
-                // penuh karena mode kini OFF, lalu lanjut lagu berikutnya.
-                repeatOnceCount = 0
-                player.repeatMode = REPEAT_MODE_OFF
-            } else {
-                // Pindah lagu manual / transisi lain -> mode ulang dimatikan.
-                repeatOnceCount = 0
+        // Urusan mengulang kini HANYA ditangani onPlaybackStateChanged(STATE_ENDED)
+        // memakai cachedRepeatOnceOnly + repeatOnceCount. Di sini kita cukup
+        // mereset penghitung saat lagu benar-benar berpindah (bukan REPEAT).
+        if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
+            repeatOnceCount = 0
+            if (player.repeatMode == REPEAT_MODE_ONE) {
+                // Selain REPEAT, transisi apa pun berarti lagu benar-benar
+                // berpindah (user tekan next/prev, pilih lagu dari daftar,
+                // atau auto-advance). Sesuai permintaan: mode ulang dimatikan
+                // agar tombolnya ikut mati saat ganti lagu.
                 player.repeatMode = REPEAT_MODE_OFF
             }
-        } else {
-            repeatOnceCount = 0
         }
         previousMediaItemIndex = player.currentMediaItemIndex
 
@@ -2687,10 +2673,30 @@ class MusicService :
             }
 
             if (player.playWhenReady && repeatMode == REPEAT_MODE_ONE) {
-                player.seekTo(player.currentMediaItemIndex, 0)
-                player.prepare()
-                player.play()
-                return
+                // Satu-satunya jalur yang paling tahu apakah lagu masih boleh
+                // diulang adalah cachedRepeatOnceOnly:
+                // - "Ulang" (flag false): putar ulang lagu ini, terus-menerus.
+                // - "Ulang 1" (flag true): putar ulang SEKALI, lalu matikan mode
+                //   agar putaran berikutnya berakhir normal dan lanjut lagu.
+                if (cachedRepeatOnceOnly) {
+                    if (repeatOnceCount >= 1) {
+                        repeatOnceCount = 0
+                        player.repeatMode = REPEAT_MODE_OFF
+                        // Jatuh ke alur autoplay di bawah pada state ENDED
+                        // berikutnya; untuk sekarang biarkan pemutar selesai.
+                    } else {
+                        repeatOnceCount++
+                        player.seekTo(player.currentMediaItemIndex, 0)
+                        player.prepare()
+                        player.play()
+                        return
+                    }
+                } else {
+                    player.seekTo(player.currentMediaItemIndex, 0)
+                    player.prepare()
+                    player.play()
+                    return
+                }
             }
 
             if (player.playWhenReady && cachedAutoplay && player.hasNextMediaItem()) {

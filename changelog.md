@@ -1,3 +1,16 @@
+---v0.4.4
+# Latar buram benar-benar tampil & tombol Ulang diperbaiki
+- Akar masalah latar buram ditemukan: fungsi stackBlur sendiri menghasilkan
+  data rusak (akumulator jendela geser memakai pembagi yang berubah sehingga
+  nilai meluber keluar 0..255). Itu sebabnya tidak ada blur yang pernah
+  tampil sejak awal. Algoritma ditulis ulang dengan pembagi tetap dan sudah
+  diuji: piksel menyebar benar dan semua kanal valid.
+- Tombol Ulang tidak lagi kebalik. Sebelumnya dua jalur (onMediaItemTransition
+  dan onPlaybackStateChanged) saling bertabrakan, sehingga "Ulang" berperilaku
+  seperti "Ulang 1". Kini hanya satu jalur yang mengatur: Ulang = mengulang
+  terus, Ulang 1 = mengulang sekali lalu lanjut.
+- Mode ulang kini ikut mati saat lagu berganti (next/prev/pilih lagu).
+
 ---v0.4.3
 # Latar buram: tulis ulang sebagai komponen mandiri
 - Blur dipindah ke komponen `BlurBackground` yang memegang state-nya sendiri,
