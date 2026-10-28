@@ -5,6 +5,7 @@
 
 package com.metrolist.music.constants
 
+import android.os.Build
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -27,7 +28,14 @@ enum class MiniPlayerBackgroundStyle {
     TRANSPARENT,
     BLUR,
     GRADIENT,
-    PURE_BLACK,
+    PURE_BLACK
+    ;
+
+    companion object {
+        /** Default: blur di Android 12+ (blur butuh API 31), kalau tidak ikut tema. */
+        val default: MiniPlayerBackgroundStyle
+            get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) BLUR else DEFAULT
+    }
 }
 
 val DensityScaleKey = floatPreferencesKey("density_scale_factor")
@@ -431,7 +439,14 @@ enum class PlayerButtonsStyle {
 enum class PlayerBackgroundStyle {
     DEFAULT,
     GRADIENT,
-    BLUR,
+    BLUR
+    ;
+
+    companion object {
+        /** Default: blur di Android 12+ (blur butuh API 31), kalau tidak ikut tema. */
+        val default: PlayerBackgroundStyle
+            get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) BLUR else DEFAULT
+    }
 }
 
 val TopSize = stringPreferencesKey("topSize")
