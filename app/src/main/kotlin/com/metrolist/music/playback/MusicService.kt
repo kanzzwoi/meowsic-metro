@@ -2576,16 +2576,27 @@ class MusicService :
         }
 
         // ---- Mode Ulang ----
-        // Urusan mengulang kini HANYA ditangani onPlaybackStateChanged(STATE_ENDED)
-        // memakai cachedRepeatOnceOnly + repeatOnceCount. Di sini kita cukup
-        // mereset penghitung saat lagu benar-benar berpindah (bukan REPEAT).
-        if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
+        // ExoPlayer TIDAK pernah melaporkan STATE_ENDED selama repeatMode =
+        // REPEAT_MODE_ONE: ia mengulang sendiri dan tetap di STATE_READY.
+        // Karena itu penghitungan "Ulang 1" TIDAK boleh bergantung pada
+        // onPlaybackStateChanged - di sana bloknya tidak pernah tercapai.
+        // Satu-satunya titik yang pasti terpanggil adalah transisi media item.
+        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
+            // Lagu baru saja mengulang dari awal.
+            repeatOnceCount = 1
+            if (cachedRepeatOnceOnly) {
+                // "Ulang 1": satu pengulangan sudah diputar. Matikan mode agar
+                // putaran ini selesai normal dan lanjut ke lagu berikutnya.
+                player.repeatMode = REPEAT_MODE_OFF
+            }
+            // "Ulang" (flag false): biarkan tetap REPEAT_MODE_ONE -> mengulang
+            // terus-menerus sampai user mematikannya atau ganti lagu.
+        } else {
+            // Lagu benar-benar berpindah (user tekan next/prev, pilih dari
+            // daftar, atau auto-advance). Reset penghitung dan matikan mode
+            // ulang supaya tombolnya ikut mati saat ganti lagu.
             repeatOnceCount = 0
             if (player.repeatMode == REPEAT_MODE_ONE) {
-                // Selain REPEAT, transisi apa pun berarti lagu benar-benar
-                // berpindah (user tekan next/prev, pilih lagu dari daftar,
-                // atau auto-advance). Sesuai permintaan: mode ulang dimatikan
-                // agar tombolnya ikut mati saat ganti lagu.
                 player.repeatMode = REPEAT_MODE_OFF
             }
         }
@@ -2673,24 +2684,13 @@ class MusicService :
             }
 
             if (player.playWhenReady && repeatMode == REPEAT_MODE_ONE) {
-                // Satu-satunya jalur yang paling tahu apakah lagu masih boleh
-                // diulang adalah cachedRepeatOnceOnly:
-                // - "Ulang" (flag false): putar ulang lagu ini, terus-menerus.
-                // - "Ulang 1" (flag true): putar ulang SEKALI, lalu matikan mode
-                //   agar putaran berikutnya berakhir normal dan lanjut lagu.
-                if (cachedRepeatOnceOnly) {
-                    if (repeatOnceCount >= 1) {
-                        repeatOnceCount = 0
-                        player.repeatMode = REPEAT_MODE_OFF
-                        // Jatuh ke alur autoplay di bawah pada state ENDED
-                        // berikutnya; untuk sekarang biarkan pemutar selesai.
-                    } else {
-                        repeatOnceCount++
-                        player.seekTo(player.currentMediaItemIndex, 0)
-                        player.prepare()
-                        player.play()
-                        return
-                    }
+                // Normalnya ExoPlayer mengulang sendiri dan tidak pernah sampai
+                // sini. Blok ini hanya jaring pengaman bila player melapor ENDED
+                // dengan mode ONE (mis. media tanpa durasi). Penghitungan
+                // "Ulang 1" ada di onMediaItemTransition, bukan di sini.
+                if (cachedRepeatOnceOnly && repeatOnceCount >= 1) {
+                    repeatOnceCount = 0
+                    player.repeatMode = REPEAT_MODE_OFF
                 } else {
                     player.seekTo(player.currentMediaItemIndex, 0)
                     player.prepare()
