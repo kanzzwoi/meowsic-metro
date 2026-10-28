@@ -62,6 +62,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -2176,6 +2177,68 @@ fun OriginalLyrics(
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(stringResource(id = R.string.share))
+                        }
+
+                        // Unduh: simpan kartu ke galeri tanpa membuka dialog bagikan.
+                        OutlinedButton(
+                            onClick = {
+                                showColorPickerDialog = false
+                                showProgressDialog = true
+                                scope.launch {
+                                    try {
+                                        val screenWidth = configuration.containerSize.width
+                                        val screenHeight = configuration.containerSize.height
+
+                                        val image =
+                                            ComposeToImage.createLyricsImage(
+                                                context = context,
+                                                coverArtUrl = coverUrl,
+                                                songTitle = songTitle,
+                                                artistName = artists,
+                                                lyrics = lyricsText,
+                                                width = (screenWidth * density.density).toInt(),
+                                                height = (screenHeight * density.density).toInt(),
+                                                backgroundColor = previewBackgroundColor.toArgb(),
+                                                backgroundStyle = previewBackgroundStyle,
+                                                textColor = previewTextColor.toArgb(),
+                                                secondaryTextColor = previewSecondaryTextColor.toArgb(),
+                                                lyricsAlignment =
+                                                    when (lyricsTextPosition) {
+                                                        LyricsPosition.LEFT -> Layout.Alignment.ALIGN_NORMAL
+                                                        LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
+                                                        LyricsPosition.RIGHT -> Layout.Alignment.ALIGN_OPPOSITE
+                                                    },
+                                            )
+                                        val timestamp = System.currentTimeMillis()
+                                        val filename = "lyrics_$timestamp"
+                                        ComposeToImage.saveBitmapAsFile(context, image, filename)
+                                        Toast
+                                            .makeText(
+                                                context,
+                                                context.getString(R.string.saved_to_gallery),
+                                                Toast.LENGTH_SHORT,
+                                            ).show()
+                                    } catch (e: Exception) {
+                                        Toast
+                                            .makeText(
+                                                context,
+                                                String.format(failedToCreateImageTemplate, e.message ?: ""),
+                                                Toast.LENGTH_SHORT,
+                                            ).show()
+                                    } finally {
+                                        showProgressDialog = false
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.download),
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(id = R.string.download))
                         }
                     }
                 }

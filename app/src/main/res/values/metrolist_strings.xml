@@ -219,6 +219,8 @@
 
     <string name="import_online">Import an M3U playlist</string>
     <string name="import_csv">Import a CSV playlist</string>
+    <string name="saved_to_gallery">Saved to gallery</string>
+    <string name="download">Download</string>
     <string name="import_spotify">Import from Spotify</string>
     <string name="import_spotify_hint">https://open.spotify.com/playlist/...</string>
     <string name="import_spotify_failed">Spotify import failed</string>

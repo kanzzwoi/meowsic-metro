@@ -892,6 +892,37 @@ fun ExperimentalLyrics(
                         showProgressDialog = false
                     }
                 }
+            },
+            onDownload = { bgColor, textColor, secTextColor, style ->
+                showColorPickerDialog = false
+                showProgressDialog = true
+                scope.launch {
+                    try {
+                        val image = ComposeToImage.createLyricsImage(
+                            context, mediaMetadata?.thumbnailUrl, title, arts, txt,
+                            (configuration.screenWidthDp * density.density).toInt(),
+                            (configuration.screenHeightDp * density.density).toInt(),
+                            bgColor.toArgb(),
+                            when(style) {
+                                LyricsBackgroundStyle.SOLID -> LyricsBackgroundStyle.SOLID
+                                LyricsBackgroundStyle.BLUR -> LyricsBackgroundStyle.BLUR
+                                LyricsBackgroundStyle.GRADIENT -> LyricsBackgroundStyle.GRADIENT
+                            },
+                            textColor.toArgb(), secTextColor.toArgb(),
+                            when (lyricsTextPosition) {
+                                LyricsPosition.LEFT -> Layout.Alignment.ALIGN_NORMAL
+                                LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
+                                else -> Layout.Alignment.ALIGN_OPPOSITE
+                            }
+                        )
+                        ComposeToImage.saveBitmapAsFile(context, image, "lyrics_${System.currentTimeMillis()}")
+                        Toast.makeText(context, context.getString(R.string.saved_to_gallery), Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(context, context.getString(R.string.failed_to_create_image, e.message), Toast.LENGTH_SHORT).show()
+                    } finally {
+                        showProgressDialog = false
+                    }
+                }
             }
         )
     }

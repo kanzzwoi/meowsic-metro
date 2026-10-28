@@ -94,6 +94,8 @@
     <string name="percentage_format">%d%%</string>
     <string name="import_online">Impor playlist M3U</string>
     <string name="import_csv">Impor playlist CSV</string>
+    <string name="saved_to_gallery">Tersimpan di galeri</string>
+    <string name="download">Unduh</string>
     <string name="import_spotify">Impor dari Spotify</string>
     <string name="import_spotify_hint">https://open.spotify.com/playlist/...</string>
     <string name="import_spotify_failed">Impor Spotify gagal</string>

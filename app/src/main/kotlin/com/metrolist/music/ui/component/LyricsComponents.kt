@@ -44,6 +44,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -298,7 +299,8 @@ internal fun LyricsColorPickerDialog(
     thumbnailUrl: String?,
     lyricsTextPosition: LyricsPosition,
     onDismiss: () -> Unit,
-    onShare: (backgroundColor: Color, textColor: Color, secondaryTextColor: Color, style: LyricsBackgroundStyle) -> Unit
+    onShare: (backgroundColor: Color, textColor: Color, secondaryTextColor: Color, style: LyricsBackgroundStyle) -> Unit,
+    onDownload: (backgroundColor: Color, textColor: Color, secondaryTextColor: Color, style: LyricsBackgroundStyle) -> Unit
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -408,6 +410,22 @@ internal fun LyricsColorPickerDialog(
                     onShare(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, bgStyle)
                 }, Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.share))
+                }
+
+                // Simpan kartu lirik ke galeri (tanpa membuka dialog bagikan).
+                OutlinedButton(
+                    onClick = {
+                        onDownload(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, bgStyle)
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.download),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.download))
                 }
             }
         }
