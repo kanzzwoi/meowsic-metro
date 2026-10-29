@@ -237,10 +237,10 @@ fun AppNavigationBar(
                             Icon(
                                 painter = painterResource(id = iconRes),
                                 contentDescription = stringResource(screen.titleId),
-                                // Digeser turun sedikit: NavigationBarItem memberi
-                                // ruang untuk label di bawah, sehingga ikon
-                                // cenderung naik dan terlihat tidak seimbang.
-                                modifier = Modifier.padding(top = 3.dp),
+                                // Dibiarkan tanpa offset: geseran 3dp sebelumnya
+                                // membuat ikon tidak sejajar dengan label di
+                                // pill 58dp, sehingga tampak miring.
+                                modifier = Modifier.size(24.dp),
                             )
                         },
                         label =
@@ -325,8 +325,11 @@ private fun GlassNavBarContainer(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(pillHeight)
-                    .padding(bottom = FloatingNavBarGap)
+                    // Tinggi total = pil + jarak mengapung. Padding di bawah
+                    // ditaruh SETELAH height supaya ia menambah ruang, bukan
+                    // memotong pil. Kolomnya tinggi, pilnya mengisi bagian
+                    // atas, sehingga pil terangkat sebesar FloatingNavBarGap.
+                    .height(pillHeight + FloatingNavBarGap)
                     .shadow(elevation = 12.dp, shape = RoundedCornerShape(percent = 50), clip = false)
                     .clip(RoundedCornerShape(percent = 50))
                     .background(glassTint)
@@ -334,7 +337,8 @@ private fun GlassNavBarContainer(
                         width = 1.dp,
                         color = rimColor,
                         shape = RoundedCornerShape(percent = 50),
-                    ),
+                    )
+                    .padding(bottom = FloatingNavBarGap),
         ) {
             content()
         }

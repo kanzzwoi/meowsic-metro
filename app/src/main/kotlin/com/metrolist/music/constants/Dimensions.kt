@@ -25,7 +25,7 @@ val SlimNavBarHeight = 50.dp
 
 // Jarak pil nav bar dari dasar area navigasi (di atas tombol sistem HP).
 // Ditambahkan di luar NavigationBarHeight sehingga tidak memotong pil.
-val FloatingNavBarGap = 12.dp
+val FloatingNavBarGap = 20.dp
 
 // Total ruang vertikal yang dipakai nav bar: tinggi pil + jarak mengapung.
 // Induk WAJIB memakai nilai ini, bukan NavigationBarHeight mentah, kalau
