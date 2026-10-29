@@ -170,7 +170,9 @@ fun AppNavigationBar(
     // pembungkus pil, sehingga tata letak tidak melenceng.
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.Bottom,
+        // Center, bukan Bottom: isi nav bar harus di tengah pil supaya ikon
+        // dan label tidak terdorong keluar area.
+        verticalArrangement = Arrangement.Center,
     ) {
         GlassNavBarContainer(glass = glass, pureBlack = pureBlack, slimNav = slimNav) {
             NavigationBar(
@@ -302,14 +304,13 @@ private fun GlassNavBarContainer(
     val glassTint = Color(0xFF2A2E36).copy(alpha = 0.72f)
     val rimColor = Color.White.copy(alpha = 0.22f)
 
-    // Tinggi pil ditetapkan di sini, BUKAN lewat fillMaxHeight().
+    // Tinggi pil ditetapkan eksplisit, dan jarak mengapung ditambahkan
+    // sebagai padding di LUAR tinggi itu.
     //
-    // Sebelumnya container memakai fillMaxHeight() lalu diberi padding
-    // 10dp/14dp. Karena induk (MainActivity) sudah mengalokasikan tinggi
-    // sebesar bottomInset + navPadding, padding itu MEMAKAN jatah tinggi
-    // tersebut: 58dp - 24dp = 34dp. Pil jadi terjepit dan terpotong di bawah.
-    // Sekarang tinggi pil = navHeight, dan jarak mengapung ditambahkan di
-    // luar perhitungan itu lewat Box induk yang lebih tinggi.
+    // URUTAN MODIFIER PENTING: .height() harus SEBELUM .padding(bottom).
+    // Kalau padding ditaruh lebih dulu, ia memakan tinggi tersebut
+    // (58dp - 14dp = 44dp) sehingga NavigationBarItem kehabisan ruang dan
+    // ikonnya hilang.
     val pillHeight = if (slimNav) SlimNavBarHeight else NavigationBarHeight
 
     Box(
@@ -324,10 +325,8 @@ private fun GlassNavBarContainer(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    // Jarak pil dari dasar area (bottomInset sudah ditangani
-                    // induk), sehingga pil tidak menyentuh tombol sistem.
-                    .padding(bottom = FloatingNavBarGap)
                     .height(pillHeight)
+                    .padding(bottom = FloatingNavBarGap)
                     .shadow(elevation = 12.dp, shape = RoundedCornerShape(percent = 50), clip = false)
                     .clip(RoundedCornerShape(percent = 50))
                     .background(glassTint)
