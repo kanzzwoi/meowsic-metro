@@ -169,7 +169,7 @@ fun AppNavigationBar(
     ) {
         GlassNavBarContainer(glass = glass, pureBlack = pureBlack) {
         Row(
-            modifier = Modifier.fillMaxWidth().height(if (slimNav) 64.dp else 80.dp),
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -297,9 +297,13 @@ private fun GlassNavBarContainer(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .fillMaxHeight()
                     .background(if (pureBlack) Color.Black else MaterialTheme.colorScheme.surfaceContainer),
+            contentAlignment = Alignment.BottomCenter,
         ) {
-            content()
+            Box(modifier = Modifier.fillMaxWidth().height(if (slimNav) 64.dp else 80.dp)) {
+                Box(modifier = Modifier.fillMaxWidth().fillMaxHeight()) { content() }
+            }
         }
         return
     }
@@ -323,18 +327,17 @@ private fun GlassNavBarContainer(
             Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
-                // Padding vertikal TIDAK boleh ada di sini: induk sudah memberi
-                // tinggi pasti (bottomInset + navPadding). Menambah padding
-                // membuat pil melebihi ruang dan tenggelam ke tepi layar.
-                .padding(horizontal = 14.dp),
-        contentAlignment = Alignment.BottomCenter,
+                // Ruang induk = bottomInset + navPadding. Pil harus LEBIH PENDEK
+                // dari itu agar terlihat mengapung. Padding inilah yang
+                // menciptakan jarak, dan karena Box memakai fillMaxHeight
+                // (tinggi sudah pasti), padding tidak menambah tinggi total.
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
     ) {
         Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    // Tinggi pil = tinggi konten saja (80/64dp). Tidak ada
-                    // padding tambahan, sehingga pas di dalam ruang induk.
                     .shadow(elevation = 12.dp, shape = RoundedCornerShape(percent = 50), clip = false)
                     .clip(RoundedCornerShape(percent = 50))
                     .background(glassTint)

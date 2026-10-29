@@ -79,10 +79,12 @@ fun LiquidGradientBackground(
     val base2 = lerp(Color(0xFF123A6B), seedColor, 0.12f)
     val base3 = lerp(Color(0xFF1B2A56), seedColor, 0.28f)
 
-    val c1 = if (darkTheme) base1 else lerp(base1, Color.White, 0.55f)
-    val c2 = if (darkTheme) base2 else lerp(base2, Color.White, 0.45f)
-    val c3 = if (darkTheme) base3 else lerp(base3, Color.White, 0.62f)
-    val c4 = if (darkTheme) Color(0xFF050B18) else Color(0xFFEAF0FA)
+    // Satu palet untuk mode terang maupun gelap, sesuai permintaan user:
+    // wallpaper-nya sama, hanya warna teks/ikon yang menyesuaikan tema.
+    val c1 = base1
+    val c2 = base2
+    val c3 = base3
+    val c4 = Color(0xFF050B18)
 
     // Titik gradien bergerak dalam rentang kecil di sekitar tengah.
     val x1 = 0.15f + phaseA * 0.35f
