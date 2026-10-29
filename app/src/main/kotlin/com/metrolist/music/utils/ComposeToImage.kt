@@ -12,8 +12,6 @@ import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffColorFilter
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
@@ -264,37 +262,22 @@ object ComposeToImage {
             canvas.restore()
 
             // --- Footer Section ---
-            val logoBoxSize = 22f * scale
-            val logoIconSize = 13f * scale
-            val footerY = imageHeight - padding - logoBoxSize
+            // Logo digambar APA ADANYA: PNG-nya sudah punya latar transparan,
+            // jadi tidak perlu lingkaran latar maupun tint warna. Tint
+            // (PorterDuff SRC_IN) membuat seluruh logo jadi satu warna solid
+            // sehingga detail kucingnya hilang - itu bug lamanya.
+            val logoSize = 26f * scale
+            val footerY = imageHeight - padding - logoSize
 
-            // Draw Logo Background Box
-            val logoBgPaint =
-                Paint().apply {
-                    color = secondaryTxtColor
-                    isAntiAlias = true
-                }
-            val logoBoxRect = RectF(padding, footerY, padding + logoBoxSize, footerY + logoBoxSize)
-            // Since it's a circle in preview: .clip(RoundedCornerShape(50)) which is usually circle for square box
-            canvas.drawOval(logoBoxRect, logoBgPaint)
-
-            // Draw Logo Icon
-            val rawLogo = ContextCompat.getDrawable(context, R.drawable.small_icon)?.toBitmap()
+            val rawLogo = ContextCompat.getDrawable(context, R.drawable.meowsic_logo)?.toBitmap()
             rawLogo?.let {
-                val logoPaint =
-                    Paint().apply {
-                        colorFilter = PorterDuffColorFilter(bgColor, PorterDuff.Mode.SRC_IN)
-                        isAntiAlias = true
-                    }
-
-                // Center logo in box
-                val logoOffset = (logoBoxSize - logoIconSize) / 2f
+                val logoPaint = Paint().apply { isAntiAlias = true }
                 val logoRect =
                     RectF(
-                        padding + logoOffset,
-                        footerY + logoOffset,
-                        padding + logoBoxSize - logoOffset,
-                        footerY + logoBoxSize - logoOffset,
+                        padding,
+                        footerY,
+                        padding + logoSize,
+                        footerY + logoSize,
                     )
                 canvas.drawBitmap(it, null, logoRect, logoPaint)
             }

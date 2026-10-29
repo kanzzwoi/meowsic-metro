@@ -1,3 +1,8 @@
+---v0.6.2
+# Logo Meowsic
+- Logo di kartu bagikan lirik memakai PNG transparan asli, tanpa diwarnai
+  satu warna, sehingga bentuk kucingnya utuh.
+
 ---v0.6.1
 # Perbaikan build
 - Kembalikan tampilan nav bar, logo, dan layout ke kondisi stabil 0.5.10
