@@ -1,3 +1,12 @@
+---v0.6.3
+# Logo, latar buram, dan ikon ulang
+- Logo Meowsic di kartu bagikan lirik memakai gambar asli dengan latar
+  transparan, tidak lagi diwarnai satu warna sehingga bentuknya utuh.
+- Latar Buram pada gambar bagikan lirik tidak lagi tampak pekat; sampul
+  kini diburamkan pada resolusi yang cukup sehingga warna dan bentuknya
+  masih terlihat.
+- Ikon Ulang tidak lagi punya kotak kecil di belakang panah.
+
 ---v0.6.2
 # Logo Meowsic
 - Logo di kartu bagikan lirik memakai PNG transparan asli, tanpa diwarnai
