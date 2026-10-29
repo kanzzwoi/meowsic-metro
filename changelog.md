@@ -1,3 +1,10 @@
+---v0.5.8
+# Wallpaper liquid & kartu lirik
+- Wallpaper gradien abstrak akhirnya tampil di belakang aplikasi. Selama
+  ini tidak pernah muncul karena tertutup lapisan latar layar.
+- Kartu bagikan lirik tidak lagi punya pita putih di tepi; latar buram
+  kini memakai blur penuh dari sampul.
+
 ---v0.5.7
 # Tombol Ulang disederhanakan
 - Kini hanya satu tombol Ulang: tekan untuk mengulang lagu terus-menerus,
