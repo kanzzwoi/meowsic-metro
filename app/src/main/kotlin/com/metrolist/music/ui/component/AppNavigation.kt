@@ -7,11 +7,9 @@ package com.metrolist.music.ui.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Text
@@ -163,110 +162,94 @@ fun AppNavigationBar(
     val haptics = LocalHapticFeedback.current
     val viewConfiguration = LocalViewConfiguration.current
 
+    // Nav bar memakai NavigationBar bawaan Material3 (bukan komponen kustom),
+    // sesuai panduan Android: ukuran, padding, dan indikator aktif mengikuti
+    // standar platform. Efek kaca hanya diterapkan pada containerColor dan
+    // pembungkus pil, sehingga tata letak tidak melenceng.
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.Bottom,
     ) {
         GlassNavBarContainer(glass = glass, pureBlack = pureBlack, slimNav = slimNav) {
-        Row(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {        navigationItems.forEach { screen ->
-            val isSelected = remember(currentRoute, screen.route) {
-                isRouteSelected(currentRoute, screen.route, navigationItems)
-            }
-            val currentIsSelected by rememberUpdatedState(isSelected)
-            val iconRes = remember(isSelected, screen) {
-                if (isSelected) screen.iconIdActive else screen.iconIdInactive
-            }
+            NavigationBar(
+                containerColor = Color.Transparent,
+                contentColor = contentColor,
+                tonalElevation = 0.dp,
+                modifier = Modifier.fillMaxWidth().height(if (slimNav) 64.dp else 80.dp),
+            ) {
+                navigationItems.forEach { screen ->
+                    val isSelected = remember(currentRoute, screen.route) {
+                        isRouteSelected(currentRoute, screen.route, navigationItems)
+                    }
+                    val currentIsSelected by rememberUpdatedState(isSelected)
+                    val iconRes = remember(isSelected, screen) {
+                        if (isSelected) screen.iconIdActive else screen.iconIdInactive
+                    }
 
-            val isSearchItem = screen == Screens.Search && onSearchLongClick != null
-            val isHomeHoldItem = screen == Screens.Home && onHomeLongHold != null
-            val interactionSource = remember { MutableInteractionSource() }
+                    val isSearchItem = screen == Screens.Search && onSearchLongClick != null
+                    val isHomeHoldItem = screen == Screens.Home && onHomeLongHold != null
+                    val interactionSource = remember { MutableInteractionSource() }
 
-            // Long press detection using InteractionSource
-            if (isSearchItem || isHomeHoldItem) {
-                LaunchedEffect(interactionSource) {
-                    var isLongClick = false
-                    interactionSource.interactions.collectLatest { interaction ->
-                        when (interaction) {
-                            is PressInteraction.Press -> {
-                                isLongClick = false
-                                delay(if (isHomeHoldItem) 15_000L else viewConfiguration.longPressTimeoutMillis)
-                                isLongClick = true
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                if (isHomeHoldItem) onHomeLongHold.invoke() else onSearchLongClick?.invoke()
-                            }
-                            is PressInteraction.Release -> {
-                                if (!isLongClick) {
-                                    onItemClick(screen, currentIsSelected)
+                    if (isSearchItem || isHomeHoldItem) {
+                        LaunchedEffect(interactionSource) {
+                            var isLongClick = false
+                            interactionSource.interactions.collectLatest { interaction ->
+                                when (interaction) {
+                                    is PressInteraction.Press -> {
+                                        isLongClick = false
+                                        delay(if (isHomeHoldItem) 15_000L else viewConfiguration.longPressTimeoutMillis)
+                                        isLongClick = true
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        if (isHomeHoldItem) onHomeLongHold.invoke() else onSearchLongClick?.invoke()
+                                    }
+                                    is PressInteraction.Release -> {
+                                        if (!isLongClick) onItemClick(screen, currentIsSelected)
+                                    }
+                                    is PressInteraction.Cancel -> isLongClick = false
                                 }
-                            }
-                            is PressInteraction.Cancel -> {
-                                isLongClick = false
                             }
                         }
                     }
-                }
-            }
 
-            // Item kustom agar gaya kaca bisa diterapkan tanpa memakai
-            // NavigationBarItem bawaan (yang selalu menggambar indikator pill
-            // dengan warna permukaan solid).
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(percent = 50))
-                        .clickable(
-                            interactionSource = interactionSource,
-                            indication = null,
-                        ) {
+                    NavigationBarItem(
+                        selected = isSelected,
+                        onClick = {
                             if (!isSearchItem && !isHomeHoldItem) {
                                 onItemClick(screen, currentIsSelected)
                             }
                         },
-            ) {
-                // Sorotan "liquid" untuk item aktif: lapisan lebih terang
-                // yang membungkus ikon, seperti pada contoh desain.
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier =
-                        Modifier
-                            .size(width = 52.dp, height = 28.dp)
-                            .clip(RoundedCornerShape(percent = 50))
-                            .background(
-                                if (isSelected) {
-                                    Color.White.copy(alpha = if (pureBlack) 0.22f else 0.30f)
-                                } else {
-                                    Color.Transparent
-                                },
+                        interactionSource = interactionSource,
+                        // Indikator aktif mengikuti peran warna tema (R2.4),
+                        // diberi transparansi agar tetap terlihat di atas kaca.
+                        colors =
+                            NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+                                unselectedIconColor = contentColor,
+                                unselectedTextColor = contentColor,
                             ),
-                ) {
-                    Icon(
-                        painter = painterResource(id = iconRes),
-                        contentDescription = stringResource(screen.titleId),
-                        tint = if (isSelected) Color.White else contentColor,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-                if (!slimNav) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = stringResource(screen.titleId),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (isSelected) Color.White else contentColor,
+                        icon = {
+                            Icon(
+                                painter = painterResource(id = iconRes),
+                                contentDescription = stringResource(screen.titleId),
+                            )
+                        },
+                        label =
+                            if (!slimNav) {
+                                {
+                                    Text(
+                                        text = stringResource(screen.titleId),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            } else {
+                                null
+                            },
                     )
                 }
             }
-        }
-        }
         }
     }
 }
