@@ -96,7 +96,7 @@ object ComposeToImage {
                         ImageRequest
                             .Builder(context)
                             .data(coverArtUrl)
-                            .size(1024)
+                            .size(1440)
                             .allowHardware(false)
                             .build()
                     val result = imageLoader.execute(request)
@@ -118,23 +118,29 @@ object ComposeToImage {
                 }
 
                 LyricsBackgroundStyle.BLUR -> {
-                    // Sampul digambar dulu sebagai dasar. Kalau sampul tidak ada
-                    // atau gagal dimuat, dasar memakai warna latar pilihan user
-                    // - BUKAN hitam. Sebelumnya dasar selalu hitam sehingga
-                    // opsi Buram tampil seperti Pekat.
+                    // Kanvas 2160x2160. Sampul harus di-blur pada resolusi yang
+                    // setara, bukan pada bitmap kecil.
+                    //
+                    // Versi lama memperkecil sampul ke imageWidth/10 (216px)
+                    // lalu mem-blur radius 20 di ukuran itu, kemudian
+                    // meregangkannya kembali ke 2160. Blur 20px pada gambar
+                    // 216px menghapus hampir seluruh detail, sehingga hasilnya
+                    // tampak seperti satu warna pekat - bug "Buram tampil
+                    // Pekat".
                     val blurRect = RectF(0f, 0f, imageWidth.toFloat(), imageHeight.toFloat())
                     var drewBlur = false
 
                     if (coverArtBitmap != null) {
                         try {
-                            // Perkecil untuk kinerja, tetapi jangan terlalu kecil:
-                            // radius blur yang besar pada bitmap sangat kecil
-                            // menghasilkan bidang nyaris rata (terlihat hitam).
-                            val targetW = (imageWidth / 4).coerceAtLeast(48)
-                            val targetH = (imageHeight / 4).coerceAtLeast(48)
+                            // Blur pada resolusi sedang (1/3 kanvas = 720px):
+                            // cukup detail untuk terlihat seperti sampul, dan
+                            // cukup murah untuk diproses.
+                            val targetW = (imageWidth / 3).coerceAtLeast(64)
+                            val targetH = (imageHeight / 3).coerceAtLeast(64)
                             val scaledBitmap =
                                 Bitmap.createScaledBitmap(coverArtBitmap, targetW, targetH, true)
-                            val radius = (targetW / 24).coerceIn(4, 24)
+                            // Radius sebanding ukuran bitmap, bukan angka tetap.
+                            val radius = (targetW / 40).coerceIn(6, 40)
                             val blurredBitmap = fastBlur(scaledBitmap, 1f, radius)
 
                             if (blurredBitmap != null) {
@@ -147,12 +153,12 @@ object ComposeToImage {
                     }
 
                     if (drewBlur) {
-                        // Lapisan gelap tipis agar teks tetap terbaca, tanpa
-                        // menutupi warna sampul.
+                        // Lapisan gelap tipis agar teks tetap terbaca.
                         val overlayPaint = Paint().apply { color = 0x33000000 }
                         canvas.drawRect(blurRect, overlayPaint)
                     } else {
-                        // Fallback: warna latar pilihan user, bukan hitam.
+                        // Sampul benar-benar tidak tersedia: pakai warna latar
+                        // pilihan user, bukan hitam.
                         backgroundPaint.color = bgColor
                         canvas.drawRect(backgroundRect, backgroundPaint)
                     }
