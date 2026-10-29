@@ -433,25 +433,15 @@ fun LyricsImageCard(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(secondaryColor),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.meowsic_logo),
-                            contentDescription = null,
-                            modifier = Modifier
-                                // Ukuran lebih kecil dari kotak agar ada ruang
-                                // kosong di sekeliling siluet; tanpa ini bentuk
-                                // yang padat memenuhi kotak dan terlihat seperti
-                                // blok warna, bukan logo.
-                                .size(26.dp),
-                            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(backgroundSolidColor)
-                        )
-                    }
+                    // Logo PNG sudah transparan: digambar apa adanya, tanpa
+                    // lingkaran latar dan tanpa tint. Ukuran 30dp disamakan
+                    // dengan renderer (logoBoxSize 30f * scale) dan sejajar
+                    // dengan tinggi teks aplikasi di sampingnya.
+                    Image(
+                        painter = painterResource(id = R.drawable.meowsic_logo),
+                        contentDescription = null,
+                        modifier = Modifier.size(30.dp),
+                    )
 
                     Spacer(modifier = Modifier.width(8.dp))
 

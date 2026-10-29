@@ -278,8 +278,11 @@ object ComposeToImage {
             canvas.restore()
 
             // --- Footer Section ---
-            val logoBoxSize = 22f * scale
-            val logoIconSize = 13f * scale
+            // Logo mengisi seluruh kotaknya. Sebelumnya kotak 22f*scale tetapi
+            // ikon hanya 13f*scale sehingga logo tampak kecil dan terkurung
+            // ruang kosong. PNG-nya sudah punya padding transparan sendiri,
+            // jadi tidak perlu dikurangi lagi.
+            val logoBoxSize = 30f * scale
             val footerY = imageHeight - padding - logoBoxSize
 
             // Draw Logo Icon
@@ -287,15 +290,12 @@ object ComposeToImage {
             rawLogo?.let {
                 // Tanpa tint: logo digambar sesuai warnanya sendiri.
                 val logoPaint = Paint().apply { isAntiAlias = true }
-
-                // Center logo in box
-                val logoOffset = (logoBoxSize - logoIconSize) / 2f
                 val logoRect =
                     RectF(
-                        padding + logoOffset,
-                        footerY + logoOffset,
-                        padding + logoBoxSize - logoOffset,
-                        footerY + logoBoxSize - logoOffset,
+                        padding,
+                        footerY,
+                        padding + logoBoxSize,
+                        footerY + logoBoxSize,
                     )
                 canvas.drawBitmap(it, null, logoRect, logoPaint)
             }
