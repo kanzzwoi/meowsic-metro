@@ -52,10 +52,6 @@ import com.metrolist.music.ui.screens.Screens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
-// Warna pil item aktif nav bar: ungu redup, tetap terlihat di atas kaca gelap.
-private val NavActivePillColor = Color(0xFF6E6490).copy(alpha = 0.92f)
-
-
 @Stable
 private fun isRouteSelected(currentRoute: String?, screenRoute: String, navigationItems: List<Screens>): Boolean {
     if (currentRoute == null) return false
@@ -231,13 +227,9 @@ fun AppNavigationBar(
                         // diberi transparansi agar tetap terlihat di atas kaca.
                         colors =
                             NavigationBarItemDefaults.colors(
-                                // Ikon & label aktif putih bersih, penanda pil
-                                // memakai ungu redup tetap (bukan warna tema)
-                                // agar selalu terlihat di atas pil kaca gelap,
-                                // sesuai referensi desain.
-                                selectedIconColor = Color.White,
-                                selectedTextColor = Color.White,
-                                indicatorColor = NavActivePillColor,
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
                                 unselectedIconColor = contentColor,
                                 unselectedTextColor = contentColor,
                             ),
@@ -326,7 +318,7 @@ private fun GlassNavBarContainer(
             Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
-                .padding(horizontal = 22.dp),
+                .padding(horizontal = 24.dp),
         contentAlignment = Alignment.BottomCenter,
     ) {
         Column(

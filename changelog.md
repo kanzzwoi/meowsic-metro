@@ -1,13 +1,7 @@
----v0.6.0
-# Nav bar, mini player, dan logo
-- Ikon dan label nav bar kembali terlihat penuh; isinya rata tengah.
-- Nav bar mengambang dengan jarak nyata dari tombol navigasi HP, sedikit
-  lebih sempit daripada mini player.
-- Menu aktif ditandai pil ungu redup dengan ikon dan label putih, tidak
-  lagi bergantung pada warna tema.
-- Jarak mini player ke nav bar dilonggarkan agar tidak terasa sesak.
-- Logo Meowsic di kartu bagikan lirik kembali utuh dengan detail aslinya.
-  Sebelumnya logo diwarnai satu warna solid sehingga bentuknya rusak.
+---v0.6.1
+# Perbaikan build
+- Kembalikan tampilan nav bar, logo, dan layout ke kondisi stabil 0.5.10
+  untuk memastikan APK bisa dibangun kembali.
 
 ---v0.5.10
 # Nav bar diperbaiki
