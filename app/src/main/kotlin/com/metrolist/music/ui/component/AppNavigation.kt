@@ -46,6 +46,8 @@ import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import com.metrolist.music.constants.NavigationBarHeight
+import com.metrolist.music.constants.SlimNavBarHeight
 import com.metrolist.music.ui.screens.Screens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -175,7 +177,7 @@ fun AppNavigationBar(
                 containerColor = Color.Transparent,
                 contentColor = contentColor,
                 tonalElevation = 0.dp,
-                modifier = Modifier.fillMaxWidth().height(if (slimNav) 50.dp else 58.dp),
+                modifier = Modifier.fillMaxWidth().height(if (slimNav) SlimNavBarHeight else NavigationBarHeight),
             ) {
                 navigationItems.forEach { screen ->
                     val isSelected = remember(currentRoute, screen.route) {
@@ -284,7 +286,7 @@ private fun GlassNavBarContainer(
                     .background(if (pureBlack) Color.Black else MaterialTheme.colorScheme.surfaceContainer),
             contentAlignment = Alignment.BottomCenter,
         ) {
-            Box(modifier = Modifier.fillMaxWidth().height(if (slimNav) 50.dp else 58.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().height(if (slimNav) SlimNavBarHeight else NavigationBarHeight)) {
                 Box(modifier = Modifier.fillMaxWidth().fillMaxHeight()) { content() }
             }
         }

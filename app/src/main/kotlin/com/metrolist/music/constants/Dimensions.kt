@@ -17,8 +17,12 @@ const val CONTENT_TYPE_ARTIST = 3
 const val CONTENT_TYPE_ALBUM = 4
 const val CONTENT_TYPE_PLAYLIST = 5
 
-val NavigationBarHeight = 80.dp
-val SlimNavBarHeight = 64.dp
+// Tinggi yang dialokasikan induk untuk nav bar. Ini juga dipakai untuk
+// menghitung posisi mini player, jadi HARUS sama dengan tinggi nav bar
+// sebenarnya (AppNavigation.kt). Sebelumnya nilai ini 80dp sementara nav
+// bar digambar 58dp, sehingga mini player terdorong menimpa nav bar.
+val NavigationBarHeight = 58.dp
+val SlimNavBarHeight = 50.dp
 val MiniPlayerHeight = 64.dp
 val MinMiniPlayerHeight = 16.dp
 val MiniPlayerBottomSpacing = 8.dp // Space between MiniPlayer and NavigationBar
