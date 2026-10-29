@@ -1,3 +1,10 @@
+---v0.5.10
+# Nav bar diperbaiki
+- Ikon dan label nav bar kembali terlihat (sebelumnya hilang karena ruang
+  pil termakan padding).
+- Isi nav bar kini rata tengah, tidak menempel ke dasar pil.
+- Mini player didekatkan ke nav bar.
+
 ---v0.5.9
 # Nav bar mengambang
 - Pil nav bar tidak lagi terpotong di bagian bawah dan kini punya jarak
