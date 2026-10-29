@@ -1,3 +1,10 @@
+---v0.5.12
+# Mini player & nav bar
+- Mini player diberi jarak lebih lega dari tepi layar.
+- Album art mini player memakai sudut membulat, bukan lingkaran.
+- Nav bar dibuat sedikit lebih lebar daripada mini player.
+- Jarak mini player ke nav bar dilonggarkan agar tidak terasa sesak.
+
 ---v0.5.11
 # Logo dan jarak mini player
 - Logo Meowsic di kartu bagikan lirik kembali utuh dengan detail aslinya.
