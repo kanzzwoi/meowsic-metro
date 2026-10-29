@@ -246,7 +246,7 @@ fun LyricsImageCard(
                             modifier =
                                 Modifier
                                     .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.35f)),
+                                    .background(Color.Black.copy(alpha = 0.20f)),
                         )
                     } else {
                         Box(modifier = Modifier.fillMaxSize().background(backgroundSolidColor))
@@ -298,7 +298,7 @@ fun LyricsImageCard(
                             modifier =
                                 Modifier
                                     .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.35f)),
+                                    .background(Color.Black.copy(alpha = 0.20f)),
                         )
                     } else {
                         Box(modifier = Modifier.fillMaxSize().background(backgroundSolidColor))
@@ -441,7 +441,7 @@ fun LyricsImageCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
-                            painter = painterResource(id = R.drawable.small_icon),
+                            painter = painterResource(id = R.drawable.meowsic_logo),
                             contentDescription = null,
                             modifier = Modifier
                                 // Ukuran lebih kecil dari kotak agar ada ruang

@@ -118,33 +118,41 @@ object ComposeToImage {
                 }
 
                 LyricsBackgroundStyle.BLUR -> {
-                    // Draw black base
-                    backgroundPaint.color = 0xFF000000.toInt()
-                    canvas.drawRect(backgroundRect, backgroundPaint)
+                    // Sampul digambar dulu sebagai dasar. Kalau sampul tidak ada
+                    // atau gagal dimuat, dasar memakai warna latar pilihan user
+                    // - BUKAN hitam. Sebelumnya dasar selalu hitam sehingga
+                    // opsi Buram tampil seperti Pekat.
+                    val blurRect = RectF(0f, 0f, imageWidth.toFloat(), imageHeight.toFloat())
+                    var drewBlur = false
 
                     if (coverArtBitmap != null) {
                         try {
-                            // Create a scaled down version for blurring (performance)
-                            val scaledBitmap = Bitmap.createScaledBitmap(coverArtBitmap, imageWidth / 10, imageHeight / 10, true)
-                            val blurredBitmap = fastBlur(scaledBitmap, 1f, 20) // Radius 20 on small image is large blur
+                            // Perkecil untuk kinerja, tetapi jangan terlalu kecil:
+                            // radius blur yang besar pada bitmap sangat kecil
+                            // menghasilkan bidang nyaris rata (terlihat hitam).
+                            val targetW = (imageWidth / 4).coerceAtLeast(48)
+                            val targetH = (imageHeight / 4).coerceAtLeast(48)
+                            val scaledBitmap =
+                                Bitmap.createScaledBitmap(coverArtBitmap, targetW, targetH, true)
+                            val radius = (targetW / 24).coerceIn(4, 24)
+                            val blurredBitmap = fastBlur(scaledBitmap, 1f, radius)
 
                             if (blurredBitmap != null) {
-                                val blurRect = RectF(0f, 0f, imageWidth.toFloat(), imageHeight.toFloat())
                                 canvas.drawBitmap(blurredBitmap, null, blurRect, null)
-
-                                // Dark overlay for readability
-                                val overlayPaint =
-                                    Paint().apply {
-                                        color = 0x4D000000 // 30% black overlay
-                                    }
-                                canvas.drawRect(blurRect, overlayPaint)
+                                drewBlur = true
                             }
-                        } catch (e: Exception) {
-                            // Fallback to solid
-                            backgroundPaint.color = bgColor
-                            canvas.drawRect(backgroundRect, backgroundPaint)
+                        } catch (_: Exception) {
+                            drewBlur = false
                         }
+                    }
+
+                    if (drewBlur) {
+                        // Lapisan gelap tipis agar teks tetap terbaca, tanpa
+                        // menutupi warna sampul.
+                        val overlayPaint = Paint().apply { color = 0x33000000 }
+                        canvas.drawRect(blurRect, overlayPaint)
                     } else {
+                        // Fallback: warna latar pilihan user, bukan hitam.
                         backgroundPaint.color = bgColor
                         canvas.drawRect(backgroundRect, backgroundPaint)
                     }
@@ -269,7 +277,7 @@ object ComposeToImage {
             val footerY = imageHeight - padding - logoBoxSize
 
             // Draw Logo Icon
-            val rawLogo = ContextCompat.getDrawable(context, R.drawable.small_icon)?.toBitmap()
+            val rawLogo = ContextCompat.getDrawable(context, R.drawable.meowsic_logo)?.toBitmap()
             rawLogo?.let {
                 // Tanpa tint: logo digambar sesuai warnanya sendiri.
                 val logoPaint = Paint().apply { isAntiAlias = true }
