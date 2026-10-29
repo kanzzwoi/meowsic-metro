@@ -38,7 +38,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.text.TextAutoSize
-import com.metrolist.music.ui.player.BlurBackground
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -227,17 +226,31 @@ fun LyricsImageCard(
                     Box(modifier = Modifier.fillMaxSize().background(backgroundSolidColor))
                 }
                 LyricsBackgroundStyle.BLUR -> {
-                    // Pakai BlurBackground (blur di CPU), bukan Modifier.blur():
-                    // blur GPU diabaikan untuk konten gambar dari Coil sehingga
-                    // latar jatuh ke warna solid - bug yang sama seperti di
-                    // mini-player/full player.
-                    BlurBackground(
-                        thumbnailUrl = mediaMetadata.thumbnailUrl,
-                        songId = mediaMetadata.id,
-                        radius = 10,
-                        scrimAlpha = 0.3f,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    // Kartu lirik butuh blur PENUH dari sampul, bukan sampel
+                    // kecil yang diregangkan. BlurBackground mengambil bitmap
+                    // 100x100 untuk efisiensi player; di kartu besar, area
+                    // terang sampul melebar jadi pita putih di tepi.
+                    // Di sini gambar asli dipakai langsung lalu diburamkan
+                    // dengan scrim gelap supaya teks tetap terbaca.
+                    if (mediaMetadata.thumbnailUrl != null) {
+                        Image(
+                            painter = rememberAsyncImagePainter(model = mediaMetadata.thumbnailUrl),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .blur(40.dp),
+                        )
+                        Box(
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.35f)),
+                        )
+                    } else {
+                        Box(modifier = Modifier.fillMaxSize().background(backgroundSolidColor))
+                    }
                 }
                 LyricsBackgroundStyle.GRADIENT -> {
                     Box(
@@ -270,14 +283,26 @@ fun LyricsImageCard(
                     // Typically "Share Lyrics" looks like a card on a background.
                     // If we want the card to be seamless with the full image background, we can just use transparent.
                     // But to ensure it looks like the generated image:
-                    // Blur CPU (bukan Modifier.blur yang diabaikan untuk Coil).
-                    BlurBackground(
-                        thumbnailUrl = mediaMetadata.thumbnailUrl,
-                        songId = mediaMetadata.id,
-                        radius = 10,
-                        scrimAlpha = 0.3f,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    // Sama seperti blok di atas: blur penuh dari sampul asli.
+                    if (mediaMetadata.thumbnailUrl != null) {
+                        Image(
+                            painter = rememberAsyncImagePainter(model = mediaMetadata.thumbnailUrl),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .blur(40.dp),
+                        )
+                        Box(
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.35f)),
+                        )
+                    } else {
+                        Box(modifier = Modifier.fillMaxSize().background(backgroundSolidColor))
+                    }
                 }
                 LyricsBackgroundStyle.GRADIENT -> {
                     Box(

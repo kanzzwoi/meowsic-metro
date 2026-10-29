@@ -717,17 +717,6 @@ class MainActivity : FragmentActivity() {
             pureBlack = pureBlack,
             themeColor = themeColor,
         ) {
-            // Wallpaper "liquid": gradien bergerak di belakang seluruh layar.
-            // Ditaruh paling bawah (zIndex terendah) sehingga semua konten
-            // tetap di atasnya. Bila dimatikan, tidak ada yang dirender dan
-            // tampilan kembali seperti semula.
-            if (liquidBackgroundEnabled) {
-                LiquidGradientBackground(
-                    darkTheme = useDarkTheme,
-                    seedColor = themeColor,
-                )
-            }
-
             val currentDensity = LocalDensity.current
             val windowInfo = LocalWindowInfo.current
             val containerSize = windowInfo.containerDpSize
@@ -758,8 +747,31 @@ class MainActivity : FragmentActivity() {
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .background(if (pureBlack) Color.Black else MaterialTheme.colorScheme.surface),
+                        .background(
+                            if (liquidBackgroundEnabled) {
+                                Color.Transparent
+                            } else if (pureBlack) {
+                                Color.Black
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            },
+                        ),
             ) {
+                // Wallpaper liquid: digambar DI DALAM BoxWithConstraints ini
+                // (bukan di luar MetrolistTheme) supaya benar-benar sebidang
+                // dengan konten dan berada di lapisan paling bawah.
+                //
+                // Sebelumnya komponen ini diletakkan langsung di dalam
+                // MetrolistTheme, yang hanya penyedia tema - bukan wadah
+                // layout. Akibatnya ia tidak pernah terlihat: BoxWithConstraints
+                // di bawahnya punya latar solid sendiri yang menutupinya.
+                if (liquidBackgroundEnabled) {
+                    LiquidGradientBackground(
+                        darkTheme = useDarkTheme,
+                        seedColor = themeColor,
+                    )
+                }
+
                 val density = LocalDensity.current
                 val configuration = LocalWindowInfo.current
                 val cutoutInsets = WindowInsets.displayCutout
