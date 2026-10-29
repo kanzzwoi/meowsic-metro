@@ -1,3 +1,10 @@
+---v0.5.4
+# Latar gelombang lembut & nav bar lebih ringkas
+- Latar liquid digambar ulang: kini pita gelombang lebar yang tenang
+  (biru tua ke hitam, sedikit biru muda di puncak), bukan pola ramai.
+  Gerakannya lambat sehingga tidak mengganggu.
+- Nav bar dipendekkan (80dp -> 58dp) dan pilnya dibuat lebih ringkas.
+
 ---v0.5.3
 # Wallpaper liquid terlihat & nav bar kembali standar
 - Latar liquid glass kini benar-benar tampil. Sebelumnya Scaffold Material3
