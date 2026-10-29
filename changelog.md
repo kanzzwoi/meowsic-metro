@@ -1,3 +1,9 @@
+---v0.5.5
+# Mini player tidak lagi tertutup nav bar
+- Tinggi nav bar dan ruang yang disediakan induk kini memakai satu angka
+  yang sama, sehingga mini player berhenti tepat di atas pil nav bar.
+  Sebelumnya ada selisih 22dp yang membuat keduanya bertumpuk.
+
 ---v0.5.4
 # Latar gelombang lembut & nav bar lebih ringkas
 - Latar liquid digambar ulang: kini pita gelombang lebar yang tenang
