@@ -167,7 +167,7 @@ fun AppNavigationBar(
         modifier = modifier,
         verticalArrangement = Arrangement.Bottom,
     ) {
-        GlassNavBarContainer(glass = glass, pureBlack = pureBlack) {
+        GlassNavBarContainer(glass = glass, pureBlack = pureBlack, slimNav = slimNav) {
         Row(
             modifier = Modifier.fillMaxWidth().fillMaxHeight(),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -290,6 +290,7 @@ fun AppNavigationBar(
 private fun GlassNavBarContainer(
     glass: Boolean,
     pureBlack: Boolean,
+    slimNav: Boolean,
     content: @Composable () -> Unit,
 ) {
     if (!glass) {
