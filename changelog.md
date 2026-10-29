@@ -1,3 +1,13 @@
+---v0.5.3
+# Wallpaper liquid terlihat & nav bar kembali standar
+- Latar liquid glass kini benar-benar tampil. Sebelumnya Scaffold Material3
+  punya warna latar bawaan yang menutupi wallpaper di belakangnya; kini
+  transparan saat opsi liquid aktif.
+- Bottom navigation kembali memakai NavigationBar Material3 sesuai panduan
+  Android, sehingga ukuran dan jaraknya standar — tidak lagi kegedean.
+  Efek kaca hanya pada warna kontainer dan pembungkus pil.
+- Indikator item aktif memakai primaryContainer sesuai peran warna tema.
+
 ---v0.5.2
 # Nav bar, tombol Ulang, dan kartu lirik
 - Nav bar kaca tidak lagi tenggelam: pil kini lebih pendek dari ruangnya
