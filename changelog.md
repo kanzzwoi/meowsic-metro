@@ -1,3 +1,9 @@
+---v0.5.11
+# Logo dan jarak mini player
+- Logo Meowsic di kartu bagikan lirik kembali utuh dengan detail aslinya.
+  Sebelumnya logo diwarnai satu warna solid sehingga bentuknya rusak.
+- Mini player dinaikkan sedikit agar tidak terlalu rapat dengan nav bar.
+
 ---v0.5.10
 # Nav bar diperbaiki
 - Ikon dan label nav bar kembali terlihat (sebelumnya hilang karena ruang
