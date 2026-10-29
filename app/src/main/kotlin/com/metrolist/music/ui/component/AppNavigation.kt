@@ -323,10 +323,9 @@ private fun GlassNavBarContainer(
             Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
-                // Padding vertikal TIDAK boleh memperbesar tinggi kontainer,
-                // karena induk memberi tinggi pasti (bottomInset + navPadding).
-                // Bila ditambahkan, nav bar melebihi tinggi induk dan terdorong
-                // keluar layar (gejala "nav bar turun"/terpotong).
+                // Padding vertikal TIDAK boleh ada di sini: induk sudah memberi
+                // tinggi pasti (bottomInset + navPadding). Menambah padding
+                // membuat pil melebihi ruang dan tenggelam ke tepi layar.
                 .padding(horizontal = 14.dp),
         contentAlignment = Alignment.BottomCenter,
     ) {
@@ -334,7 +333,8 @@ private fun GlassNavBarContainer(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 6.dp)
+                    // Tinggi pil = tinggi konten saja (80/64dp). Tidak ada
+                    // padding tambahan, sehingga pas di dalam ruang induk.
                     .shadow(elevation = 12.dp, shape = RoundedCornerShape(percent = 50), clip = false)
                     .clip(RoundedCornerShape(percent = 50))
                     .background(glassTint)
