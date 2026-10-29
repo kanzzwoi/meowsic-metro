@@ -1,3 +1,12 @@
+---v0.6.4
+# Nav bar dan logo
+- Nav bar dinaikkan sehingga lebih dekat dengan mini player, dan ikon di
+  dalamnya kini sejajar dengan label.
+- Logo Meowsic pada kartu bagikan lirik diperbesar agar seimbang dengan
+  teks di sampingnya.
+- Tombol acak melayang di Beranda dihapus karena muncul walaupun tidak ada
+  lagu yang bisa diputar.
+
 ---v0.6.3
 # Logo, latar buram, dan ikon ulang
 - Logo Meowsic di kartu bagikan lirik memakai gambar asli dengan latar
