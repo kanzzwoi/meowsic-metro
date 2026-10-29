@@ -1,3 +1,9 @@
+---v0.5.6
+# Penyesuaian nav bar
+- Pil nav bar diangkat agar tidak menabrak tombol navigasi HP.
+- Ikon digeser turun sedikit supaya seimbang di dalam pil.
+- Warna kaca memakai putih 20% sehingga tidak terlalu transparan.
+
 ---v0.5.5
 # Mini player tidak lagi tertutup nav bar
 - Tinggi nav bar dan ruang yang disediakan induk kini memakai satu angka
