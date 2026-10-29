@@ -25,7 +25,7 @@ val SlimNavBarHeight = 50.dp
 
 // Jarak pil nav bar dari dasar area navigasi (di atas tombol sistem HP).
 // Ditambahkan di luar NavigationBarHeight sehingga tidak memotong pil.
-val FloatingNavBarGap = 10.dp
+val FloatingNavBarGap = 8.dp
 
 // Total ruang vertikal yang dipakai nav bar: tinggi pil + jarak mengapung.
 // Induk WAJIB memakai nilai ini, bukan NavigationBarHeight mentah, kalau
@@ -34,7 +34,7 @@ val NavigationBarTotalHeight = NavigationBarHeight + FloatingNavBarGap
 val SlimNavBarTotalHeight = SlimNavBarHeight + FloatingNavBarGap
 val MiniPlayerHeight = 64.dp
 val MinMiniPlayerHeight = 16.dp
-val MiniPlayerBottomSpacing = 18.dp // Space between MiniPlayer and NavigationBar
+val MiniPlayerBottomSpacing = 10.dp // Space between MiniPlayer and NavigationBar
 val QueuePeekHeight = 64.dp
 val AppBarHeight = 64.dp
 
