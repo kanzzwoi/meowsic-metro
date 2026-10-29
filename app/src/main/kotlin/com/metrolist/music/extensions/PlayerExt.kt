@@ -23,13 +23,20 @@ fun Player.togglePlayPause() {
     playWhenReady = !playWhenReady
 }
 
+/**
+ * Toggle ulang: OFF <-> ONE saja.
+ *
+ * Sebelumnya fungsi ini berputar OFF -> ALL -> ONE -> OFF (tiga mode).
+ * Itu membuat tombol di Queue dan media session tidak sinkron dengan
+ * tombol di pemutar, sehingga mode ulang bisa berubah sendiri tanpa
+ * disentuh. Sekarang hanya dua keadaan, sama seperti tombol utama.
+ */
 fun Player.toggleRepeatMode() {
     repeatMode =
-        when (repeatMode) {
-            REPEAT_MODE_OFF -> REPEAT_MODE_ALL
-            REPEAT_MODE_ALL -> REPEAT_MODE_ONE
-            REPEAT_MODE_ONE -> REPEAT_MODE_OFF
-            else -> throw IllegalStateException()
+        if (repeatMode == REPEAT_MODE_ONE) {
+            REPEAT_MODE_OFF
+        } else {
+            REPEAT_MODE_ONE
         }
 }
 

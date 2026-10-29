@@ -156,7 +156,6 @@ import com.metrolist.music.constants.PlayerVolumeKey
 import com.metrolist.music.constants.PreventDuplicateTracksInQueueKey
 import com.metrolist.music.constants.RememberShuffleAndRepeatKey
 import com.metrolist.music.constants.RepeatModeKey
-import com.metrolist.music.constants.RepeatOnceOnlyKey
 import com.metrolist.music.constants.ResumeOnBluetoothConnectKey
 import com.metrolist.music.constants.ScrobbleDelayPercentKey
 import com.metrolist.music.constants.ScrobbleDelaySecondsKey
@@ -503,23 +502,6 @@ class MusicService :
     private var cachedAutoplay = true
     @Volatile
     private var cachedDisableLoadMoreWhenRepeatAll = true
-    @Volatile
-    private var cachedRepeatOnceOnly = false
-
-    /**
-     * Set flag "Ulang 1" secara SINKRON.
-     *
-     * onMediaItemTransition membaca cachedRepeatOnceOnly pada saat transisi
-     * terjadi. Bila flag diset lewat DataStore (async), setRepeatMode() bisa
-     * mendahuluinya sehingga transisi membaca nilai lama - inilah yang
-     * membuat tombol Ulang langsung berperilaku seperti Ulang 1.
-     */
-    fun setRepeatOnceOnly(value: Boolean) {
-        cachedRepeatOnceOnly = value
-        scope.launch {
-            safeDataStoreEdit { it[RepeatOnceOnlyKey] = value }
-        }
-    }
     @Volatile
     private var cachedHideExplicit = false
     @Volatile
@@ -1191,9 +1173,6 @@ class MusicService :
         }
         scope.launch {
             dataStore.data.map { it[DisableLoadMoreWhenRepeatAllKey] ?: true }.distinctUntilChanged().collect { cachedDisableLoadMoreWhenRepeatAll = it }
-        }
-        scope.launch {
-            dataStore.data.map { it[RepeatOnceOnlyKey] ?: false }.distinctUntilChanged().collect { cachedRepeatOnceOnly = it }
         }
         scope.launch {
             dataStore.data.map { it[HideExplicitKey] ?: false }.distinctUntilChanged().collect { cachedHideExplicit = it }
@@ -2510,8 +2489,6 @@ class MusicService :
     private var previousMediaItemIndex = C.INDEX_UNSET
 
     // "Ulang 1" = putar ulang lagu SEKALI lagi lalu lanjut ke lagu berikut.
-    // repeatOnceCount: sudah berapa kali lagu ini diulang pada mode "Ulang 1".
-    private var repeatOnceCount = 0
     private var previousEpisodeId: String? = null
 
     // Tracks the mediaId that was playing immediately before the current
@@ -2592,43 +2569,14 @@ class MusicService :
         }
 
         // ---- Mode Ulang ----
-        // ExoPlayer TIDAK pernah melaporkan STATE_ENDED selama repeatMode =
-        // REPEAT_MODE_ONE: ia mengulang sendiri dan tetap di STATE_READY.
-        // Karena itu penghitungan "Ulang 1" harus terjadi di sini.
+        // TIDAK ADA logika repeat di sini. Ulang ditangani sepenuhnya oleh
+        // ExoPlayer lewat REPEAT_MODE_ONE (native loop), jadi lagu mengulang
+        // terus-menerus tanpa campur tangan kita.
         //
-        // PENTING: jangan mematikan mode ulang berdasarkan "reason" apa pun.
-        // setRepeatMode() sendiri memicu transisi (SEEK/AUTO), sehingga
-        // mematikannya di sini membuat tombol Ulang mati seketika setelah
-        // ditekan - itu bug yang dilaporkan user.
-        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
-            // Lagu baru saja mengulang dari awal.
-            repeatOnceCount = 1
-            if (cachedRepeatOnceOnly) {
-                // "Ulang 1": satu pengulangan selesai; matikan mode agar
-                // putaran ini berakhir normal lalu lanjut lagu berikutnya.
-                player.repeatMode = REPEAT_MODE_OFF
-            }
-            // "Ulang" (flag false): tetap REPEAT_MODE_ONE -> mengulang terus.
-        } else {
-            // Bedakan "ganti lagu" dari "setRepeatMode memicu transisi":
-            // hanya matikan mode ulang bila indeks media benar-benar berubah
-            // atau mediaId-nya berbeda. setRepeatMode sendiri tidak mengubah
-            // keduanya, sehingga tombol Ulang tidak lagi mati seketika.
-            val indexChanged =
-                previousMediaItemIndex != C.INDEX_UNSET &&
-                    previousMediaItemIndex != player.currentMediaItemIndex
-            val idChanged =
-                lastTransitionedMediaId != null &&
-                    mediaItem?.mediaId != null &&
-                    lastTransitionedMediaId != mediaItem.mediaId
-
-            if (indexChanged || idChanged) {
-                repeatOnceCount = 0
-                if (player.repeatMode == REPEAT_MODE_ONE) {
-                    player.repeatMode = REPEAT_MODE_OFF
-                }
-            }
-        }
+        // Semua percobaan sebelumnya menambahkan logika di sini dan di
+        // onPlaybackStateChanged; keduanya saling bertabrakan sampai perilaku
+        // "Ulang" dan "Ulang 1" tertukar. Sekarang dihapus total - semakin
+        // sedikit kode yang menyentuh repeat, semakin kecil kemungkinan bug.
         previousMediaItemIndex = player.currentMediaItemIndex
 
         lastPlaybackSpeed = -1.0f // force update song
@@ -2713,19 +2661,13 @@ class MusicService :
             }
 
             if (player.playWhenReady && repeatMode == REPEAT_MODE_ONE) {
-                // Normalnya ExoPlayer mengulang sendiri dan tidak pernah sampai
-                // sini. Blok ini hanya jaring pengaman bila player melapor ENDED
-                // dengan mode ONE (mis. media tanpa durasi). Penghitungan
-                // "Ulang 1" ada di onMediaItemTransition, bukan di sini.
-                if (cachedRepeatOnceOnly && repeatOnceCount >= 1) {
-                    repeatOnceCount = 0
-                    player.repeatMode = REPEAT_MODE_OFF
-                } else {
-                    player.seekTo(player.currentMediaItemIndex, 0)
-                    player.prepare()
-                    player.play()
-                    return
-                }
+                // Jaring pengaman untuk media tanpa durasi yang bisa melapor
+                // ENDED meski mode ONE. Putar ulang lagu yang sama, lalu
+                // kembali. Tidak ada logika "Ulang 1" di sini.
+                player.seekTo(player.currentMediaItemIndex, 0)
+                player.prepare()
+                player.play()
+                return
             }
 
             if (player.playWhenReady && cachedAutoplay && player.hasNextMediaItem()) {

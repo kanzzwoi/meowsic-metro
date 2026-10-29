@@ -354,16 +354,13 @@ fun Queue(
 
                     PlayerQueueButton(
                         icon =
-                            when (repeatMode) {
-                                Player.REPEAT_MODE_ALL -> R.drawable.repeat
-                                Player.REPEAT_MODE_ONE -> R.drawable.repeat_one
-                                else -> R.drawable.repeat
+                            if (repeatMode == Player.REPEAT_MODE_ONE) {
+                                R.drawable.repeat_on
+                            } else {
+                                R.drawable.repeat
                             },
-                        label = when (repeatMode) {
-                            Player.REPEAT_MODE_ONE -> "Ulang 1"
-                            Player.REPEAT_MODE_ALL -> "Ulang"
-                            else -> "Ulang"
-                        },
+                        // Hanya dua keadaan: Ulang (aktif) atau Ulang (mati).
+                        label = "Ulang",
                         onClick = {
                             playerConnection.player.toggleRepeatMode()
                         },
@@ -1238,10 +1235,10 @@ fun Queue(
                 Icon(
                     painter =
                         painterResource(
-                            when (repeatMode) {
-                                Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ALL -> R.drawable.repeat
-                                Player.REPEAT_MODE_ONE -> R.drawable.repeat_one
-                                else -> throw IllegalStateException()
+                            if (repeatMode == Player.REPEAT_MODE_ONE) {
+                                R.drawable.repeat_on
+                            } else {
+                                R.drawable.repeat
                             },
                         ),
                     contentDescription = null,

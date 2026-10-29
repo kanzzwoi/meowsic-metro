@@ -151,7 +151,6 @@ import com.metrolist.music.constants.PlayerBackgroundStyleKey
 import com.metrolist.music.constants.PlayerButtonsStyle
 import com.metrolist.music.constants.PlayerButtonsStyleKey
 import com.metrolist.music.constants.PlayerHorizontalPadding
-import com.metrolist.music.constants.RepeatOnceOnlyKey
 import com.metrolist.music.constants.QueuePeekHeight
 import com.metrolist.music.constants.SleepTimerDefaultKey
 import com.metrolist.music.constants.SleepTimerFadeOutKey
@@ -325,7 +324,6 @@ fun BottomSheetPlayer(
     val currentSong by playerConnection.currentSong.collectAsStateWithLifecycle(initialValue = null)
     val automix by playerConnection.service.automixItems.collectAsStateWithLifecycle()
     val repeatMode by playerConnection.repeatMode.collectAsStateWithLifecycle()
-    val repeatOnceOnly by rememberPreference(RepeatOnceOnlyKey, defaultValue = false)
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsStateWithLifecycle()
     val canSkipNext by playerConnection.canSkipNext.collectAsStateWithLifecycle()
     val isMuted by playerConnection.isMuted.collectAsStateWithLifecycle()
@@ -1673,17 +1671,23 @@ fun BottomSheetPlayer(
                                     .padding(horizontal = PlayerHorizontalPadding),
                         ) {
                             Box(modifier = Modifier.weight(1f)) {
-                                // Siklus: OFF -> Ulang (lagu berulang terus) ->
-                                // Ulang 1 (berulang sekali lalu lanjut) -> OFF.
-                                // Flag RepeatOnceOnlyKey dibaca MusicService untuk
-                                // membedakan "Ulang" dan "Ulang 1" (sama-sama
-                                // REPEAT_MODE_ONE di level ExoPlayer).
+                                // Toggle sederhana: OFF <-> Ulang (loop lagu).
+                                //
+                                // Tidak ada lagi mode "Ulang 1". Sebelumnya dua mode
+                                // dibedakan lewat sebuah flag, dan keduanya saling
+                                // bertabrakan sehingga perilakunya terbalik. Sekarang
+                                // cukup REPEAT_MODE_ONE: ExoPlayer mengulang lagu
+                                // terus-menerus sampai user mematikan tombolnya atau
+                                // memilih lagu lain.
+                                //
+                                // Ikon tetap ikon repeat biasa (tanpa angka 1) sesuai
+                                // permintaan.
                                 ResizableIconButton(
                                     icon =
-                                        when {
-                                            repeatMode == Player.REPEAT_MODE_ONE && !repeatOnceOnly -> R.drawable.repeat_on
-                                            repeatMode == Player.REPEAT_MODE_ONE -> R.drawable.repeat_one_on
-                                            else -> R.drawable.repeat
+                                        if (repeatMode == Player.REPEAT_MODE_ONE) {
+                                            R.drawable.repeat_on
+                                        } else {
+                                            R.drawable.repeat
                                         },
                                     color = TextBackgroundColor,
                                     modifier =
@@ -1696,25 +1700,13 @@ fun BottomSheetPlayer(
                                             ),
                                     enabled = !isListenTogetherGuest,
                                     onClick = {
-                                        when {
-                                            repeatMode == Player.REPEAT_MODE_OFF -> {
-                                                // "Ulang": lagu mengulang terus.
-                                                // Flag diset SINKRON lebih dulu agar
-                                                // transisi yang dipicu setRepeatMode
-                                                // membaca nilai yang benar.
-                                                playerConnection.service.setRepeatOnceOnly(false)
-                                                playerConnection.player.setRepeatMode(Player.REPEAT_MODE_ONE)
+                                        val next =
+                                            if (repeatMode == Player.REPEAT_MODE_ONE) {
+                                                Player.REPEAT_MODE_OFF
+                                            } else {
+                                                Player.REPEAT_MODE_ONE
                                             }
-                                            repeatMode == Player.REPEAT_MODE_ONE && !repeatOnceOnly -> {
-                                                // "Ulang 1": ulang sekali lalu lanjut
-                                                playerConnection.service.setRepeatOnceOnly(true)
-                                            }
-                                            else -> {
-                                                // Matikan
-                                                playerConnection.service.setRepeatOnceOnly(false)
-                                                playerConnection.player.setRepeatMode(Player.REPEAT_MODE_OFF)
-                                            }
-                                        }
+                                        playerConnection.player.setRepeatMode(next)
                                     },
                                 )
                             }
