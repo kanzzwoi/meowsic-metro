@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
@@ -177,7 +176,7 @@ fun AppNavigationBar(
                 containerColor = Color.Transparent,
                 contentColor = contentColor,
                 tonalElevation = 0.dp,
-                modifier = Modifier.fillMaxWidth().height(if (slimNav) SlimNavBarHeight else NavigationBarHeight),
+                modifier = Modifier.fillMaxWidth().fillMaxHeight(),
             ) {
                 navigationItems.forEach { screen ->
                     val isSelected = remember(currentRoute, screen.route) {
@@ -235,6 +234,10 @@ fun AppNavigationBar(
                             Icon(
                                 painter = painterResource(id = iconRes),
                                 contentDescription = stringResource(screen.titleId),
+                                // Digeser turun sedikit: NavigationBarItem memberi
+                                // ruang untuk label di bawah, sehingga ikon
+                                // cenderung naik dan terlihat tidak seimbang.
+                                modifier = Modifier.padding(top = 3.dp),
                             )
                         },
                         label =
@@ -293,30 +296,20 @@ private fun GlassNavBarContainer(
         return
     }
 
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val glassTint =
-        if (isDark) {
-            Color.Black.copy(alpha = 0.28f)
-        } else {
-            Color.White.copy(alpha = 0.42f)
-        }
-    val rimColor =
-        if (isDark) {
-            Color.White.copy(alpha = 0.22f)
-        } else {
-            Color.White.copy(alpha = 0.85f)
-        }
+    // Warna kaca: putih 20% sesuai permintaan (sebelumnya hitam 28% di mode
+    // gelap sehingga terlalu transparan dan menyatu dengan latar).
+    val glassTint = Color.White.copy(alpha = 0.20f)
+    val rimColor = Color.White.copy(alpha = 0.30f)
 
     Box(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
-                // Ruang induk = bottomInset + navPadding. Pil harus LEBIH PENDEK
-                // dari itu agar terlihat mengapung. Padding inilah yang
-                // menciptakan jarak, dan karena Box memakai fillMaxHeight
-                // (tinggi sudah pasti), padding tidak menambah tinggi total.
-                .padding(horizontal = 40.dp, vertical = 6.dp),
+                // Jarak pil dari tepi layar/tombol navigasi HP. Nilai atas
+                // dibuat lebih besar dari bawah supaya pil terangkat dan tidak
+                // menabrak tombol sistem, sementara bawah tetap rapat.
+                .padding(start = 40.dp, end = 40.dp, top = 10.dp, bottom = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(
