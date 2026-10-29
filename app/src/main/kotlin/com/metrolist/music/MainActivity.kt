@@ -1079,7 +1079,14 @@ class MainActivity : FragmentActivity() {
                         !(pauseListenHistory && eventCount == 0)
                     }
 
-                val baseBg = if (pureBlack) Color.Black else MaterialTheme.colorScheme.surfaceContainer
+                val baseBg =
+                    if (liquidBackgroundEnabled) {
+                        Color.Transparent
+                    } else if (pureBlack) {
+                        Color.Black
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainer
+                    }
                 val artistNameAliases by ArtistNameAliases.aliases.collectAsStateWithLifecycle()
 
                 CompositionLocalProvider(
@@ -1100,6 +1107,15 @@ class MainActivity : FragmentActivity() {
                     }
 
                     Scaffold(
+                        // Latar Scaffold harus transparan agar wallpaper liquid
+                        // di belakangnya terlihat. Tanpa ini, Scaffold memakai
+                        // warna surface bawaan yang menutupi seluruh layar.
+                        containerColor =
+                            if (liquidBackgroundEnabled) {
+                                Color.Transparent
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainer
+                            },
                         snackbarHost = { SnackbarHost(snackbarHostState) },
                         topBar = {
                             AnimatedVisibility(

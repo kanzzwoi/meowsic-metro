@@ -172,8 +172,7 @@ fun AppNavigationBar(
             modifier = Modifier.fillMaxWidth().fillMaxHeight(),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
-        ) {
-        navigationItems.forEach { screen ->
+        ) {        navigationItems.forEach { screen ->
             val isSelected = remember(currentRoute, screen.route) {
                 isRouteSelected(currentRoute, screen.route, navigationItems)
             }
@@ -238,7 +237,7 @@ fun AppNavigationBar(
                     contentAlignment = Alignment.Center,
                     modifier =
                         Modifier
-                            .size(width = 64.dp, height = 32.dp)
+                            .size(width = 52.dp, height = 28.dp)
                             .clip(RoundedCornerShape(percent = 50))
                             .background(
                                 if (isSelected) {
@@ -252,7 +251,7 @@ fun AppNavigationBar(
                         painter = painterResource(id = iconRes),
                         contentDescription = stringResource(screen.titleId),
                         tint = if (isSelected) Color.White else contentColor,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(20.dp),
                     )
                 }
                 if (!slimNav) {
@@ -332,7 +331,7 @@ private fun GlassNavBarContainer(
                 // dari itu agar terlihat mengapung. Padding inilah yang
                 // menciptakan jarak, dan karena Box memakai fillMaxHeight
                 // (tinggi sudah pasti), padding tidak menambah tinggi total.
-                .padding(horizontal = 14.dp, vertical = 8.dp),
+                .padding(horizontal = 28.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(
