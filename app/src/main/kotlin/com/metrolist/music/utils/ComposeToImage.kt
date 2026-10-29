@@ -12,6 +12,8 @@ import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
@@ -262,22 +264,24 @@ object ComposeToImage {
             canvas.restore()
 
             // --- Footer Section ---
-            // Logo digambar APA ADANYA: PNG-nya sudah punya latar transparan,
-            // jadi tidak perlu lingkaran latar maupun tint warna. Tint
-            // (PorterDuff SRC_IN) membuat seluruh logo jadi satu warna solid
-            // sehingga detail kucingnya hilang - itu bug lamanya.
-            val logoSize = 26f * scale
-            val footerY = imageHeight - padding - logoSize
+            val logoBoxSize = 22f * scale
+            val logoIconSize = 13f * scale
+            val footerY = imageHeight - padding - logoBoxSize
 
+            // Draw Logo Icon
             val rawLogo = ContextCompat.getDrawable(context, R.drawable.small_icon)?.toBitmap()
             rawLogo?.let {
+                // Tanpa tint: logo digambar sesuai warnanya sendiri.
                 val logoPaint = Paint().apply { isAntiAlias = true }
+
+                // Center logo in box
+                val logoOffset = (logoBoxSize - logoIconSize) / 2f
                 val logoRect =
                     RectF(
-                        padding,
-                        footerY,
-                        padding + logoSize,
-                        footerY + logoSize,
+                        padding + logoOffset,
+                        footerY + logoOffset,
+                        padding + logoBoxSize - logoOffset,
+                        footerY + logoBoxSize - logoOffset,
                     )
                 canvas.drawBitmap(it, null, logoRect, logoPaint)
             }
