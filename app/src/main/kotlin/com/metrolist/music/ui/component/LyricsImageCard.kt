@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.text.TextAutoSize
+import com.metrolist.music.ui.player.BlurBackground
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -226,14 +227,16 @@ fun LyricsImageCard(
                     Box(modifier = Modifier.fillMaxSize().background(backgroundSolidColor))
                 }
                 LyricsBackgroundStyle.BLUR -> {
-                    Image(
-                        painter = painter,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .blur(50.dp) // High blur for background
-                            .background(Color.Black.copy(alpha = 0.3f)) // Overlay to ensure text readability
+                    // Pakai BlurBackground (blur di CPU), bukan Modifier.blur():
+                    // blur GPU diabaikan untuk konten gambar dari Coil sehingga
+                    // latar jatuh ke warna solid - bug yang sama seperti di
+                    // mini-player/full player.
+                    BlurBackground(
+                        thumbnailUrl = mediaMetadata.thumbnailUrl,
+                        songId = mediaMetadata.id,
+                        radius = 10,
+                        scrimAlpha = 0.3f,
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
                 LyricsBackgroundStyle.GRADIENT -> {
@@ -267,14 +270,13 @@ fun LyricsImageCard(
                     // Typically "Share Lyrics" looks like a card on a background.
                     // If we want the card to be seamless with the full image background, we can just use transparent.
                     // But to ensure it looks like the generated image:
-                    Image(
-                        painter = painter,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .blur(50.dp)
-                            .background(Color.Black.copy(alpha = 0.3f))
+                    // Blur CPU (bukan Modifier.blur yang diabaikan untuk Coil).
+                    BlurBackground(
+                        thumbnailUrl = mediaMetadata.thumbnailUrl,
+                        songId = mediaMetadata.id,
+                        radius = 10,
+                        scrimAlpha = 0.3f,
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
                 LyricsBackgroundStyle.GRADIENT -> {
@@ -417,7 +419,11 @@ fun LyricsImageCard(
                             painter = painterResource(id = R.drawable.small_icon),
                             contentDescription = null,
                             modifier = Modifier
-                                .size(38.dp),
+                                // Ukuran lebih kecil dari kotak agar ada ruang
+                                // kosong di sekeliling siluet; tanpa ini bentuk
+                                // yang padat memenuhi kotak dan terlihat seperti
+                                // blok warna, bukan logo.
+                                .size(26.dp),
                             colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(backgroundSolidColor)
                         )
                     }

@@ -265,7 +265,7 @@ object ComposeToImage {
 
             // --- Footer Section ---
             val logoBoxSize = 22f * scale
-            val logoIconSize = 16f * scale
+            val logoIconSize = 13f * scale
             val footerY = imageHeight - padding - logoBoxSize
 
             // Draw Logo Background Box
