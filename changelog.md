@@ -1,3 +1,11 @@
+---v0.5.9
+# Nav bar mengambang
+- Pil nav bar tidak lagi terpotong di bagian bawah dan kini punya jarak
+  nyata dari tombol navigasi HP.
+- Mini player dan nav bar menjadi dua elemen mengambang yang terpisah,
+  dengan celah di antaranya.
+- Warna pil disesuaikan: abu-abu gelap transparan dengan border tipis.
+
 ---v0.5.8
 # Wallpaper liquid & kartu lirik
 - Wallpaper gradien abstrak akhirnya tampil di belakang aplikasi. Selama
