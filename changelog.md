@@ -1,3 +1,10 @@
+---v0.5.13
+# Nav bar mengikuti referensi
+- Penanda menu aktif memakai pil ungu redup dengan ikon dan label putih,
+  tidak lagi bergantung warna tema.
+- Nav bar dibuat sedikit lebih sempit daripada mini player.
+- Jarak nav bar ke tombol navigasi HP dirapatkan.
+
 ---v0.5.12
 # Mini player & nav bar
 - Mini player diberi jarak lebih lega dari tepi layar.
