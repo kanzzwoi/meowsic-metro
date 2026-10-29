@@ -503,7 +503,23 @@ class MusicService :
     private var cachedAutoplay = true
     @Volatile
     private var cachedDisableLoadMoreWhenRepeatAll = true
+    @Volatile
     private var cachedRepeatOnceOnly = false
+
+    /**
+     * Set flag "Ulang 1" secara SINKRON.
+     *
+     * onMediaItemTransition membaca cachedRepeatOnceOnly pada saat transisi
+     * terjadi. Bila flag diset lewat DataStore (async), setRepeatMode() bisa
+     * mendahuluinya sehingga transisi membaca nilai lama - inilah yang
+     * membuat tombol Ulang langsung berperilaku seperti Ulang 1.
+     */
+    fun setRepeatOnceOnly(value: Boolean) {
+        cachedRepeatOnceOnly = value
+        scope.launch {
+            safeDataStoreEdit { it[RepeatOnceOnlyKey] = value }
+        }
+    }
     @Volatile
     private var cachedHideExplicit = false
     @Volatile
@@ -2578,26 +2594,39 @@ class MusicService :
         // ---- Mode Ulang ----
         // ExoPlayer TIDAK pernah melaporkan STATE_ENDED selama repeatMode =
         // REPEAT_MODE_ONE: ia mengulang sendiri dan tetap di STATE_READY.
-        // Karena itu penghitungan "Ulang 1" TIDAK boleh bergantung pada
-        // onPlaybackStateChanged - di sana bloknya tidak pernah tercapai.
-        // Satu-satunya titik yang pasti terpanggil adalah transisi media item.
+        // Karena itu penghitungan "Ulang 1" harus terjadi di sini.
+        //
+        // PENTING: jangan mematikan mode ulang berdasarkan "reason" apa pun.
+        // setRepeatMode() sendiri memicu transisi (SEEK/AUTO), sehingga
+        // mematikannya di sini membuat tombol Ulang mati seketika setelah
+        // ditekan - itu bug yang dilaporkan user.
         if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
             // Lagu baru saja mengulang dari awal.
             repeatOnceCount = 1
             if (cachedRepeatOnceOnly) {
-                // "Ulang 1": satu pengulangan sudah diputar. Matikan mode agar
-                // putaran ini selesai normal dan lanjut ke lagu berikutnya.
+                // "Ulang 1": satu pengulangan selesai; matikan mode agar
+                // putaran ini berakhir normal lalu lanjut lagu berikutnya.
                 player.repeatMode = REPEAT_MODE_OFF
             }
-            // "Ulang" (flag false): biarkan tetap REPEAT_MODE_ONE -> mengulang
-            // terus-menerus sampai user mematikannya atau ganti lagu.
+            // "Ulang" (flag false): tetap REPEAT_MODE_ONE -> mengulang terus.
         } else {
-            // Lagu benar-benar berpindah (user tekan next/prev, pilih dari
-            // daftar, atau auto-advance). Reset penghitung dan matikan mode
-            // ulang supaya tombolnya ikut mati saat ganti lagu.
-            repeatOnceCount = 0
-            if (player.repeatMode == REPEAT_MODE_ONE) {
-                player.repeatMode = REPEAT_MODE_OFF
+            // Bedakan "ganti lagu" dari "setRepeatMode memicu transisi":
+            // hanya matikan mode ulang bila indeks media benar-benar berubah
+            // atau mediaId-nya berbeda. setRepeatMode sendiri tidak mengubah
+            // keduanya, sehingga tombol Ulang tidak lagi mati seketika.
+            val indexChanged =
+                previousMediaItemIndex != C.INDEX_UNSET &&
+                    previousMediaItemIndex != player.currentMediaItemIndex
+            val idChanged =
+                lastTransitionedMediaId != null &&
+                    mediaItem?.mediaId != null &&
+                    lastTransitionedMediaId != mediaItem.mediaId
+
+            if (indexChanged || idChanged) {
+                repeatOnceCount = 0
+                if (player.repeatMode == REPEAT_MODE_ONE) {
+                    player.repeatMode = REPEAT_MODE_OFF
+                }
             }
         }
         previousMediaItemIndex = player.currentMediaItemIndex

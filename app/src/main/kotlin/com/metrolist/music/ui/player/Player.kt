@@ -1698,24 +1698,21 @@ fun BottomSheetPlayer(
                                     onClick = {
                                         when {
                                             repeatMode == Player.REPEAT_MODE_OFF -> {
-                                                // "Ulang": lagu mengulang terus
+                                                // "Ulang": lagu mengulang terus.
+                                                // Flag diset SINKRON lebih dulu agar
+                                                // transisi yang dipicu setRepeatMode
+                                                // membaca nilai yang benar.
+                                                playerConnection.service.setRepeatOnceOnly(false)
                                                 playerConnection.player.setRepeatMode(Player.REPEAT_MODE_ONE)
-                                                scope.launch {
-                                                    context.safeDataStoreEdit { it[RepeatOnceOnlyKey] = false }
-                                                }
                                             }
                                             repeatMode == Player.REPEAT_MODE_ONE && !repeatOnceOnly -> {
                                                 // "Ulang 1": ulang sekali lalu lanjut
-                                                scope.launch {
-                                                    context.safeDataStoreEdit { it[RepeatOnceOnlyKey] = true }
-                                                }
+                                                playerConnection.service.setRepeatOnceOnly(true)
                                             }
                                             else -> {
                                                 // Matikan
+                                                playerConnection.service.setRepeatOnceOnly(false)
                                                 playerConnection.player.setRepeatMode(Player.REPEAT_MODE_OFF)
-                                                scope.launch {
-                                                    context.safeDataStoreEdit { it[RepeatOnceOnlyKey] = false }
-                                                }
                                             }
                                         }
                                     },
