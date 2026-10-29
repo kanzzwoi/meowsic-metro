@@ -1311,7 +1311,10 @@ class MainActivity : FragmentActivity() {
                                 }
 
                             // Pre-calculate values for graphicsLayer to avoid reading state during composition
-                            val navBarTotalHeight = bottomInset + NavigationBarHeight
+                            // Pakai tinggi TOTAL (pil + jarak mengapung), sama dengan navPadding,
+                            // kalau tidak nav bar tergambar lebih pendek dari ruangnya
+                            // dan terdorong keluar layar.
+                            val navBarTotalHeight = bottomInset + navPadding
 
                             if (!showRail && currentRoute != "wrapped") {
                                 Box {
@@ -1350,7 +1353,7 @@ class MainActivity : FragmentActivity() {
                                                             val progress = playerBottomSheetState.progress.coerceIn(0f, 1f)
                                                             val slideOffset = totalHeightPx * progress
                                                             val hideOffset =
-                                                                totalHeightPx * (1 - navBarHeightPx / NavigationBarHeight.toPx())
+                                                                totalHeightPx * (1 - navBarHeightPx / navPadding.toPx().coerceAtLeast(1f))
                                                             slideOffset + hideOffset
                                                         }
                                                 },
