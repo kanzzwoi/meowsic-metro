@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import com.metrolist.music.constants.FloatingNavBarGap
 import com.metrolist.music.constants.NavigationBarHeight
 import com.metrolist.music.constants.SlimNavBarHeight
 import com.metrolist.music.ui.screens.Screens
@@ -296,26 +297,37 @@ private fun GlassNavBarContainer(
         return
     }
 
-    // Warna kaca: putih 20% sesuai permintaan (sebelumnya hitam 28% di mode
-    // gelap sehingga terlalu transparan dan menyatu dengan latar).
-    val glassTint = Color.White.copy(alpha = 0.20f)
-    val rimColor = Color.White.copy(alpha = 0.30f)
+    // Warna kaca: abu-abu gelap transparan dengan border tipis terang,
+    // mengikuti referensi desain (nav bar mengambang, bukan hitam pekat).
+    val glassTint = Color(0xFF2A2E36).copy(alpha = 0.72f)
+    val rimColor = Color.White.copy(alpha = 0.22f)
+
+    // Tinggi pil ditetapkan di sini, BUKAN lewat fillMaxHeight().
+    //
+    // Sebelumnya container memakai fillMaxHeight() lalu diberi padding
+    // 10dp/14dp. Karena induk (MainActivity) sudah mengalokasikan tinggi
+    // sebesar bottomInset + navPadding, padding itu MEMAKAN jatah tinggi
+    // tersebut: 58dp - 24dp = 34dp. Pil jadi terjepit dan terpotong di bawah.
+    // Sekarang tinggi pil = navHeight, dan jarak mengapung ditambahkan di
+    // luar perhitungan itu lewat Box induk yang lebih tinggi.
+    val pillHeight = if (slimNav) SlimNavBarHeight else NavigationBarHeight
 
     Box(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
-                // Jarak pil dari tepi layar/tombol navigasi HP. Nilai atas
-                // dibuat lebih besar dari bawah supaya pil terangkat dan tidak
-                // menabrak tombol sistem, sementara bawah tetap rapat.
-                .padding(start = 40.dp, end = 40.dp, top = 10.dp, bottom = 14.dp),
-        contentAlignment = Alignment.Center,
+                .padding(horizontal = 24.dp),
+        contentAlignment = Alignment.BottomCenter,
     ) {
         Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    // Jarak pil dari dasar area (bottomInset sudah ditangani
+                    // induk), sehingga pil tidak menyentuh tombol sistem.
+                    .padding(bottom = FloatingNavBarGap)
+                    .height(pillHeight)
                     .shadow(elevation = 12.dp, shape = RoundedCornerShape(percent = 50), clip = false)
                     .clip(RoundedCornerShape(percent = 50))
                     .background(glassTint)

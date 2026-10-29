@@ -158,6 +158,8 @@ import com.metrolist.music.constants.MiniPlayerBottomSpacing
 import com.metrolist.music.constants.MiniPlayerHeight
 import com.metrolist.music.constants.NavigationBarAnimationSpec
 import com.metrolist.music.constants.NavigationBarHeight
+import com.metrolist.music.constants.NavigationBarTotalHeight
+import com.metrolist.music.constants.SlimNavBarTotalHeight
 import com.metrolist.music.constants.PauseListenHistoryKey
 import com.metrolist.music.constants.PauseSearchHistoryKey
 import com.metrolist.music.constants.PreferredLyricsProvider
@@ -886,15 +888,18 @@ class MainActivity : FragmentActivity() {
 
                 val showRail = !forceBottomNav && (isLandscape || isTablet) && !inSearchScreen
 
+                // Pakai tinggi TOTAL (pil + jarak mengapung). Kalau memakai
+                // NavigationBarHeight saja, pil kehilangan ruang sebesar
+                // FloatingNavBarGap dan bagian bawahnya terpotong.
                 val navPadding =
                     if (shouldShowNavigationBar && !showRail) {
-                        if (slimNav) SlimNavBarHeight else NavigationBarHeight
+                        if (slimNav) SlimNavBarTotalHeight else NavigationBarTotalHeight
                     } else {
                         0.dp
                     }
 
                 val navigationBarHeight by animateDpAsState(
-                    targetValue = if (shouldShowNavigationBar && !showRail) NavigationBarHeight else 0.dp,
+                    targetValue = if (shouldShowNavigationBar && !showRail) NavigationBarTotalHeight else 0.dp,
                     animationSpec = NavigationBarAnimationSpec,
                     label = "navBarHeight",
                 )
@@ -930,7 +935,7 @@ class MainActivity : FragmentActivity() {
                     ) {
                         var bottom = bottomInset
                         if (shouldShowNavigationBar && !showRail) {
-                            bottom += NavigationBarHeight
+                            bottom += NavigationBarTotalHeight
                         }
                         if (!playerBottomSheetState.isDismissed) bottom += MiniPlayerHeight
                         windowsInsets
