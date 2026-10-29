@@ -1,3 +1,15 @@
+---v0.5.2
+# Nav bar, tombol Ulang, dan kartu lirik
+- Nav bar kaca tidak lagi tenggelam: pil kini lebih pendek dari ruangnya
+  sehingga terlihat mengapung dan tidak menempel ke tombol navigasi.
+- Tombol Ulang diperbaiki: pencet pertama = Ulang (lagu mengulang terus),
+  kedua = Ulang 1 (sekali lalu lanjut), ketiga = mati. Sebelumnya pencet
+  pertama langsung masuk Ulang 1 karena flag disimpan tidak sinkron.
+- Kartu bagikan lirik: latar Buram kini benar-benar tampil (sebelumnya
+  hanya warna solid pekat), dan logo tidak lagi menutupi seluruh lingkaran.
+- Latar liquid memakai palet biru + putih + hitam, sama untuk mode terang
+  maupun gelap.
+
 ---v0.5.1
 # Liquid glass langsung aktif
 - Latar liquid glass kini menyala secara default, jadi bisa langsung
