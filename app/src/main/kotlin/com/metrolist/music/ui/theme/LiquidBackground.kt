@@ -20,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 
 /**
  * Latar "liquid" berupa gradien yang bergerak pelan.
@@ -74,17 +73,13 @@ fun LiquidGradientBackground(
         label = "phaseC",
     )
 
-    // Palet diturunkan dari warna tema supaya tetap menyatu dengan aksen app.
-    val base1 = lerp(Color(0xFF0A1F44), seedColor, 0.22f)
-    val base2 = lerp(Color(0xFF123A6B), seedColor, 0.12f)
-    val base3 = lerp(Color(0xFF1B2A56), seedColor, 0.28f)
-
-    // Satu palet untuk mode terang maupun gelap, sesuai permintaan user:
-    // wallpaper-nya sama, hanya warna teks/ikon yang menyesuaikan tema.
-    val c1 = base1
-    val c2 = base2
-    val c3 = base3
-    val c4 = Color(0xFF050B18)
+    // Palet sesuai permintaan: biru + putih + hitam.
+    // Titik terang (putih) memberi kesan kilau/gelombang, biru sebagai warna
+    // utama, hitam sebagai dasar agar teks tetap terbaca.
+    val c1 = Color(0xFF1B4B8F) // biru terang
+    val c2 = Color(0xFF4A82C4) // biru medium
+    val c3 = Color(0xFFD8E4F2) // putih kebiruan (kilau)
+    val c4 = Color(0xFF060A12) // hitam dasar
 
     // Titik gradien bergerak dalam rentang kecil di sekitar tengah.
     val x1 = 0.15f + phaseA * 0.35f
