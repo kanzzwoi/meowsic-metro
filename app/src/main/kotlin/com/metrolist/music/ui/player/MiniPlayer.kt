@@ -340,7 +340,7 @@ private fun NewMiniPlayer(
                 .fillMaxWidth()
                 .height(MiniPlayerHeight)
                 .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
-                .padding(horizontal = 12.dp)
+                .padding(horizontal = 20.dp)
                 .let { baseModifier ->
                     if (swipeThumbnail) {
                         baseModifier.pointerInput(Unit) {
@@ -574,8 +574,9 @@ private fun NewMiniPlayerPlayButton(
             modifier =
                 Modifier
                     .size(40.dp)
-                    .clip(CircleShape)
-                    .border(1.dp, outlineColor.copy(alpha = 0.3f), CircleShape)
+                    // Squircle, bukan lingkaran: mengikuti referensi desain.
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(1.dp, outlineColor.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
                     .clickable {
                         if (isListenTogetherGuest) {
                             playerConnection.toggleMute()
@@ -600,7 +601,7 @@ private fun NewMiniPlayerPlayButton(
                     model = thumbnailUrl,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize().clip(CircleShape),
+                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)),
                 )
             }
 

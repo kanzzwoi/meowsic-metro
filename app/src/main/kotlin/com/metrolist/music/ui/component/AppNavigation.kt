@@ -318,7 +318,7 @@ private fun GlassNavBarContainer(
             Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 18.dp),
         contentAlignment = Alignment.BottomCenter,
     ) {
         Column(
