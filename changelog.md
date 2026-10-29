@@ -1,3 +1,12 @@
+---v0.5.7
+# Tombol Ulang disederhanakan
+- Kini hanya satu tombol Ulang: tekan untuk mengulang lagu terus-menerus,
+  tekan lagi untuk mematikan. Tidak ada lagi mode "Ulang 1" yang membuat
+  perilakunya membingungkan.
+- Ikon repeat tidak lagi memakai angka 1.
+- Seluruh logika ulang yang saling bertabrakan dihapus; pengulangan kini
+  ditangani langsung oleh mesin pemutar sehingga jauh lebih andal.
+
 ---v0.5.6
 # Penyesuaian nav bar
 - Pil nav bar diangkat agar tidak menabrak tombol navigasi HP.
