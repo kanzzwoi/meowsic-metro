@@ -438,7 +438,7 @@ fun LyricsImageCard(
                     // seluruh logo jadi satu warna solid dan detail kucingnya
                     // hilang.
                     Image(
-                        painter = painterResource(id = R.drawable.meowsic_logo),
+                        painter = painterResource(id = R.drawable.small_icon),
                         contentDescription = null,
                         modifier = Modifier.size(32.dp),
                     )

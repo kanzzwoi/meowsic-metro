@@ -269,7 +269,7 @@ object ComposeToImage {
             val logoSize = 26f * scale
             val footerY = imageHeight - padding - logoSize
 
-            val rawLogo = ContextCompat.getDrawable(context, R.drawable.meowsic_logo)?.toBitmap()
+            val rawLogo = ContextCompat.getDrawable(context, R.drawable.small_icon)?.toBitmap()
             rawLogo?.let {
                 val logoPaint = Paint().apply { isAntiAlias = true }
                 val logoRect =
