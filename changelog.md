@@ -1,22 +1,13 @@
----v0.5.13
-# Nav bar mengikuti referensi
-- Penanda menu aktif memakai pil ungu redup dengan ikon dan label putih,
-  tidak lagi bergantung warna tema.
-- Nav bar dibuat sedikit lebih sempit daripada mini player.
-- Jarak nav bar ke tombol navigasi HP dirapatkan.
-
----v0.5.12
-# Mini player & nav bar
-- Mini player diberi jarak lebih lega dari tepi layar.
-- Album art mini player memakai sudut membulat, bukan lingkaran.
-- Nav bar dibuat sedikit lebih lebar daripada mini player.
+---v0.6.0
+# Nav bar, mini player, dan logo
+- Ikon dan label nav bar kembali terlihat penuh; isinya rata tengah.
+- Nav bar mengambang dengan jarak nyata dari tombol navigasi HP, sedikit
+  lebih sempit daripada mini player.
+- Menu aktif ditandai pil ungu redup dengan ikon dan label putih, tidak
+  lagi bergantung pada warna tema.
 - Jarak mini player ke nav bar dilonggarkan agar tidak terasa sesak.
-
----v0.5.11
-# Logo dan jarak mini player
 - Logo Meowsic di kartu bagikan lirik kembali utuh dengan detail aslinya.
   Sebelumnya logo diwarnai satu warna solid sehingga bentuknya rusak.
-- Mini player dinaikkan sedikit agar tidak terlalu rapat dengan nav bar.
 
 ---v0.5.10
 # Nav bar diperbaiki
