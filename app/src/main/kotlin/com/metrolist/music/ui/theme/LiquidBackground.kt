@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -165,8 +164,8 @@ private fun DrawScope.band(
                         Color(0xFFCFE4FA).copy(alpha = alpha * 0.55f),
                         Color.Transparent,
                     ),
-                start = Offset(0f, 0f),
-                end = Offset(w, 0f),
+                startX = 0f,
+                endX = w,
             ),
         style = Stroke(width = 2f),
     )
