@@ -7,9 +7,16 @@ package com.metrolist.music.ui.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -175,11 +182,25 @@ fun AppNavigationBar(
         verticalArrangement = Arrangement.Center,
     ) {
         GlassNavBarContainer(glass = glass, pureBlack = pureBlack, slimNav = slimNav) {
-            NavigationBar(
-                containerColor = Color.Transparent,
-                contentColor = contentColor,
-                tonalElevation = 0.dp,
-                modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+            // Isi pil dibangun manual (Row + item), BUKAN NavigationBar Material3.
+            // NavigationBar punya tinggi minimum 80dp dan padding inset sendiri;
+            // saat dipaksa muat di pil 58dp, ikonnya terpotong dan hanya label
+            // yang tersisa. Dengan Row, ukuran ikon/label sepenuhnya terkendali
+            // dan pasti muat di dalam pil.
+            val itemContentColor =
+                if (glass) Color.White.copy(alpha = 0.75f) else contentColor
+            val selectedContentColor =
+                if (glass) Color.White else MaterialTheme.colorScheme.onPrimaryContainer
+            val selectedIndicatorColor =
+                if (glass) {
+                    Color.White.copy(alpha = 0.16f)
+                } else {
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f)
+                }
+
+            Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 navigationItems.forEach { screen ->
                     val isSelected = remember(currentRoute, screen.route) {
@@ -215,47 +236,53 @@ fun AppNavigationBar(
                         }
                     }
 
-                    NavigationBarItem(
-                        selected = isSelected,
-                        onClick = {
-                            if (!isSearchItem && !isHomeHoldItem) {
-                                onItemClick(screen, currentIsSelected)
-                            }
-                        },
-                        interactionSource = interactionSource,
-                        // Indikator aktif mengikuti peran warna tema (R2.4),
-                        // diberi transparansi agar tetap terlihat di atas kaca.
-                        colors =
-                            NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
-                                unselectedIconColor = contentColor,
-                                unselectedTextColor = contentColor,
-                            ),
-                        icon = {
+                    Box(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(percent = 50))
+                                .then(
+                                    if (isSelected) {
+                                        Modifier.background(selectedIndicatorColor)
+                                    } else {
+                                        Modifier
+                                    },
+                                )
+                                .clickable(
+                                    interactionSource = interactionSource,
+                                    indication = null,
+                                    onClick = {
+                                        if (!isSearchItem && !isHomeHoldItem) {
+                                            onItemClick(screen, currentIsSelected)
+                                        }
+                                    },
+                                ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
                             Icon(
                                 painter = painterResource(id = iconRes),
                                 contentDescription = stringResource(screen.titleId),
-                                // Dibiarkan tanpa offset: geseran 3dp sebelumnya
-                                // membuat ikon tidak sejajar dengan label di
-                                // pill 58dp, sehingga tampak miring.
-                                modifier = Modifier.size(24.dp),
+                                tint = if (isSelected) selectedContentColor else itemContentColor,
+                                modifier = Modifier.size(22.dp),
                             )
-                        },
-                        label =
                             if (!slimNav) {
-                                {
-                                    Text(
-                                        text = stringResource(screen.titleId),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            } else {
-                                null
-                            },
-                    )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = stringResource(screen.titleId),
+                                    color = if (isSelected) selectedContentColor else itemContentColor,
+                                    fontSize = 10.sp,
+                                    lineHeight = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -312,33 +339,37 @@ private fun GlassNavBarContainer(
     // (58dp - 14dp = 44dp) sehingga NavigationBarItem kehabisan ruang dan
     // ikonnya hilang.
     val pillHeight = if (slimNav) SlimNavBarHeight else NavigationBarHeight
+    val density = LocalDensity.current
+    val systemBottom = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
 
+    // STRUKTUR: jarak mengapung dan tinggi pil dipisah total.
+    // Padding bawah (gap + area tombol sistem) dipasang di Box luar, bukan di
+    // dalam pil. Sebelumnya padding ditaruh di dalam Column yang ikut di-clip
+    // sehingga bentuk pilnya setinggi pil+gap (78dp) dengan 20dp kosong di
+    // bawah — hasilnya pil tampak gendut dan isinya terdorong ke atas.
     Box(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 20.dp)
+                .padding(bottom = FloatingNavBarGap + systemBottom),
         contentAlignment = Alignment.BottomCenter,
     ) {
         Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    // Tinggi total = pil + jarak mengapung. Padding di bawah
-                    // ditaruh SETELAH height supaya ia menambah ruang, bukan
-                    // memotong pil. Kolomnya tinggi, pilnya mengisi bagian
-                    // atas, sehingga pil terangkat sebesar FloatingNavBarGap.
-                    .height(pillHeight + FloatingNavBarGap)
-                    .shadow(elevation = 12.dp, shape = RoundedCornerShape(percent = 50), clip = false)
+                    .height(pillHeight)
+                    .shadow(elevation = 10.dp, shape = RoundedCornerShape(percent = 50), clip = false)
                     .clip(RoundedCornerShape(percent = 50))
                     .background(glassTint)
                     .border(
                         width = 1.dp,
                         color = rimColor,
                         shape = RoundedCornerShape(percent = 50),
-                    )
-                    .padding(bottom = FloatingNavBarGap),
+                    ),
+            verticalArrangement = Arrangement.Center,
         ) {
             content()
         }

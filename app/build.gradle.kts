@@ -40,8 +40,8 @@ android {
         applicationId = applicationIdOverride ?: baseApplicationId
         minSdk = 26
         targetSdk = 36
-        versionCode = 196
-        versionName = "0.6.4"
+        versionCode = 197
+        versionName = "0.6.5"
         val baseVersionName = requireNotNull(versionName)
         buildConfigField("String", "BASE_VERSION_NAME", "\"$baseVersionName\"")
         buildCommit?.let { versionName = "$baseVersionName+$it" }
@@ -51,7 +51,14 @@ android {
         vectorDrawables.useSupportLibrary = true
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+            // Saat develop di HP, build arm64 saja supaya APK tidak 47 MB:
+            //   ./gradlew :app:assembleFossDebug -PonlyArm64
+            abiFilters +=
+                if (project.hasProperty("onlyArm64")) {
+                    listOf("arm64-v8a")
+                } else {
+                    listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+                }
         }
 
         // LastFM API keys from GitHub Secrets

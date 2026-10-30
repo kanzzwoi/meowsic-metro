@@ -365,7 +365,7 @@ fun OnlineSearchResult(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(if (pureBlack) Color.Black else MaterialTheme.colorScheme.background)
+                // Transparan: ikut wallpaper global.
                 .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top)),
     ) {
         // Google-style SearchBar with Material 3 design

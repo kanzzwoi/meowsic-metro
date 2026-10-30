@@ -16,6 +16,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
@@ -269,7 +270,7 @@ inline fun ListItem(
                 .background(
                     color = // selected active
                         if (isSelected == true) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                        else MaterialTheme.colorScheme.secondaryContainer
+                        else Color.White.copy(alpha = 0.3f)
                 )
         } else if (isSelected == true) {
             modifier // inactive selected
@@ -1681,7 +1682,14 @@ fun PlaylistThumbnail(
             modifier = Modifier
                 .size(size)
                 .clip(shape)
-                .background(MaterialTheme.colorScheme.surfaceContainer)
+                // Kaca putih tipis: ikon putih tetap jelas, kotak tidak lagi
+                // tampak sebagai blok warna solid.
+                .background(Color.White.copy(alpha = 0.10f))
+                .border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.18f),
+                    shape = shape,
+                )
         ) {
             placeHolder()
         }

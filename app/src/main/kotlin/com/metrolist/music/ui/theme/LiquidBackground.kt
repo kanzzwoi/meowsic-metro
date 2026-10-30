@@ -12,7 +12,12 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.metrolist.music.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -41,42 +46,30 @@ fun LiquidGradientBackground(
     modifier: Modifier = Modifier,
     seedColor: Color = DefaultThemeColor,
 ) {
-    val transition = rememberInfiniteTransition(label = "liquidBackground")
-
-    // Sangat lambat (38-47 detik) supaya terasa hidup tanpa mengganggu.
-    val drift by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(38000, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-        label = "drift",
-    )
-    val swell by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = 0f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(47000, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-        label = "swell",
-    )
+    // Latar STATIS: animasi gelombangnya dimatikan total.
+    // Sebelumnya Canvas menggambar ulang 6 pita × 40 segmen tiap frame
+    // (60fps), dan itu bikin patah-patah di HP kelas menengah. Dengan nilai
+    // tetap, Canvas hanya digambar sekali — nol biaya per frame.
+    val drift = 0.5f
+    val swell = 0.5f
 
     val baseTop = Color(0xFF0C1E40)
     val baseBottom = Color(0xFF030710)
 
-    Canvas(modifier = modifier.fillMaxSize()) {
-        drawRect(brush = Brush.verticalGradient(colors = listOf(baseTop, baseBottom)))
+    Box(modifier = modifier.fillMaxSize()) {
+        // 1) Dasar gradient (statis, sekali gambar) — juga jadi fallback kalau
+        //    gambar background gagal di-decode di perangkat tertentu.
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawRect(brush = Brush.verticalGradient(colors = listOf(baseTop, baseBottom)))
+        }
 
-        band(0.18f, 0.075f, 0.00f, Color(0xFF6092CE), 0.30f, 0.30f, drift, swell, 1.15f)
-        band(0.36f, 0.095f, 0.35f, Color(0xFF3464A2), 0.42f, 0.34f, drift, swell, 1.30f)
-        band(0.52f, 0.085f, 0.70f, Color(0xFF1C3E74), 0.55f, 0.32f, drift, swell, 1.10f)
-        band(0.66f, 0.100f, 0.20f, Color(0xFF4A7CBA), 0.34f, 0.26f, drift, swell, 1.40f)
-        band(0.79f, 0.080f, 0.55f, Color(0xFFA6CAF0), 0.20f, 0.18f, drift, swell, 1.20f)
-        band(0.91f, 0.070f, 0.90f, Color(0xFF24487C), 0.45f, 0.28f, drift, swell, 1.05f)
+        // 2) Gambar background dari desain (statis, tanpa animasi).
+        Image(
+            painter = painterResource(R.drawable.meowsic_background),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
 

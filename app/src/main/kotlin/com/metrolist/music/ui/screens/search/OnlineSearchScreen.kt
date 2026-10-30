@@ -129,7 +129,9 @@ fun OnlineSearchScreen(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(if (pureBlack) Color.Black else MaterialTheme.colorScheme.background),
+                // Scrim tipis (bukan hitam pekat): wallpaper masih terlihat,
+                // teks hasil pencarian tetap terbaca.
+                .background(Color.Black.copy(alpha = 0.30f)),
     ) {
         // Show parsed URL item at the top if present
         if (viewState.isUrlQuery && viewState.parsedUrlItem != null) {
@@ -360,7 +362,7 @@ fun OnlineSearchScreen(
                                         }
                                     }
                                 },
-                            ).background(if (pureBlack) Color.Black else MaterialTheme.colorScheme.surface)
+                            ).background(Color.Transparent)
                             .animateItem(),
                 )
             }
@@ -633,7 +635,7 @@ fun OnlineSearchScreen(
                                     }
                                 }
                             },
-                        ).background(if (pureBlack) Color.Black else MaterialTheme.colorScheme.surface)
+                        ).background(Color.Transparent)
                         .animateItem(),
             )
         }
@@ -656,7 +658,9 @@ fun SuggestionItem(
             modifier
                 .fillMaxWidth()
                 .height(SuggestionItemHeight)
-                .background(if (pureBlack) Color.Black else MaterialTheme.colorScheme.surface)
+                // Block tipis (bukan solid) supaya tiap baris riwayat tetap
+                // terpisah tanpa menutupi wallpaper.
+                .background(Color.White.copy(alpha = 0.06f))
                 .clickable(onClick = onClick)
                 .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)),
     ) {

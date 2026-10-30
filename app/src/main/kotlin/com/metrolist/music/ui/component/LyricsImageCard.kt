@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,6 +33,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -181,8 +184,39 @@ fun LyricsImageCard(
             .build()
     )
     
-    // Calculate gradient colors if needed
+    // Hitung gradient colors if needed
     var gradientBrush by remember { mutableStateOf<Brush?>(null) }
+
+    // Latar buram: bitmap sampul diperkecil drastis lalu digambar membesar.
+    // Modifier.blur() TIDAK dipakai karena RenderEffect tidak selalu
+    // ter-render (dan hilang saat kartu di-capture jadi gambar), sehingga
+    // latar jatuh ke warna pekat. Bitmap kecil + bilinear = buram yang
+    // pasti tampil di layar maupun di hasil share.
+    var blurredBackground by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    LaunchedEffect(mediaMetadata.thumbnailUrl, backgroundStyle) {
+        if (backgroundStyle != LyricsBackgroundStyle.BLUR) return@LaunchedEffect
+        val url = mediaMetadata.thumbnailUrl ?: return@LaunchedEffect
+        withContext(Dispatchers.IO) {
+            try {
+                val loader = ImageLoader(context)
+                val req =
+                    ImageRequest.Builder(context)
+                        .data(url)
+                        .allowHardware(false)
+                        .build()
+                val bmp = loader.execute(req).image?.toBitmap()
+                if (bmp != null) {
+                    val targetWidth = 12
+                    val targetHeight =
+                        (bmp.height.toFloat() * targetWidth / bmp.width)
+                            .toInt()
+                            .coerceAtLeast(1)
+                    val small = android.graphics.Bitmap.createScaledBitmap(bmp, targetWidth, targetHeight, true)
+                    blurredBackground = small.asImageBitmap()
+                }
+            } catch (_: Exception) {}
+        }
+    }
     
     if (backgroundStyle == LyricsBackgroundStyle.GRADIENT) {
         LaunchedEffect(mediaMetadata.thumbnailUrl) {
@@ -217,50 +251,10 @@ fun LyricsImageCard(
             .fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        // Background Layer
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            when (backgroundStyle) {
-                LyricsBackgroundStyle.SOLID -> {
-                    Box(modifier = Modifier.fillMaxSize().background(backgroundSolidColor))
-                }
-                LyricsBackgroundStyle.BLUR -> {
-                    // Kartu lirik butuh blur PENUH dari sampul, bukan sampel
-                    // kecil yang diregangkan. BlurBackground mengambil bitmap
-                    // 100x100 untuk efisiensi player; di kartu besar, area
-                    // terang sampul melebar jadi pita putih di tepi.
-                    // Di sini gambar asli dipakai langsung lalu diburamkan
-                    // dengan scrim gelap supaya teks tetap terbaca.
-                    if (mediaMetadata.thumbnailUrl != null) {
-                        Image(
-                            painter = rememberAsyncImagePainter(model = mediaMetadata.thumbnailUrl),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier =
-                                Modifier
-                                    .fillMaxSize()
-                                    .blur(40.dp),
-                        )
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.20f)),
-                        )
-                    } else {
-                        Box(modifier = Modifier.fillMaxSize().background(backgroundSolidColor))
-                    }
-                }
-                LyricsBackgroundStyle.GRADIENT -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(gradientBrush ?: androidx.compose.ui.graphics.Brush.linearGradient(listOf(backgroundSolidColor, backgroundSolidColor)))
-                    )
-                }
-            }
-        }
+        // Background Layer: dasar hitam saja. Latar per-gaya digambar di dalam
+        // kartu (yang sudah di-clip rounded) supaya tidak ada dua lapis scrim
+        // yang membuat hasilnya terlihat pekat.
+        Box(modifier = Modifier.fillMaxSize())
     
         Box(
             modifier = Modifier
@@ -278,27 +272,19 @@ fun LyricsImageCard(
                     Box(modifier = Modifier.fillMaxSize().background(backgroundSolidColor))
                 }
                 LyricsBackgroundStyle.BLUR -> {
-                    // For blur, we want the card to be a window to the blurred background?
-                    // Or have its own blurred background?
-                    // Typically "Share Lyrics" looks like a card on a background.
-                    // If we want the card to be seamless with the full image background, we can just use transparent.
-                    // But to ensure it looks like the generated image:
-                    // Sama seperti blok di atas: blur penuh dari sampul asli.
-                    if (mediaMetadata.thumbnailUrl != null) {
+                    val bg = blurredBackground
+                    if (bg != null) {
                         Image(
-                            painter = rememberAsyncImagePainter(model = mediaMetadata.thumbnailUrl),
+                            bitmap = bg,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            modifier =
-                                Modifier
-                                    .fillMaxSize()
-                                    .blur(40.dp),
+                            modifier = Modifier.fillMaxSize(),
                         )
                         Box(
                             modifier =
                                 Modifier
                                     .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.20f)),
+                                    .background(Color.Black.copy(alpha = 0.28f)),
                         )
                     } else {
                         Box(modifier = Modifier.fillMaxSize().background(backgroundSolidColor))
@@ -431,25 +417,29 @@ fun LyricsImageCard(
                 // Footer
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                    // Diturunkan sedikit dari posisi sebelumnya.
+                    modifier = Modifier.fillMaxWidth().offset(y = 4.dp)
                 ) {
                     // Logo PNG sudah transparan: digambar apa adanya, tanpa
-                    // lingkaran latar dan tanpa tint. Ukuran 30dp disamakan
-                    // dengan renderer (logoBoxSize 30f * scale) dan sejajar
-                    // dengan tinggi teks aplikasi di sampingnya.
+                    // lingkaran latar dan tanpa tint. Ukuran 24dp (0.8x dari
+                    // 30dp) supaya proporsional terhadap teks di sampingnya.
                     Image(
                         painter = painterResource(id = R.drawable.meowsic_logo),
                         contentDescription = null,
-                        modifier = Modifier.size(30.dp),
+                        modifier = Modifier.size(24.dp),
                     )
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
 
                     Text(
                         text = stringResource(R.string.app_name),
                         color = secondaryColor,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        // Digeser turun 2dp: pusat visual kucing pada PNG ada
+                        // sedikit di bawah pusat gambar (ada ruang transparan),
+                        // jadi teks tanpa geseran tampak sejajar kepala.
+                        modifier = Modifier.offset(y = 2.dp),
                     )
                 }
             }

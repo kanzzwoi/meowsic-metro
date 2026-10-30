@@ -139,8 +139,9 @@ object ComposeToImage {
                             val targetH = (imageHeight / 3).coerceAtLeast(64)
                             val scaledBitmap =
                                 Bitmap.createScaledBitmap(coverArtBitmap, targetW, targetH, true)
-                            // Radius sebanding ukuran bitmap, bukan angka tetap.
-                            val radius = (targetW / 40).coerceIn(6, 40)
+                            // Blur dinaikkan supaya yang tersisa gradasi warna
+                            // sampul, bukan bentuk gambar yang masih kebaca.
+                            val radius = (targetW / 15).coerceIn(8, 60)
                             val blurredBitmap = fastBlur(scaledBitmap, 1f, radius)
 
                             if (blurredBitmap != null) {
@@ -282,8 +283,9 @@ object ComposeToImage {
             // ikon hanya 13f*scale sehingga logo tampak kecil dan terkurung
             // ruang kosong. PNG-nya sudah punya padding transparan sendiri,
             // jadi tidak perlu dikurangi lagi.
-            val logoBoxSize = 30f * scale
-            val footerY = imageHeight - padding - logoBoxSize
+            val logoBoxSize = 24f * scale
+            // Footer diturunkan 4dp, sama seperti preview Compose.
+            val footerY = imageHeight - padding - logoBoxSize + (4f * scale)
 
             // Draw Logo Icon
             val rawLogo = ContextCompat.getDrawable(context, R.drawable.meowsic_logo)?.toBitmap()
@@ -305,14 +307,16 @@ object ComposeToImage {
             val appNamePaint =
                 TextPaint().apply {
                     color = secondaryTxtColor
-                    textSize = 14f * scale
+                    textSize = 11f * scale
                     typeface = Typeface.DEFAULT_BOLD
                     isAntiAlias = true
                 }
 
-            val appNameX = padding + logoBoxSize + (8f * scale)
-            // Center text vertically relative to logo box
-            val appNameY = footerY + logoBoxSize / 2f - (appNamePaint.descent() + appNamePaint.ascent()) / 2f
+            val appNameX = padding + logoBoxSize + (4f * scale)
+            // Center text vertically relative to logo box, lalu digeser 2dp ke
+            // bawah supaya sejajar pusat visual kucing (PNG punya padding).
+            val appNameY =
+                footerY + logoBoxSize / 2f - (appNamePaint.descent() + appNamePaint.ascent()) / 2f + (2f * scale)
             canvas.drawText(appName, appNameX, appNameY, appNamePaint)
 
             // --- Lyrics Section ---
@@ -606,7 +610,12 @@ object ComposeToImage {
                 ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, "$fileName.png")
                     put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Metrolist")
+                    // Nama folder galeri mengikuti nama aplikasi (Meowsic),
+                    // bukan nama proyek upstream (Metrolist).
+                    put(
+                        MediaStore.MediaColumns.RELATIVE_PATH,
+                        Environment.DIRECTORY_PICTURES + "/" + context.getString(R.string.app_name),
+                    )
                 }
             val uri =
                 context.contentResolver.insert(

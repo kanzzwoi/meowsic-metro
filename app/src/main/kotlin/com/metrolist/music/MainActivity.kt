@@ -1229,8 +1229,8 @@ class MainActivity : FragmentActivity() {
                                         scrollBehavior = topAppBarScrollBehavior,
                                         colors =
                                             TopAppBarDefaults.topAppBarColors(
-                                                containerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.surfaceContainer,
-                                                scrolledContainerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.surfaceContainer,
+                                                containerColor = Color.Transparent,
+                                                scrolledContainerColor = Color.Transparent,
                                                 titleContentColor = MaterialTheme.colorScheme.onSurface,
                                                 actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 navigationIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1464,46 +1464,15 @@ class MainActivity : FragmentActivity() {
                                             NavigationTab.SEARCH -> Screens.Search
                                             NavigationTab.LIBRARY -> Screens.Library
                                         }.route,
-                                    enterTransition = {
-                                        val currentRouteIndex = routeIndexMap[targetState.destination.route] ?: -1
-                                        val previousRouteIndex = routeIndexMap[initialState.destination.route] ?: -1
-
-                                        if (currentRouteIndex == -1 || currentRouteIndex > previousRouteIndex) {
-                                            slideInHorizontally { it / 8 } + fadeIn(tween(200))
-                                        } else {
-                                            slideInHorizontally { -it / 8 } + fadeIn(tween(200))
-                                        }
-                                    },
-                                    exitTransition = {
-                                        val currentRouteIndex = routeIndexMap[initialState.destination.route] ?: -1
-                                        val targetRouteIndex = routeIndexMap[targetState.destination.route] ?: -1
-
-                                        if (targetRouteIndex == -1 || targetRouteIndex > currentRouteIndex) {
-                                            slideOutHorizontally { -it / 8 } + fadeOut(tween(200))
-                                        } else {
-                                            slideOutHorizontally { it / 8 } + fadeOut(tween(200))
-                                        }
-                                    },
-                                    popEnterTransition = {
-                                        val currentRouteIndex = routeIndexMap[targetState.destination.route] ?: -1
-                                        val previousRouteIndex = routeIndexMap[initialState.destination.route] ?: -1
-
-                                        if (previousRouteIndex != -1 && previousRouteIndex < currentRouteIndex) {
-                                            slideInHorizontally { it / 8 } + fadeIn(tween(200))
-                                        } else {
-                                            slideInHorizontally { -it / 8 } + fadeIn(tween(200))
-                                        }
-                                    },
-                                    popExitTransition = {
-                                        val currentRouteIndex = routeIndexMap[initialState.destination.route] ?: -1
-                                        val targetRouteIndex = routeIndexMap[targetState.destination.route] ?: -1
-
-                                        if (currentRouteIndex != -1 && currentRouteIndex < targetRouteIndex) {
-                                            slideOutHorizontally { -it / 8 } + fadeOut(tween(200))
-                                        } else {
-                                            slideOutHorizontally { it / 8 } + fadeOut(tween(200))
-                                        }
-                                    },
+                                    // Transisi tab dibuat FADE saja (tanpa slide).
+                                    // Slide memaksa dua layar penuh digambar ulang
+                                    // sekaligus tiap frame; di HP kelas menengah itu
+                                    // jadi patah-patah. Fade 160ms jauh lebih murah
+                                    // dan terasa lebih cepat/smooth.
+                                    enterTransition = { fadeIn(tween(160)) },
+                                    exitTransition = { fadeOut(tween(120)) },
+                                    popEnterTransition = { fadeIn(tween(160)) },
+                                    popExitTransition = { fadeOut(tween(120)) },
                                     modifier = Modifier.nestedScroll(topAppBarScrollBehavior.nestedScrollConnection),
                                 ) {
                                     navigationBuilder(

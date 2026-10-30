@@ -282,7 +282,7 @@ fun ListenTogetherScreen(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                // Transparan: pakai wallpaper global supaya sama dengan Home.
                 .imePadding(),
         contentPadding =
             PaddingValues(

@@ -99,6 +99,10 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
     val isRefreshing = MutableStateFlow(false)
     val isLoading = MutableStateFlow(false)
+    // Menandai bahwa pemuatan pertama sudah selesai (sukses maupun gagal).
+    // Dipakai HomeScreen untuk menahan skeleton selama load pertama, karena
+    // isLoading masih false pada frame-frame awal sebelum load() dipanggil.
+    val hasLoadedOnce = MutableStateFlow(false)
     val isRandomizing = MutableStateFlow(false)
 
     private val quickPicksEnum = context.dataStore.data.map {
@@ -489,6 +493,7 @@ class HomeViewModel @Inject constructor(
         allLocalItems.value = (quickPicks.value.orEmpty() + forgottenFavorites.value.orEmpty() + keepListening.value.orEmpty())
             .filter { it is Song || it is Album }
         isLoading.value = false
+        hasLoadedOnce.value = true
 
         // Phase 2: Heavy multi-request operations — run in background without blocking the UI.
         viewModelScope.launch(Dispatchers.IO) { getDailyDiscover() }

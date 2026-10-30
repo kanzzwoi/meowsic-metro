@@ -1058,9 +1058,12 @@ private fun MiniPlayerPlayPauseButton(
             Modifier
                 .size(40.dp)
                 .clip(CircleShape)
+                // Latar + garis lebih jelas supaya tombolnya kelihatan
+                // sebagai tombol, bukan ikon lepas di latar gelap.
+                .background(Color.White.copy(alpha = 0.10f))
                 .border(
                     width = 1.dp,
-                    color = outlineColor.copy(alpha = 0.3f),
+                    color = outlineColor.copy(alpha = 0.55f),
                     shape = CircleShape,
                 ).clickable { playerConnection.togglePlayPause() },
     ) {
@@ -1070,7 +1073,7 @@ private fun MiniPlayerPlayPauseButton(
                 else R.drawable.play
             ),
             contentDescription = null,
-            tint = onSurfaceColor.copy(alpha = 0.9f),
+            tint = onSurfaceColor,
             modifier = Modifier.size(20.dp),
         )
     }
@@ -1145,25 +1148,27 @@ private fun CloseMiniPlayerButton(
             Modifier
                 .size(40.dp)
                 .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.10f))
                 .border(
                     width = 1.dp,
-                    color = outlineColor.copy(alpha = 0.3f),
+                    color = outlineColor.copy(alpha = 0.55f),
                     shape = CircleShape,
                 ).clickable {
                     scope.launch {
-                        // hentikan playback + kosongkan antrian agar notifikasi/player hilang total
-                        runCatching {
-                            playerConnection.player.stop()
-                            playerConnection.player.clearMediaItems()
-                        }
-                        playerConnection.service.stopSelf()
+                        // Pakai jalur resmi service (stopDismiss): pause + stop +
+                        // kosongkan antrian + matikan foreground service sekaligus.
+                        // Versi lama memanggil player.clearMediaItems() lalu
+                        // stopSelf() mentah — service langsung dihidupkan lagi oleh
+                        // koneksi UI dan Media3 mem-posting notifikasi kosong
+                        // (notifikasi "rusak" yang muncul kembali).
+                        runCatching { playerConnection.service.stopDismiss() }
                     }
                 },
     ) {
         Icon(
             painter = painterResource(R.drawable.close),
             contentDescription = null,
-            tint = onSurfaceColor.copy(alpha = 0.7f),
+            tint = onSurfaceColor,
             modifier = Modifier.size(20.dp),
         )
     }

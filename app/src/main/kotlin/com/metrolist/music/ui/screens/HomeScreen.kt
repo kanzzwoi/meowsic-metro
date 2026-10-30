@@ -7,6 +7,7 @@ package com.metrolist.music.ui.screens
 
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.aspectRatio
@@ -695,6 +696,7 @@ fun HomeScreen(
     val episodesForLater by viewModel.episodesForLater.collectAsStateWithLifecycle()
 
     val isLoading: Boolean by viewModel.isLoading.collectAsStateWithLifecycle()
+    val hasLoadedOnce: Boolean by viewModel.hasLoadedOnce.collectAsStateWithLifecycle()
     val isMoodAndGenresLoading = isLoading && explorePage?.moodAndGenres == null
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val isRandomizing by viewModel.isRandomizing.collectAsStateWithLifecycle()
@@ -1857,16 +1859,30 @@ fun HomeScreen(
                                         pageSpacing = 12.dp,
                                         modifier = Modifier.fillMaxWidth(),
                                     ) { page ->
-                                        Image(
-                                            painter = painterResource(bannerPages[page]),
-                                            contentDescription = null,
-                                            contentScale = ContentScale.FillWidth,
+                                        // Banner PNG-nya transparan (hasil desain
+                                        // baru), jadi diberi alas kaca gelap di
+                                        // belakangnya supaya kucing + teks putih
+                                        // tetap terbaca di tema apa pun.
+                                        Box(
                                             modifier =
                                                 Modifier
                                                     .fillMaxWidth()
                                                     .aspectRatio(16f / 9f)
-                                                    .clip(RoundedCornerShape(16.dp)),
-                                        )
+                                                    .clip(RoundedCornerShape(16.dp))
+                                                    .background(Color.White.copy(alpha = 0.15f))
+                                                    .border(
+                                                        width = 1.dp,
+                                                        color = Color.White.copy(alpha = 0.18f),
+                                                        shape = RoundedCornerShape(16.dp),
+                                                    ),
+                                        ) {
+                                            Image(
+                                                painter = painterResource(bannerPages[page]),
+                                                contentDescription = null,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize(),
+                                            )
+                                        }
                                     }
                                     Row(
                                         horizontalArrangement = Arrangement.Center,
@@ -2615,8 +2631,10 @@ fun HomeScreen(
                     }
                 }
 
-                // Only show shimmer during initial loading, not for pagination
-                if (isLoading && homePage?.sections.isNullOrEmpty()) {
+                // Skeleton tampil selama pemuatan pertama (termasuk frame awal
+                // sebelum load() dipanggil), dan selama refresh bila belum ada
+                // section sama sekali.
+                if (homePage?.sections.isNullOrEmpty() && (isLoading || !hasLoadedOnce)) {
                     item(key = "loading_shimmer") {
                         ShimmerHost(
                         ) {

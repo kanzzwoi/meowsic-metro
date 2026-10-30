@@ -1,3 +1,19 @@
+---v0.6.5
+# Tampilan baru dan perbaikan notifikasi
+- Latar Beranda memakai gambar gelombang biru statis (bukan animasi),
+  sehingga tidak lagi berat dan tidak patah-patah.
+- Banner Beranda memakai gambar transparan dengan latar kaca putih tipis,
+  tanpa blok gelap di belakangnya.
+- Chip filter dan bilah atas dibuat transparan agar latar terlihat.
+- Pindah tab kini memakai transisi fade singkat, terasa lebih cepat dan halus.
+- Kerangka pemuatan (skeleton) muncul sejak awal saat Beranda dibuka.
+- Halaman Cari, Bersama, dan Pustaka tidak lagi menutup latar dengan warna
+  pekat; kotak di Pustaka memakai kaca putih tipis dengan garis tepi.
+- Tombol putar/jeda dan tutup pada mini player dibuat lebih jelas.
+- Menutup lagu dari mini player tidak lagi memunculkan notifikasi pemutar
+  kosong yang rusak.
+- Ukuran unduhan APK lebih kecil karena gambar latar dan banner dipadatkan.
+
 ---v0.6.4
 # Nav bar dan logo
 - Nav bar dinaikkan sehingga lebih dekat dengan mini player, dan ikon di

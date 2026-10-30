@@ -61,7 +61,7 @@ fun <E> ChipsRow(
     currentValue: E,
     onValueUpdate: (E) -> Unit,
     modifier: Modifier = Modifier,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+    containerColor: Color = Color.White.copy(alpha = 0.08f),
 ) {
     Row(
         modifier =
@@ -78,10 +78,20 @@ fun <E> ChipsRow(
                 selected = currentValue == value,
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = containerColor,
+                    labelColor = Color.White,
+                    selectedContainerColor = Color.White.copy(alpha = 0.22f),
+                    selectedLabelColor = Color.White,
+                ),
+                // Kaca tipis: tanpa border tebal, hanya garis halus supaya
+                // chip tidak lagi tampak seperti blok gelap.
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = currentValue == value,
+                    borderColor = Color.White.copy(alpha = 0.18f),
+                    selectedBorderColor = Color.White.copy(alpha = 0.35f),
                 ),
                 onClick = { onValueUpdate(value) },
                 shape = RoundedCornerShape(16.dp),
-                border = null
             )
 
             Spacer(Modifier.width(8.dp))

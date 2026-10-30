@@ -273,11 +273,12 @@ fun SearchScreen(
                 },
                 colors =
                     TopAppBarDefaults.topAppBarColors(
-                        containerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.surfaceContainer,
+                        containerColor = Color.Transparent,
                     ),
             )
         },
-        containerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.background,
+        // Transparan supaya background wallpaper (Home) ikut kelihatan.
+        containerColor = Color.Transparent,
     ) { paddingValues ->
         Box(
             modifier =
@@ -305,11 +306,9 @@ fun SearchScreen(
                 }
             }
 
-            HideOnScrollFAB(
-                lazyListState = lazyListState,
-                icon = R.drawable.mic,
-                onClick = { navController.navigate("recognition") },
-            )
+            // Tombol mikrofon (voice search) sengaja dihapus: sering muncul
+            // sendiri walaupun pemutar sudah ditutup. Pencarian suara masih
+            // bisa diakses lewat long-press item "Cari" di nav bar.
         }
     }
 
