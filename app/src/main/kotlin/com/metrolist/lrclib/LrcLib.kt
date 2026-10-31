@@ -12,6 +12,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.Json
 import kotlin.math.abs
@@ -77,14 +78,23 @@ object LrcLib {
         artistName: String? = null,
         albumName: String? = null,
         query: String? = null,
-    ): List<Track> = runCatching {
-        client.get("/api/search") {
-            if (query != null) parameter("q", query)
-            if (trackName != null) parameter("track_name", trackName)
-            if (artistName != null) parameter("artist_name", artistName)
-            if (albumName != null) parameter("album_name", albumName)
-        }.body<List<Track>>()
-    }.getOrDefault(emptyList())
+    ): List<Track> {
+        // lrclib.net sesekali membalas 5xx sesaat; satu percobaan ulang
+        // menyelamatkan lirik tanpa harus jatuh ke provider lain.
+        repeat(2) { attempt ->
+            val result = runCatching {
+                client.get("/api/search") {
+                    if (query != null) parameter("q", query)
+                    if (trackName != null) parameter("track_name", trackName)
+                    if (artistName != null) parameter("artist_name", artistName)
+                    if (albumName != null) parameter("album_name", albumName)
+                }.body<List<Track>>()
+            }
+            if (result.isSuccess) return result.getOrThrow()
+            if (attempt == 0) delay(500)
+        }
+        return emptyList()
+    }
 
     private suspend fun queryLyrics(
         artist: String,

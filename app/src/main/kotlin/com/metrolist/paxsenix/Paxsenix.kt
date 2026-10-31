@@ -327,12 +327,28 @@ object Paxsenix {
         }.sortedByDescending { it.second }.filter { it.second > 0 }.take(10)
     }
 
+    // Server Paxsenix membalas 503 "busy" saat ramai. Tanpa percobaan ulang,
+    // lagu langsung jatuh ke KuGou yang sering memberi lirik tidak cocok.
+    private suspend fun requestLyrics(id: String): LyricsResponse {
+        var lastError: Throwable? = null
+        repeat(3) { attempt ->
+            try {
+                return httpClient.get("/apple-music/lyrics") {
+                    parameter("id", id)
+                }.body<LyricsResponse>()
+            } catch (e: Exception) {
+                lastError = e
+                Timber.w("Paxsenix lyrics attempt ${attempt + 1} failed: ${e.message}")
+                if (attempt < 2) kotlinx.coroutines.delay(800)
+            }
+        }
+        throw lastError ?: IllegalStateException("Paxsenix: no response")
+    }
+
     private suspend fun fetchLyricsForTrack(id: String): Result<String> = runCatching {
         Timber.d("Fetching lyrics for track ID: $id")
         
-        val response = httpClient.get("/apple-music/lyrics") {
-            parameter("id", id)
-        }.body<LyricsResponse>()
+        val response = requestLyrics(id)
         
         val lyricsType = response.type
         Timber.d("Lyrics response: type=$lyricsType")
