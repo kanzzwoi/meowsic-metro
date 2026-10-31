@@ -416,7 +416,6 @@ fun ThemeControls(
                         "blue" to (R.drawable.meowsic_background as Int?),
                         "pink" to R.drawable.meowsic_background_pink,
                         "red" to R.drawable.meowsic_background_red,
-                        "purple" to R.drawable.meowsic_background_purple,
                         "black" to null, // hitam pekat
                     ).forEach { (key, res) ->
                         val selected = wallpaperStyle == key

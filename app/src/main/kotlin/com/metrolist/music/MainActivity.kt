@@ -722,7 +722,6 @@ class MainActivity : FragmentActivity() {
             when (wallpaperStylePref) {
                 "pink" -> R.drawable.meowsic_background_pink
                 "red" -> R.drawable.meowsic_background_red
-                "purple" -> R.drawable.meowsic_background_purple
                 "black" -> null // hitam pekat
                 else -> R.drawable.meowsic_background
             }
