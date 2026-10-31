@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -468,6 +469,29 @@ fun AccountSettings(
                     }
                 },
                 modifier = Modifier.weight(1f),
+            )
+        }
+
+        // ---- tombol dukungan (Saweria) ----
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = {
+                onClose()
+                runCatching {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse("https://saweria.co/ukanz"))
+                    )
+                }
+            },
+            shape = RoundedCornerShape(28.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.support_with_saweria),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
             )
         }
 
