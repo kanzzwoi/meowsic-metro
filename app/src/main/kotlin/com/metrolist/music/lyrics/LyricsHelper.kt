@@ -70,6 +70,11 @@ constructor(
         val result = withTimeoutOrNull(MAX_LYRICS_FETCH_MS) {
             val cleanedTitle = LyricsUtils.cleanTitleForSearch(mediaMetadata.title)
             val enabledProviders = orderedProviders.filter { it.isEnabled(context) }
+            // MediaMetadata menyimpan durasi dalam milidetik, sedangkan semua
+            // provider (BetterLyrics, LrcLib, Paxsenix, KuGou) memakai detik.
+            // Mengirim ms membuat cache BetterLyrics selalu meleset (401) dan
+            // pencocokan durasi provider lain gagal.
+            val durationSec = (mediaMetadata.duration / 1000).toInt()
 
             Timber.tag("LyricsHelper").d("Starting sequential fetch for: $cleanedTitle by ${mediaMetadata.artists.joinToString { it.name }}")
             Timber.tag("LyricsHelper").d("Enabled providers in order: ${enabledProviders.joinToString { it.name }}")
@@ -83,7 +88,7 @@ constructor(
                             mediaMetadata.id,
                             cleanedTitle,
                             mediaMetadata.artists.joinToString { it.name },
-                            mediaMetadata.duration,
+                            durationSec,
                             mediaMetadata.album?.title,
                         )
                     }
@@ -136,6 +141,8 @@ constructor(
         if (!isNetworkAvailable) return
 
         val allResult = mutableListOf<LyricsResult>()
+        // Samakan satuan: pemanggil mengirim milidetik, provider memakai detik.
+        val durationSec = if (duration > 1000) duration / 1000 else duration
         currentLyricsJob = CoroutineScope(SupervisorJob()).launch {
             val cleanedTitle = LyricsUtils.cleanTitleForSearch(songTitle)
             val allProviders = context.dataStore.data
@@ -151,7 +158,7 @@ constructor(
             val otherJobs = otherProviders.map { provider ->
                 launch {
                     try {
-                        provider.getAllLyrics(context, mediaId, cleanedTitle, songArtists, duration, album) { lyrics ->
+                        provider.getAllLyrics(context, mediaId, cleanedTitle, songArtists, durationSec, album) { lyrics ->
                             val filteredLyrics = LyricsUtils.filterLyricsCreditLines(lyrics)
                             val result = LyricsResult(provider.name, filteredLyrics)
                             synchronized(callbackMutex) {
@@ -172,7 +179,7 @@ constructor(
             if (lyricsPlusProvider != null && otherLyricsCount <= 2) {
                 launch {
                     try {
-                        lyricsPlusProvider.getAllLyrics(context, mediaId, cleanedTitle, songArtists, duration, album) { lyrics ->
+                        lyricsPlusProvider.getAllLyrics(context, mediaId, cleanedTitle, songArtists, durationSec, album) { lyrics ->
                             val filteredLyrics = LyricsUtils.filterLyricsCreditLines(lyrics)
                             val result = LyricsResult(lyricsPlusProvider.name, filteredLyrics)
                             synchronized(callbackMutex) {
