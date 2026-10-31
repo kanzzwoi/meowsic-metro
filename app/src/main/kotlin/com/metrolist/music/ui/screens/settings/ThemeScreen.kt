@@ -14,6 +14,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -58,6 +59,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -78,6 +80,7 @@ import com.metrolist.music.constants.DarkModeKey
 import com.metrolist.music.constants.DynamicThemeKey
 import com.metrolist.music.constants.PureBlackKey
 import com.metrolist.music.constants.LiquidBackgroundKey
+import com.metrolist.music.constants.WallpaperStyleKey
 import com.metrolist.music.constants.PureBlackMiniPlayerKey
 import com.metrolist.music.constants.SelectedThemeColorKey
 import com.metrolist.music.ui.theme.DefaultThemeColor
@@ -398,28 +401,54 @@ fun ThemeControls(
                 }
             }
 
-            // Latar "liquid glass": gradien bergerak sebagai wallpaper app.
-            // Nonaktif memakai tampilan biasa, jadi perilaku lama tetap utuh.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.liquid_background),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = stringResource(R.string.liquid_background_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(
-                    checked = liquidBackground,
-                    onCheckedChange = onLiquidBackgroundChange,
+            // Pemilih wallpaper latar (menggantikan toggle "liquid glass").
+            // Wallpaper selalu aktif; user hanya memilih gambarnya.
+            val (wallpaperStyle, onWallpaperStyleChange) =
+                rememberPreference(WallpaperStyleKey, defaultValue = "blue")
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = stringResource(R.string.wallpaper),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    listOf(
+                        "blue" to (R.drawable.meowsic_background as Int?),
+                        "pink" to R.drawable.meowsic_background_pink,
+                        "red" to R.drawable.meowsic_background_red,
+                        "purple" to R.drawable.meowsic_background_purple,
+                        "black" to null, // hitam pekat
+                    ).forEach { (key, res) ->
+                        val selected = wallpaperStyle == key
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(64.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(if (res == null) Color.Black else Color.Transparent)
+                                    .border(
+                                        width = if (selected) 2.dp else 1.dp,
+                                        color =
+                                            if (selected) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                Color.White.copy(alpha = 0.22f)
+                                            },
+                                        shape = RoundedCornerShape(16.dp),
+                                    )
+                                    .clickable { onWallpaperStyleChange(key) },
+                        ) {
+                            if (res != null) {
+                                Image(
+                                    painter = painterResource(res),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -139,6 +139,7 @@ import com.metrolist.innertube.models.WatchEndpoint
 import com.metrolist.music.constants.AppBarHeight
 import com.metrolist.music.constants.AppLanguageKey
 import com.metrolist.music.constants.CheckForUpdatesKey
+import com.metrolist.music.constants.WallpaperStyleKey
 import com.metrolist.music.constants.DarkModeKey
 import com.metrolist.music.constants.DefaultOpenTabKey
 import com.metrolist.music.constants.DismissedKmpUpdateKey
@@ -530,7 +531,9 @@ class MainActivity : FragmentActivity() {
         downloadUtil: DownloadUtil,
         syncUtils: SyncUtils,
     ) {
-        val checkForUpdates by rememberPreference(CheckForUpdatesKey, defaultValue = true)
+        // Cek pembaruan GitHub dimatikan total: tidak ada dialog, notifikasi,
+        // maupun banner versi baru. Jangan diaktifkan tanpa permintaan user.
+        val checkForUpdates by rememberPreference(CheckForUpdatesKey, defaultValue = false)
         var availableUpdate by remember { mutableStateOf<AvailableUpdate?>(null) }
 
         if (BuildConfig.UPDATER_AVAILABLE) {
@@ -713,6 +716,16 @@ class MainActivity : FragmentActivity() {
         }
 
         val liquidBackgroundEnabled by rememberPreference(LiquidBackgroundKey, defaultValue = true)
+        // Wallpaper latar: biru (default), pink, merah, ungu, hitam pekat.
+        val wallpaperStylePref by rememberPreference(WallpaperStyleKey, defaultValue = "blue")
+        val wallpaperRes: Int? =
+            when (wallpaperStylePref) {
+                "pink" -> R.drawable.meowsic_background_pink
+                "red" -> R.drawable.meowsic_background_red
+                "purple" -> R.drawable.meowsic_background_purple
+                "black" -> null // hitam pekat
+                else -> R.drawable.meowsic_background
+            }
 
         MetrolistTheme(
             darkTheme = useDarkTheme,
@@ -767,12 +780,13 @@ class MainActivity : FragmentActivity() {
                 // MetrolistTheme, yang hanya penyedia tema - bukan wadah
                 // layout. Akibatnya ia tidak pernah terlihat: BoxWithConstraints
                 // di bawahnya punya latar solid sendiri yang menutupinya.
-                if (liquidBackgroundEnabled) {
-                    LiquidGradientBackground(
-                        darkTheme = useDarkTheme,
-                        seedColor = themeColor,
-                    )
-                }
+                // Wallpaper selalu tampil (toggle "liquid glass" sudah tidak
+                // dipakai UI); hanya gambarnya yang mengikuti pilihan Tema.
+                LiquidGradientBackground(
+                    darkTheme = useDarkTheme,
+                    seedColor = themeColor,
+                    wallpaperRes = wallpaperRes,
+                )
 
                 val density = LocalDensity.current
                 val configuration = LocalWindowInfo.current
@@ -783,11 +797,13 @@ class MainActivity : FragmentActivity() {
 
                 val navController = rememberNavController()
 
+                // Dialog "Catatan Perubahan" tidak lagi muncul otomatis setelah
+                // pembaruan; bagian pembaruan dimatikan atas permintaan user.
                 LaunchedEffect(Unit) {
                     val lastSeenVersion = dataStore.data.first()[LastSeenVersionKey] ?: ""
                     val currentVersion = BuildConfig.BASE_VERSION_NAME
                     if (lastSeenVersion != currentVersion) {
-                        showChangelog.value = true
+                        showChangelog.value = false
                     }
                 }
 

@@ -471,21 +471,6 @@ fun AccountSettings(
             )
         }
 
-        // ---- banner update (kalau ada versi baru) ----
-        if (BuildConfig.UPDATER_AVAILABLE && latestVersionName != BuildConfig.BASE_VERSION_NAME) {
-            val releaseInfo = Updater.getCachedLatestRelease()
-            val downloadUrl = releaseInfo?.let { Updater.getDownloadUrlForCurrentVariant(it) }
-            if (downloadUrl != null) {
-                Spacer(Modifier.height(12.dp))
-                ProfileActionTile(
-                    icon = painterResource(R.drawable.update),
-                    label = stringResource(R.string.new_version_available),
-                    onClick = { uriHandler.openUri(downloadUrl) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
-
         // ---- tombol logout (hanya kalau sudah login) ----
         if (isLoggedIn) {
             Spacer(Modifier.height(12.dp))
