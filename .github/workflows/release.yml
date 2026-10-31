@@ -232,7 +232,11 @@ jobs:
             cat release_notes.md
           } > attributed_release_notes.md
 
+          # --target: tag harus menunjuk commit yang benar-benar dibangun.
+          # Tanpa ini gh menaruh tag di HEAD branch default (main yang ketinggalan),
+          # sehingga "Source code" di halaman release berisi kode lama.
           gh release create "v${{ needs.check-version.outputs.new_version }}" \
+            --target "${GITHUB_REF_NAME}" \
             --title "${{ needs.check-version.outputs.new_version }}" \
             --notes-file attributed_release_notes.md \
             --latest \
