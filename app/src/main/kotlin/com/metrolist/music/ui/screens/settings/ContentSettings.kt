@@ -170,6 +170,7 @@ fun ContentSettings(
 
     val providerDisplayNames =
         mapOf(
+            "Unison" to "Unison",
             "BetterLyrics" to "Better Lyrics",
             "Paxsenix" to "Paxsenix",
             "LrcLib" to "LrcLib",

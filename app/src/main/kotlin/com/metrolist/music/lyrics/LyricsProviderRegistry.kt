@@ -7,6 +7,7 @@ package com.metrolist.music.lyrics
 
 object LyricsProviderRegistry {
     private val providerMap = mapOf(
+        "Unison" to UnisonLyricsProvider,
         "BetterLyrics" to BetterLyricsProvider,
         "Paxsenix" to PaxsenixLyricsProvider,
         "LrcLib" to LrcLibLyricsProvider,
@@ -29,7 +30,10 @@ object LyricsProviderRegistry {
             return getDefaultProviderOrder()
         }
         val saved = orderString.split(",").map { it.trim() }.filter { it in providerNames }
-        return saved + getDefaultProviderOrder().filter { it !in saved }
+        // Unison selalu ikut di depan agar provider tanpa API key ini tidak
+        // terlempar ke urutan akhir pada instalasi yang sudah menyimpan urutan.
+        val front = if ("Unison" !in saved) listOf("Unison") else emptyList()
+        return front + saved + getDefaultProviderOrder().filter { it !in saved && it != "Unison" }
     }
 
     fun serializeProviderOrder(providers: List<String>): String {
@@ -37,6 +41,7 @@ object LyricsProviderRegistry {
     }
 
     fun getDefaultProviderOrder(): List<String> = listOf(
+        "Unison",
         "BetterLyrics",
         "LrcLib",
         "Paxsenix",
