@@ -105,6 +105,7 @@ import com.metrolist.music.extensions.fileNameAndSize
 import com.metrolist.music.extensions.toMediaItem
 import com.metrolist.music.playback.ExoDownloadService
 import com.metrolist.music.playback.queues.ListQueue
+import com.metrolist.music.ui.component.rememberIsPlayingLive
 import com.metrolist.music.ui.component.DefaultDialog
 import com.metrolist.music.ui.component.DraggableScrollbar
 import com.metrolist.music.ui.component.EmptyPlaceholder
@@ -142,7 +143,8 @@ fun AutoPlaylistScreen(
     val uploadCompleteStr = stringResource(R.string.upload_complete)
     val focusManager = LocalFocusManager.current
     val playerConnection = LocalPlayerConnection.current ?: return
-    val isPlaying by playerConnection.isEffectivelyPlaying.collectAsStateWithLifecycle()
+    // Baca langsung dari player (bukan flow) agar ikon play/pause tidak nyangkut.
+    val isPlaying = rememberIsPlayingLive(playerConnection)
     val mediaMetadata by playerConnection.mediaMetadata.collectAsStateWithLifecycle()
     val playlist =
         when (viewModel.playlist) {

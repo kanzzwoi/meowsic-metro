@@ -89,6 +89,7 @@ import com.metrolist.music.LocalDatabase
 import com.metrolist.music.LocalListenTogetherManager
 import com.metrolist.music.LocalPlayerConnection
 import com.metrolist.music.R
+import com.metrolist.music.ui.component.rememberIsPlayingLive
 import com.metrolist.music.constants.CropAlbumArtKey
 import com.metrolist.music.constants.DarkModeKey
 import com.metrolist.music.constants.MiniPlayerHeight
@@ -1049,7 +1050,8 @@ private fun MiniPlayerPlayPauseButton(
     outlineColor: Color,
     onSurfaceColor: Color,
 ) {
-    val isPlaying by playerConnection.isPlaying.collectAsState()
+    // Baca langsung dari player supaya ikon tidak nyangkut saat service restart.
+    val isPlaying = rememberIsPlayingLive(playerConnection)
     val playbackState by playerConnection.playbackState.collectAsState()
 
     Box(

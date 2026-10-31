@@ -1,3 +1,25 @@
+---v0.6.6
+# Wallpaper pilihan, ulang 1x, dan perbaikan tombol putar
+- Pemilih wallpaper baru di Tema & Warna: biru, pink, merah, dan hitam polos.
+  Wallpaper tidak lagi ikut hilang saat tema diganti.
+- Toggle "Latar liquid glass" dan pilihan mode terang/gelap dihapus karena sudah
+  tidak berfungsi (aplikasi selalu gelap).
+- Tombol ulang kini punya tiga keadaan: mati, ulang terus menerus, dan ulang satu
+  kali (ikon berangka 1). Setelah mengulang sekali, pemutar lanjut ke lagu
+  berikutnya dan tombol ulang mati sendiri.
+- Antrean playlist berhenti di lagu terakhir, tidak lagi menyambung ke lagu lain.
+- Ikon putar/jeda di daftar playlist, Diunduh, Pustaka, dan mini player kini
+  selalu mengikuti kondisi pemutar yang sebenarnya.
+- Sampul di pemutar penuh muncul seketika karena memakai gambar yang sudah
+  tersimpan di cache, sama seperti di daftar lagu.
+- Notifikasi pemutar ikut berganti judul setiap kali lagu berganti.
+- Tombol "Support dengan Saweria" dipindah ke menu profil.
+- Banner Beranda diperbarui (meowsic.web.id).
+- Kolom pencarian dan riwayat pencarian dibuat lebih mudah dibaca.
+- Top bar tidak lagi tampak dobel saat berpindah tab.
+- Menu Pembaruan dan Catatan Perubahan dihapus; aplikasi tidak lagi memeriksa
+  versi baru ke GitHub.
+
 ---v0.6.5
 # Tampilan baru dan perbaikan notifikasi
 - Latar Beranda memakai gambar gelombang biru statis (bukan animasi),

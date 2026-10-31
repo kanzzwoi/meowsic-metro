@@ -175,6 +175,7 @@ fun Queue(
     val playerConnection = LocalPlayerConnection.current ?: return
     val isPlaying by playerConnection.isEffectivelyPlaying.collectAsStateWithLifecycle()
     val repeatMode by playerConnection.repeatMode.collectAsStateWithLifecycle()
+    val repeatOnceArmed by playerConnection.repeatOnceArmed.collectAsStateWithLifecycle()
 
     val currentWindowIndex by playerConnection.currentWindowIndex.collectAsStateWithLifecycle()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsStateWithLifecycle()
@@ -354,16 +355,14 @@ fun Queue(
 
                     PlayerQueueButton(
                         icon =
-                            if (repeatMode == Player.REPEAT_MODE_ONE) {
-                                R.drawable.repeat_on
-                            } else {
-                                R.drawable.repeat
+                            when {
+                                repeatOnceArmed -> R.drawable.repeat_one_on
+                                repeatMode == Player.REPEAT_MODE_ONE -> R.drawable.repeat_on
+                                else -> R.drawable.repeat
                             },
                         // Hanya dua keadaan: Ulang (aktif) atau Ulang (mati).
-                        label = "Ulang",
-                        onClick = {
-                            playerConnection.player.toggleRepeatMode()
-                        },
+                        label = if (repeatOnceArmed) "Ulang 1x" else "Ulang",
+                        onClick = { playerConnection.cycleRepeatMode() },
                         isActive = repeatMode != Player.REPEAT_MODE_OFF,
                         enabled = !isListenTogetherGuest,
                         shape = repeatShape,
@@ -1228,17 +1227,17 @@ fun Queue(
             IconButton(
                 enabled = !isListenTogetherGuest,
                 modifier = Modifier.align(Alignment.CenterEnd),
-                onClick = playerConnection.player::toggleRepeatMode,
+                onClick = playerConnection::cycleRepeatMode,
             ) {
                 val baseAlpha = if (repeatMode == Player.REPEAT_MODE_OFF) 0.5f else 1f
                 val finalAlpha = if (!isListenTogetherGuest) baseAlpha else 0.3f
                 Icon(
                     painter =
                         painterResource(
-                            if (repeatMode == Player.REPEAT_MODE_ONE) {
-                                R.drawable.repeat_on
-                            } else {
-                                R.drawable.repeat
+                            when {
+                                repeatOnceArmed -> R.drawable.repeat_one_on
+                                repeatMode == Player.REPEAT_MODE_ONE -> R.drawable.repeat_on
+                                else -> R.drawable.repeat
                             },
                         ),
                     contentDescription = null,

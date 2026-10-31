@@ -15,6 +15,9 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import com.metrolist.music.constants.WallpaperStyleKey
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -327,99 +330,55 @@ fun ThemeControls(
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
+            // Mode terang/gelap dihapus: aplikasi selalu gelap.
+
+            // Pemilih wallpaper latar (menggantikan toggle "liquid glass").
+            // Wallpaper selalu aktif; user hanya memilih gambarnya.
+            val (wallpaperStyle, onWallpaperStyleChange) =
+                rememberPreference(WallpaperStyleKey, defaultValue = "blue")
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = stringResource(R.string.theme_mode),
+                    text = stringResource(R.string.wallpaper),
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // System mode (AUTO)
-                    ModeCircle(
-                        darkMode = darkMode,
-                        pureBlack = pureBlack,
-                        targetMode = DarkMode.AUTO,
-                        targetPureBlack = pureBlack,
-                        onClick = {
-                            onDarkModeChange(DarkMode.AUTO)
-                        },
-                        showIcon = true
-                    )
-                    
-                    // Vertical divider to separate System from manual modes
-                    Box(
-                        modifier = Modifier
-                            .width(1.dp)
-                            .height(32.dp)
-                            .background(MaterialTheme.colorScheme.outlineVariant)
-                    )
-                    
-                    // Manual modes (Light, Dark, Pure Black)
-                    ModeCircle(
-                        darkMode = darkMode,
-                        pureBlack = pureBlack,
-                        targetMode = DarkMode.OFF,
-                        targetPureBlack = false,
-                        onClick = {
-                            onDarkModeChange(DarkMode.OFF)
-                            onPureBlackChange(false)
-                        },
-                        showIcon = false
-                    )
-                    
-                    ModeCircle(
-                        darkMode = darkMode,
-                        pureBlack = pureBlack,
-                        targetMode = DarkMode.ON,
-                        targetPureBlack = false,
-                        onClick = {
-                            onDarkModeChange(DarkMode.ON)
-                            onPureBlackChange(false)
-                        },
-                        showIcon = false
-                    )
-                    
-                    ModeCircle(
-                        darkMode = darkMode,
-                        pureBlack = pureBlack,
-                        targetMode = DarkMode.ON,
-                        targetPureBlack = true,
-                        onClick = {
-                            onDarkModeChange(DarkMode.ON)
-                            onPureBlackChange(true)
-                        },
-                        showIcon = false
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    listOf(
+                        "blue" to (R.drawable.meowsic_background as Int?),
+                        "pink" to R.drawable.meowsic_background_pink,
+                        "red" to R.drawable.meowsic_background_red,
+                        "black" to null, // hitam polos
+                    ).forEach { (key, res) ->
+                        val selected = wallpaperStyle == key
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(72.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(if (res == null) Color.Black else Color.Transparent)
+                                    .border(
+                                        width = if (selected) 2.dp else 1.dp,
+                                        color =
+                                            if (selected) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                Color.White.copy(alpha = 0.22f)
+                                            },
+                                        shape = RoundedCornerShape(16.dp),
+                                    )
+                                    .clickable { onWallpaperStyleChange(key) },
+                        ) {
+                            if (res != null) {
+                                Image(
+                                    painter = painterResource(res),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                        }
+                    }
                 }
-            }
-
-            // Latar "liquid glass": gradien bergerak sebagai wallpaper app.
-            // Nonaktif memakai tampilan biasa, jadi perilaku lama tetap utuh.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.liquid_background),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = stringResource(R.string.liquid_background_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(
-                    checked = liquidBackground,
-                    onCheckedChange = onLiquidBackgroundChange,
-                )
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

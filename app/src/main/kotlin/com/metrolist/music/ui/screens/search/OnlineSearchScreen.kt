@@ -129,9 +129,9 @@ fun OnlineSearchScreen(
         modifier =
             Modifier
                 .fillMaxSize()
-                // Scrim tipis (bukan hitam pekat): wallpaper masih terlihat,
-                // teks hasil pencarian tetap terbaca.
-                .background(Color.Black.copy(alpha = 0.30f)),
+                // Scrim lebih pekat (55%): wallpaper masih samar terlihat,
+                // tapi teks hasil pencarian tidak lagi menyatu dengan latar.
+                .background(Color.Black.copy(alpha = 0.80f)),
     ) {
         // Show parsed URL item at the top if present
         if (viewState.isUrlQuery && viewState.parsedUrlItem != null) {

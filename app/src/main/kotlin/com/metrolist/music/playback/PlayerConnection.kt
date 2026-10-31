@@ -143,8 +143,38 @@ class PlayerConnection(
             }
         }
 
+        // Sinkronisasi cadangan: callback Media3 kadang terlewat (mis. player
+        // diganti setelah service di-restart), sehingga flow playWhenReady /
+        // playbackState nyangkut dan ikon play-pause di daftar lagu, mini player,
+        // serta notifikasi tidak ikut berubah. Polling ringan ini memastikan
+        // nilainya selalu sama dengan kondisi player sebenarnya.
+        scope.launch {
+            while (true) {
+                try {
+                    val p = getPlayerOrNull()
+                    if (p != null) {
+                        if (playbackState.value != p.playbackState) {
+                            playbackState.value = p.playbackState
+                        }
+                        if (playWhenReady.value != p.playWhenReady) {
+                            playWhenReady.value = p.playWhenReady
+                        }
+                    }
+                } catch (_: Exception) {
+                    // player belum siap, coba lagi siklus berikutnya
+                }
+                kotlinx.coroutines.delay(500)
+            }
+        }
+
         Timber.tag(TAG).d("PlayerConnection state flows initialized successfully")
     }
+
+    /** true = mode "ulang 1x" aktif (ikon ulang dengan angka 1). */
+    val repeatOnceArmed: kotlinx.coroutines.flow.StateFlow<Boolean>
+        get() = service.repeatOnceArmed
+
+    fun cycleRepeatMode() = service.cycleRepeatMode()
 
     val isEffectivelyPlaying =
         combine(
@@ -217,6 +247,32 @@ class PlayerConnection(
         val readyPlayer = getPlayerOrNull()
         if (attachedPlayer == null && readyPlayer != null) {
             updateAttachedPlayer(readyPlayer)
+        }
+
+        // Jaring pengaman terakhir: kalau callback listener terlewat (mis. player
+        // diganti setelah service dimatikan-hidupkan), status putar bisa nyangkut
+        // dan ikon play/pause tidak berubah. Polling ringan 1x/detik memastikan
+        // nilainya selalu benar, dan sekaligus memasang ulang listener bila
+        // instance player sudah berbeda.
+        scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(1_000)
+                try {
+                    val current = getPlayerOrNull() ?: continue
+                    if (current != attachedPlayer) {
+                        updateAttachedPlayer(current)
+                        continue
+                    }
+                    if (playWhenReady.value != current.playWhenReady) {
+                        playWhenReady.value = current.playWhenReady
+                    }
+                    if (playbackState.value != current.playbackState) {
+                        playbackState.value = current.playbackState
+                    }
+                } catch (e: Exception) {
+                    Timber.tag(TAG).w(e, "state resync failed")
+                }
+            }
         }
 
         Timber.tag(TAG).d("PlayerConnection flow observer registered; playerReady=${playerReadinessFlow.value}")
@@ -595,6 +651,17 @@ class PlayerConnection(
     override fun onPlaybackStateChanged(state: Int) {
         playbackState.value = state
         error.value = player.playerError
+    }
+
+    // Jaring pengaman: apa pun event yang datang, sinkronkan ulang status putar.
+    // Tanpa ini, kalau satu callback terlewat (mis. player diganti setelah
+    // service dimatikan-hidupkan), ikon play/pause bisa nyangkut di kondisi lama.
+    override fun onEvents(
+        player: Player,
+        events: Player.Events,
+    ) {
+        playbackState.value = player.playbackState
+        playWhenReady.value = player.playWhenReady
     }
 
     override fun onPlayWhenReadyChanged(

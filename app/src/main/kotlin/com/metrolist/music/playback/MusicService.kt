@@ -498,6 +498,38 @@ class MusicService :
     // Cached preferences to avoid runBlocking DataStore reads in hot paths
     @Volatile
     private var cachedPersistentQueue = true
+
+    // "Ulang 1x": lagu diputar ulang sekali, lalu lanjut dan mode ulang mati.
+    // repeatMode tetap ONE agar ikon "1" tampil; penghitung ini yang membatasi
+    // berapa kali pengulangan terjadi.
+    private var repeatOnceMediaId: String? = null
+    private var repeatOnceCount = 0
+
+    /**
+     * Mode "ulang 1x" (ikon ada angka 1): lagu diputar ulang SEKALI, lalu lanjut
+     * ke lagu berikutnya dan mode ulang otomatis mati.
+     * Saat false dan repeatMode == REPEAT_MODE_ONE, lagu diulang terus menerus.
+     */
+    val repeatOnceArmed = MutableStateFlow(false)
+
+    /** Siklus tombol ulang: OFF -> ulang terus -> ulang 1x -> OFF. */
+    fun cycleRepeatMode() {
+        when {
+            player.repeatMode != Player.REPEAT_MODE_ONE -> {
+                repeatOnceArmed.value = false
+                player.repeatMode = Player.REPEAT_MODE_ONE
+            }
+            !repeatOnceArmed.value -> {
+                repeatOnceArmed.value = true
+            }
+            else -> {
+                repeatOnceArmed.value = false
+                player.repeatMode = Player.REPEAT_MODE_OFF
+            }
+        }
+        repeatOnceMediaId = null
+        repeatOnceCount = 0
+    }
     @Volatile
     private var cachedAutoplay = true
     @Volatile
@@ -2534,6 +2566,30 @@ class MusicService :
         mediaItem: MediaItem?,
         reason: Int,
     ) {
+        // Logika "ulang 1x": hanya satu pengulangan, setelah itu mode ulang mati
+        // dan pemutaran lanjut ke lagu berikutnya.
+        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
+            if (repeatOnceArmed.value) {
+                val currentId = mediaItem?.mediaId
+                if (repeatOnceMediaId != currentId) {
+                    repeatOnceMediaId = currentId
+                    repeatOnceCount = 1
+                } else {
+                    repeatOnceCount++
+                    if (repeatOnceCount >= 2) {
+                        repeatOnceMediaId = null
+                        repeatOnceCount = 0
+                        repeatOnceArmed.value = false
+                        player.repeatMode = Player.REPEAT_MODE_OFF
+                        player.seekToNextMediaItem()
+                    }
+                }
+            }
+        } else {
+            repeatOnceMediaId = null
+            repeatOnceCount = 0
+        }
+
         // Only natural completion transitions mark the previous track as fully cached,
         // never a manual skip or seek. Read lastTransitionedMediaId before replacing it.
         if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ||
@@ -2544,6 +2600,19 @@ class MusicService :
             }
         }
         lastTransitionedMediaId = mediaItem?.mediaId
+
+        // Paksa notifikasi media dibangun ulang tiap ganti lagu. Tanpa ini,
+        // kadang notifikasi tertinggal menampilkan lagu sebelumnya walaupun
+        // pemutar sudah pindah lagu (kejadian jarang, butuh pemicu tertentu).
+        if (!taskCleared) {
+            scope.launch {
+                kotlinx.coroutines.delay(150)
+                runCatching {
+                    mediaSession?.let { session -> onUpdateNotification(session, false) }
+                }
+            }
+        }
+
         initialBufferRecoveryJob?.cancel()
         initialBufferRecoveryJob = null
         initialBufferRecoveryAttemptedMediaId = null
@@ -2604,7 +2673,11 @@ class MusicService :
             }
         }
 
+        // Playlist: berhenti di lagu terakhir. Jangan tarik halaman berikutnya
+        // karena YouTube mengisi continuation playlist dengan lagu lain.
+        val isPlaylistQueue = currentQueue is YouTubePlaylistQueue
         if (cachedAutoLoadMore &&
+            !isPlaylistQueue &&
             reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT &&
             player.mediaItemCount - player.currentMediaItemIndex <= 5 &&
             currentQueue.hasNextPage() &&

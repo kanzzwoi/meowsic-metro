@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.annotation.DrawableRes
 import com.metrolist.music.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +46,8 @@ fun LiquidGradientBackground(
     darkTheme: Boolean,
     modifier: Modifier = Modifier,
     seedColor: Color = DefaultThemeColor,
+    // null = hitam polos (tanpa gambar wallpaper).
+    @DrawableRes wallpaperRes: Int? = R.drawable.meowsic_background,
 ) {
     // Latar STATIS: animasi gelombangnya dimatikan total.
     // Sebelumnya Canvas menggambar ulang 6 pita × 40 segmen tiap frame
@@ -57,19 +60,26 @@ fun LiquidGradientBackground(
     val baseBottom = Color(0xFF030710)
 
     Box(modifier = modifier.fillMaxSize()) {
-        // 1) Dasar gradient (statis, sekali gambar) — juga jadi fallback kalau
-        //    gambar background gagal di-decode di perangkat tertentu.
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawRect(brush = Brush.verticalGradient(colors = listOf(baseTop, baseBottom)))
-        }
+        if (wallpaperRes == null) {
+            // Pilihan "hitam polos": satu drawRect, paling ringan.
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawRect(color = Color.Black)
+            }
+        } else {
+            // 1) Dasar gradient (statis, sekali gambar) — juga jadi fallback kalau
+            //    gambar background gagal di-decode di perangkat tertentu.
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawRect(brush = Brush.verticalGradient(colors = listOf(baseTop, baseBottom)))
+            }
 
-        // 2) Gambar background dari desain (statis, tanpa animasi).
-        Image(
-            painter = painterResource(R.drawable.meowsic_background),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
+            // 2) Gambar background dari desain (statis, tanpa animasi).
+            Image(
+                painter = painterResource(wallpaperRes),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 

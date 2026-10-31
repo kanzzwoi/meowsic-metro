@@ -75,6 +75,7 @@ import com.metrolist.music.LocalPlayerConnection
 import com.metrolist.music.R
 import com.metrolist.music.constants.CropAlbumArtKey
 import com.metrolist.music.constants.HidePlayerThumbnailKey
+import com.metrolist.music.ui.utils.resize
 import com.metrolist.music.constants.PlayerBackgroundStyle
 import com.metrolist.music.constants.PlayerBackgroundStyleKey
 import com.metrolist.music.constants.PlayerHorizontalPadding
@@ -642,12 +643,22 @@ private fun ThumbnailImage(
             .background(MaterialTheme.colorScheme.surfaceVariant)
     ) {
         AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(artworkUri)
-                .memoryCachePolicy(CachePolicy.ENABLED)
-                .diskCachePolicy(CachePolicy.ENABLED)
-                .networkCachePolicy(CachePolicy.ENABLED)
-                .build(),
+            model =
+                ImageRequest.Builder(LocalContext.current)
+                    // Pakai varian 544px yang SAMA dengan daftar lagu, supaya
+                    // cache Coil sudah terisi saat masuk ke pemutar penuh.
+                    // Sebelumnya URL asli (besar) diminta -> cache miss ->
+                    // unduh ulang, jadi sampul lama muncul.
+                    .data(
+                        artworkUri?.let { url ->
+                            if (url.startsWith("http")) url.resize(544, 544) else url
+                        },
+                    )
+                    .size(544, 544)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .networkCachePolicy(CachePolicy.ENABLED)
+                    .build(),
             contentDescription = null,
             contentScale = if (cropArtwork) ContentScale.Crop else ContentScale.Fit,
             modifier = Modifier.fillMaxSize()

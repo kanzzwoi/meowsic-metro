@@ -166,6 +166,7 @@ import com.metrolist.music.constants.PreferredLyricsProvider
 import com.metrolist.music.constants.PreferredLyricsProviderKey
 import com.metrolist.music.constants.PureBlackKey
 import com.metrolist.music.constants.LiquidBackgroundKey
+import com.metrolist.music.constants.WallpaperStyleKey
 import com.metrolist.music.constants.LiquidBackgroundDefaultMigrationKey
 import com.metrolist.music.constants.SYSTEM_DEFAULT
 import com.metrolist.music.constants.SelectedThemeColorKey
@@ -530,7 +531,8 @@ class MainActivity : FragmentActivity() {
         downloadUtil: DownloadUtil,
         syncUtils: SyncUtils,
     ) {
-        val checkForUpdates by rememberPreference(CheckForUpdatesKey, defaultValue = true)
+        // Cek update GitHub dimatikan total: tidak ada notifikasi/pemberitahuan lagi.
+        val checkForUpdates by rememberPreference(CheckForUpdatesKey, defaultValue = false)
         var availableUpdate by remember { mutableStateOf<AvailableUpdate?>(null) }
 
         if (BuildConfig.UPDATER_AVAILABLE) {
@@ -630,12 +632,8 @@ class MainActivity : FragmentActivity() {
             }
         }
 
-        val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.ON)
-        val isSystemInDarkTheme = isSystemInDarkTheme()
-        val useDarkTheme =
-            remember(darkTheme, isSystemInDarkTheme) {
-                if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
-            }
+        // Mode terang/gelap dihapus dari UI: aplikasi selalu bertema gelap.
+        val useDarkTheme = true
 
         LaunchedEffect(useDarkTheme) {
             setSystemBarAppearance(useDarkTheme)
@@ -713,6 +711,15 @@ class MainActivity : FragmentActivity() {
         }
 
         val liquidBackgroundEnabled by rememberPreference(LiquidBackgroundKey, defaultValue = true)
+        // Wallpaper latar: biru (default), pink, merah.
+        val wallpaperStylePref by rememberPreference(WallpaperStyleKey, defaultValue = "blue")
+        val wallpaperRes: Int? =
+            when (wallpaperStylePref) {
+                "pink" -> R.drawable.meowsic_background_pink
+                "red" -> R.drawable.meowsic_background_red
+                "black" -> null // hitam polos
+                else -> R.drawable.meowsic_background
+            }
 
         MetrolistTheme(
             darkTheme = useDarkTheme,
@@ -767,12 +774,13 @@ class MainActivity : FragmentActivity() {
                 // MetrolistTheme, yang hanya penyedia tema - bukan wadah
                 // layout. Akibatnya ia tidak pernah terlihat: BoxWithConstraints
                 // di bawahnya punya latar solid sendiri yang menutupinya.
-                if (liquidBackgroundEnabled) {
-                    LiquidGradientBackground(
-                        darkTheme = useDarkTheme,
-                        seedColor = themeColor,
-                    )
-                }
+                // Wallpaper selalu tampil (toggle "liquid glass" sudah dihapus),
+                // hanya gambarnya yang mengikuti pilihan di Pengaturan.
+                LiquidGradientBackground(
+                    darkTheme = useDarkTheme,
+                    seedColor = themeColor,
+                    wallpaperRes = wallpaperRes,
+                )
 
                 val density = LocalDensity.current
                 val configuration = LocalWindowInfo.current
@@ -1037,12 +1045,15 @@ class MainActivity : FragmentActivity() {
 
                 LaunchedEffect(navBackStackEntry, listenTogetherInTopBar) {
                     val currentRoute = navBackStackEntry?.destination?.route
-                    val isListenTogetherScreen =
+                    // Layar Bersama punya top bar sendiri. Jangan tampilkan top bar
+                    // global di route itu, kalau tidak judul "Bersama" muncul dua kali
+                    // (satu dari global, satu dari layarnya) — persis bug ketimpa.
+                    val screenHasOwnTopBar =
                         currentRoute == Screens.ListenTogether.route ||
-                            currentRoute == "listen_together_from_topbar"
+                            (currentRoute == "listen_together_from_topbar" && listenTogetherInTopBar)
                     shouldShowTopBar = currentRoute in topLevelScreens &&
                         currentRoute != "settings" &&
-                        !(isListenTogetherScreen && listenTogetherInTopBar)
+                        !screenHasOwnTopBar
                 }
 
                 val coroutineScope = rememberCoroutineScope()
@@ -1135,11 +1146,10 @@ class MainActivity : FragmentActivity() {
                             },
                         snackbarHost = { SnackbarHost(snackbarHostState) },
                         topBar = {
-                            AnimatedVisibility(
-                                visible = shouldShowTopBar,
-                                enter = fadeIn(animationSpec = tween(durationMillis = 300)),
-                                exit = fadeOut(animationSpec = tween(durationMillis = 200)),
-                            ) {
+                            // Top bar TIDAK pakai animasi fade: saat pindah tab
+                            // (mis. Pustaka -> Beranda) versi lama+baru sempat
+                            // digambar bersamaan sehingga ikon tampak dobel/geser.
+                            if (shouldShowTopBar) {
                                 Row {
                                     TopAppBar(
                                         title = {
@@ -1155,30 +1165,6 @@ class MainActivity : FragmentActivity() {
                                             // aksesibilitas). Sebelumnya ikon 24dp dengan
                                             // hitbox kecil, sehingga sering butuh 3x tekan
                                             // karena IconButton bertumpuk dengan action lain.
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(48.dp)
-                                                    .clip(CircleShape)
-                                                    .clickable(
-                                                        interactionSource = remember { MutableInteractionSource() },
-                                                        indication = ripple(),
-                                                    ) {
-                                                        scope.launch {
-                                                            val next = if (useDarkTheme) com.metrolist.music.ui.screens.settings.DarkMode.OFF else com.metrolist.music.ui.screens.settings.DarkMode.ON
-                                                            applicationContext.safeDataStoreEdit { it[com.metrolist.music.constants.DarkModeKey] = next.name }
-                                                        }
-                                                    },
-                                                contentAlignment = Alignment.Center,
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(
-                                                        if (useDarkTheme) R.drawable.ic_toolbar_moon
-                                                        else R.drawable.ic_toolbar_sun,
-                                                    ),
-                                                    contentDescription = if (useDarkTheme) "Mode terang" else "Mode gelap",
-                                                    modifier = Modifier.size(24.dp),
-                                                )
-                                            }
                                             if (showHistoryButton) {
                                                 IconButton(onClick = { navController.navigate("history") }) {
                                                     Icon(

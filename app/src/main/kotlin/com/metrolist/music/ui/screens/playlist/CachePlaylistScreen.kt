@@ -83,6 +83,7 @@ import com.metrolist.music.constants.SongSortTypeKey
 import com.metrolist.music.db.entities.Song
 import com.metrolist.music.extensions.toMediaItem
 import com.metrolist.music.playback.queues.ListQueue
+import com.metrolist.music.ui.component.rememberIsPlayingLive
 import com.metrolist.music.ui.component.DraggableScrollbar
 import com.metrolist.music.ui.component.EmptyPlaceholder
 import com.metrolist.music.ui.component.IconButton
@@ -110,7 +111,8 @@ fun CachePlaylistScreen(
     val haptic = LocalHapticFeedback.current
     val focusManager = LocalFocusManager.current
 
-    val isPlaying by playerConnection.isEffectivelyPlaying.collectAsStateWithLifecycle()
+    // Baca langsung dari player (bukan flow) agar ikon play/pause tidak nyangkut.
+    val isPlaying = rememberIsPlayingLive(playerConnection)
     val mediaMetadata by playerConnection.mediaMetadata.collectAsStateWithLifecycle()
     val cachedSongs by viewModel.cachedSongs.collectAsStateWithLifecycle()
 

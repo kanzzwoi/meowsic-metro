@@ -5,6 +5,8 @@
 
 package com.metrolist.music.ui.screens
 
+import androidx.compose.foundation.BorderStroke
+
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
@@ -232,12 +234,8 @@ fun CommunityPlaylistCard(
     val isDark = isSystemInDarkTheme()
     val artistNameAliases = LocalArtistNameAliases.current
 
-    val containerColor =
-        if (isDark) {
-            MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        }
+    // Kaca putih tipis: kartu komunitas ikut wallpaper, bukan blok hitam.
+    val containerColor = Color.White.copy(alpha = 0.08f)
 
     val dbPlaylist by database.playlistByBrowseId(item.playlist.id).collectAsStateWithLifecycle(initialValue = null)
     val isBookmarked = dbPlaylist?.playlist?.bookmarkedAt != null
@@ -252,6 +250,7 @@ fun CommunityPlaylistCard(
                 containerColor = containerColor,
             ),
         shape = RoundedCornerShape(28.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
         onClick = onClick,
     ) {
         Column(

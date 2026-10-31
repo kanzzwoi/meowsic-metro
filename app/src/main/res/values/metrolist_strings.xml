@@ -732,6 +732,8 @@
     <string name="palette_deep_purple">Deep Purple</string>
     <string name="palette_indigo">Indigo</string>
     <string name="palette_navy">Navy</string>
+            <string name="support_with_saweria">Support with Saweria</string>
+    <string name="wallpaper">Wallpaper</string>
     <string name="liquid_background">Liquid glass background</string>
     <string name="liquid_background_desc">Slow-moving gradient wallpaper behind the app</string>
     <string name="palette_blue">Blue</string>

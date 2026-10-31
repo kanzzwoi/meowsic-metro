@@ -110,7 +110,8 @@ fun LocalSearchScreen(
         modifier =
             Modifier
                 .fillMaxSize()
-                // Transparan: biarkan wallpaper global tampil.
+                // Scrim 45%: wallpaper masih terlihat, teks riwayat tetap jelas.
+                .background(Color.Black.copy(alpha = 0.75f))
                 .let { base ->
                     if (isLandscape) {
                         base.windowInsetsPadding(

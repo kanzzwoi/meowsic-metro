@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -471,19 +472,25 @@ fun AccountSettings(
             )
         }
 
-        // ---- banner update (kalau ada versi baru) ----
-        if (BuildConfig.UPDATER_AVAILABLE && latestVersionName != BuildConfig.BASE_VERSION_NAME) {
-            val releaseInfo = Updater.getCachedLatestRelease()
-            val downloadUrl = releaseInfo?.let { Updater.getDownloadUrlForCurrentVariant(it) }
-            if (downloadUrl != null) {
-                Spacer(Modifier.height(12.dp))
-                ProfileActionTile(
-                    icon = painterResource(R.drawable.update),
-                    label = stringResource(R.string.new_version_available),
-                    onClick = { uriHandler.openUri(downloadUrl) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+        Spacer(Modifier.height(12.dp))
+
+        // Tombol dukungan: di bawah Pengaturan & Channel WhatsApp.
+        Button(
+            onClick = {
+                onClose()
+                runCatching {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse("https://saweria.co/ukanz"))
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(28.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.support_with_saweria),
+                style = MaterialTheme.typography.titleMedium,
+            )
         }
 
         // ---- tombol logout (hanya kalau sudah login) ----

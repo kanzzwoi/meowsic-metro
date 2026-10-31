@@ -324,6 +324,7 @@ fun BottomSheetPlayer(
     val currentSong by playerConnection.currentSong.collectAsStateWithLifecycle(initialValue = null)
     val automix by playerConnection.service.automixItems.collectAsStateWithLifecycle()
     val repeatMode by playerConnection.repeatMode.collectAsStateWithLifecycle()
+    val repeatOnceArmed by playerConnection.repeatOnceArmed.collectAsStateWithLifecycle()
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsStateWithLifecycle()
     val canSkipNext by playerConnection.canSkipNext.collectAsStateWithLifecycle()
     val isMuted by playerConnection.isMuted.collectAsStateWithLifecycle()
@@ -1671,23 +1672,17 @@ fun BottomSheetPlayer(
                                     .padding(horizontal = PlayerHorizontalPadding),
                         ) {
                             Box(modifier = Modifier.weight(1f)) {
-                                // Toggle sederhana: OFF <-> Ulang (loop lagu).
-                                //
-                                // Tidak ada lagi mode "Ulang 1". Sebelumnya dua mode
-                                // dibedakan lewat sebuah flag, dan keduanya saling
-                                // bertabrakan sehingga perilakunya terbalik. Sekarang
-                                // cukup REPEAT_MODE_ONE: ExoPlayer mengulang lagu
-                                // terus-menerus sampai user mematikan tombolnya atau
-                                // memilih lagu lain.
-                                //
-                                // Ikon tetap ikon repeat biasa (tanpa angka 1) sesuai
-                                // permintaan.
+                                // Tiga keadaan:
+                                // 1) OFF
+                                // 2) Ulang terus menerus (ikon repeat_on)
+                                // 3) Ulang 1x lagi (ikon repeat_one_on, ada angka 1),
+                                //    setelah itu lanjut lagu berikutnya dan mode mati.
                                 ResizableIconButton(
                                     icon =
-                                        if (repeatMode == Player.REPEAT_MODE_ONE) {
-                                            R.drawable.repeat_on
-                                        } else {
-                                            R.drawable.repeat
+                                        when {
+                                            repeatOnceArmed -> R.drawable.repeat_one_on
+                                            repeatMode == Player.REPEAT_MODE_ONE -> R.drawable.repeat_on
+                                            else -> R.drawable.repeat
                                         },
                                     color = TextBackgroundColor,
                                     modifier =
@@ -1699,15 +1694,7 @@ fun BottomSheetPlayer(
                                                 if (isListenTogetherGuest || repeatMode == Player.REPEAT_MODE_OFF) 0.5f else 1f,
                                             ),
                                     enabled = !isListenTogetherGuest,
-                                    onClick = {
-                                        val next =
-                                            if (repeatMode == Player.REPEAT_MODE_ONE) {
-                                                Player.REPEAT_MODE_OFF
-                                            } else {
-                                                Player.REPEAT_MODE_ONE
-                                            }
-                                        playerConnection.player.setRepeatMode(next)
-                                    },
+                                    onClick = { playerConnection.cycleRepeatMode() },
                                 )
                             }
 

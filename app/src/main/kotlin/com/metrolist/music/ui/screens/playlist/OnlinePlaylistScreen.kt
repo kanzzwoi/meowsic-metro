@@ -93,6 +93,7 @@ import com.metrolist.music.db.entities.PlaylistEntity
 import com.metrolist.music.db.entities.PlaylistSongMap
 import com.metrolist.music.models.toMediaMetadata
 import com.metrolist.music.playback.queues.YouTubePlaylistQueue
+import com.metrolist.music.ui.component.rememberIsPlayingLive
 import com.metrolist.music.ui.component.ExpandableText
 import com.metrolist.music.ui.component.IconButton
 import com.metrolist.music.ui.component.LocalMenuState
@@ -123,7 +124,8 @@ fun OnlinePlaylistScreen(
     val isListenTogetherGuest = listenTogetherManager?.let { it.isInRoom && !it.isHost } ?: false
     val coroutineScope = rememberCoroutineScope()
 
-    val isPlaying by playerConnection.isEffectivelyPlaying.collectAsStateWithLifecycle()
+    // Baca langsung dari player (bukan flow) agar ikon play/pause tidak nyangkut.
+    val isPlaying = rememberIsPlayingLive(playerConnection)
     val mediaMetadata by playerConnection.mediaMetadata.collectAsStateWithLifecycle()
 
     val playlist by viewModel.playlist.collectAsStateWithLifecycle()

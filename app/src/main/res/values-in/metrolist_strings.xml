@@ -373,6 +373,8 @@
     <string name="palette_deep_purple">Ungu tua</string>
     <string name="palette_indigo">Nila</string>
     <string name="palette_navy">Biru tua</string>
+            <string name="support_with_saweria">Support dengan Saweria</string>
+    <string name="wallpaper">Wallpaper</string>
     <string name="liquid_background">Latar liquid glass</string>
     <string name="liquid_background_desc">Wallpaper gradien bergerak pelan di belakang aplikasi</string>
     <string name="palette_blue">Biru</string>
