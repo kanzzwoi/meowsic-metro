@@ -46,11 +46,14 @@ private val TIER_3 = setOf("LrcLib")
 
 private val ALL_TIER_NAMES = TIER_1 + TIER_2 + TIER_3
 
-/** Tenggat "upgrade" lirik ke kubu 1 (Paxsenix bisa 12-13 detik). */
-private const val UPGRADE_FETCH_TIMEOUT_MS = 28_000L
+/**
+ * Tenggat "upgrade" lirik ke kubu 1. Diukur: Paxsenix paling lama 12,78 dtk
+ * untuk lagu yang belum ada di cache-nya, jadi 15 dtk sudah ada margin.
+ */
+private const val UPGRADE_FETCH_TIMEOUT_MS = 15_000L
 
-/** Batas per provider saat upgrade (Paxsenix bisa 12-13 dtk). */
-private const val UPGRADE_PER_PROVIDER_TIMEOUT_MS = 24_000L
+/** Batas per provider saat upgrade (sedikit di bawah tenggat total). */
+private const val UPGRADE_PER_PROVIDER_TIMEOUT_MS = 14_000L
 
 /** Jeda sebelum kubu 2 ikut jalan kalau kubu 1 belum ada hasil. */
 private const val TIER_1_HEAD_START_MS = 1_500L
