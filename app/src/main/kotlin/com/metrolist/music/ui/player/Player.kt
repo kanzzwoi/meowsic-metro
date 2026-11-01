@@ -33,6 +33,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -1031,7 +1032,10 @@ fun BottomSheetPlayer(
                                 buildAnnotatedString {
                                     mediaMetadata.artists.forEachIndexed { index, artist ->
                                         val tag = "artist_${artist.id.orEmpty()}"
-                                        pushStringAnnotation(tag = tag, annotation = artist.id.orEmpty())
+                                        pushStringAnnotation(
+                                            tag = tag,
+                                            annotation = "${artist.id.orEmpty()}|${artist.name}",
+                                        )
                                         withStyle(SpanStyle(color = TextBackgroundColor, fontSize = 16.sp)) {
                                             append(artist.name)
                                         }
@@ -1048,7 +1052,6 @@ fun BottomSheetPlayer(
                                         .padding(end = 12.dp),
                             ) {
                                 var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
-                                var clickOffset by remember { mutableStateOf<Offset?>(null) }
                                 Text(
                                     text = annotatedString,
                                     style = MaterialTheme.typography.titleMedium.copy(color = TextBackgroundColor),
@@ -1057,52 +1060,51 @@ fun BottomSheetPlayer(
                                     onTextLayout = { layoutResult = it },
                                     modifier =
                                         Modifier
-                                            .pointerInput(Unit) {
-                                                awaitPointerEventScope {
-                                                    while (true) {
-                                                        val event = awaitPointerEvent()
-                                                        val tapPosition = event.changes.firstOrNull()?.position
-                                                        if (tapPosition != null) {
-                                                            clickOffset = tapPosition
-                                                        }
-                                                    }
-                                                }
-                                            }.combinedClickable(
-                                                enabled = true,
-                                                indication = null,
-                                                interactionSource = remember { MutableInteractionSource() },
-                                                onClick = {
-                                                    val tapPosition = clickOffset
-                                                    val layout = layoutResult
-                                                    if (tapPosition != null && layout != null) {
+                                            .pointerInput(annotatedString) {
+                                                detectTapGestures(
+                                                    onLongPress = {
+                                                        val clip =
+                                                            ClipData.newPlainText(
+                                                                copiedArtistStr,
+                                                                annotatedString,
+                                                            )
+                                                        clipboardManager.setPrimaryClip(clip)
+                                                        Toast
+                                                            .makeText(
+                                                                context,
+                                                                copiedArtistStr,
+                                                                Toast.LENGTH_SHORT,
+                                                            ).show()
+                                                    },
+                                                    onTap = { tapPosition ->
+                                                        val layout = layoutResult ?: return@detectTapGestures
                                                         val offset = layout.getOffsetForPosition(tapPosition)
-                                                        annotatedString
-                                                            .getStringAnnotations(offset, offset)
-                                                            .firstOrNull()
-                                                            ?.let { ann ->
-                                                                val artistId = ann.item
-                                                                if (artistId.isNotBlank()) {
-                                                                    navController.navigate("artist/$artistId")
-                                                                    state.collapseSoft()
-                                                                }
+                                                        val ann =
+                                                            annotatedString
+                                                                .getStringAnnotations(offset, offset)
+                                                                .firstOrNull()
+                                                                ?: return@detectTapGestures
+                                                        // Format anotasi: "<artistId>|<nama artis>".
+                                                        // Lagu dari YouTube sering tidak punya id artis,
+                                                        // jadi jatuh ke pencarian nama artis.
+                                                        val parts = ann.item.split("|", limit = 2)
+                                                        val artistId = parts.getOrNull(0).orEmpty()
+                                                        val artistName = parts.getOrNull(1).orEmpty()
+                                                        when {
+                                                            artistId.isNotBlank() -> {
+                                                                navController.navigate("artist/$artistId")
+                                                                state.collapseSoft()
                                                             }
-                                                    }
-                                                },
-                                                onLongClick = {
-                                                    val clip =
-                                                        ClipData.newPlainText(
-                                                            copiedArtistStr,
-                                                            annotatedString,
-                                                        )
-                                                    clipboardManager.setPrimaryClip(clip)
-                                                    Toast
-                                                        .makeText(
-                                                            context,
-                                                            copiedArtistStr,
-                                                            Toast.LENGTH_SHORT,
-                                                        ).show()
-                                                },
-                                            ),
+                                                            artistName.isNotBlank() -> {
+                                                                navController.navigate(
+                                                                    "search/${android.net.Uri.encode(artistName)}"
+                                                                )
+                                                                state.collapseSoft()
+                                                            }
+                                                        }
+                                                    },
+                                                )
+                                            },
                                 )
                             }
                         }
