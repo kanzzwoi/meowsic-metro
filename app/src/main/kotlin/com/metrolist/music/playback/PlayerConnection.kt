@@ -24,6 +24,7 @@ import com.metrolist.music.constants.SleepTimerEndTimeKey
 import com.metrolist.music.constants.SleepTimerRepeatKey
 import com.metrolist.music.constants.SleepTimerStartTimeKey
 import com.metrolist.music.db.MusicDatabase
+import com.metrolist.music.db.entities.LyricsEntity
 import com.metrolist.music.db.entities.Song
 import com.metrolist.music.extensions.currentMetadata
 import com.metrolist.music.extensions.getCurrentQueueIndex
@@ -168,9 +169,23 @@ class PlayerConnection(
         mediaMetadata.flatMapLatest {
             database.song(it?.id)
         }.stateIn(scope, SharingStarted.Lazily, null)
+    /**
+     * Lirik sementara yang TIDAK disimpan ke database. Dipakai untuk hasil dari
+     * provider kubu paling bawah (KuGou/YouTube) supaya tetap tampil tanpa
+     * mengotori cache permanen.
+     */
+    private val transientLyrics = MutableStateFlow<LyricsEntity?>(null)
+
+    fun setTransientLyrics(entity: LyricsEntity?) {
+        transientLyrics.value = entity
+    }
+
     val currentLyrics =
         mediaMetadata.flatMapLatest { mediaMetadata ->
-            database.lyrics(mediaMetadata?.id)
+            val id = mediaMetadata?.id
+            combine(database.lyrics(id), transientLyrics) { stored, transient ->
+                stored ?: transient?.takeIf { it.id == id }
+            }
         }.stateIn(scope, SharingStarted.Lazily, null)
     val currentFormat =
         mediaMetadata.flatMapLatest { mediaMetadata ->

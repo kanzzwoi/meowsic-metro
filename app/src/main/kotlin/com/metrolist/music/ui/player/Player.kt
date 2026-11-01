@@ -344,7 +344,35 @@ fun BottomSheetPlayer(
 
     // Lirik lama dari provider kubu rendah (LrcLib/KuGou/YouTube) di-upgrade
     // sekali per lagu supaya urutan kubu tetap dihormati.
+    // Sekali per proses: buang lirik lama yang tersimpan dari kubu paling bawah.
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            try {
+                database.withTransaction { deleteLowTierLyrics() }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     val lowTierLyricsProviders = remember { setOf("LrcLib", "KuGou", "YouTube", "YouTubeSubtitle") }
+    val nonCachedLyricsProviders = remember { setOf("KuGou", "YouTube", "YouTubeSubtitle") }
+
+    // Status app terlihat di layar. Prefetch lagu berikutnya hanya jalan di
+    // foreground supaya kuota nggak kepakai saat layar mati.
+    var appInForeground by remember {
+        mutableStateOf(
+            ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED),
+        )
+    }
+    DisposableEffect(Unit) {
+        val lifecycle = ProcessLifecycleOwner.get().lifecycle
+        val observer =
+            androidx.lifecycle.LifecycleEventObserver { _, _ ->
+                appInForeground = lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
+            }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
     val preferredLyricsProviders = remember { setOf("Paxsenix", "BetterLyrics", "Unison", "LyricsPlus") }
     val upgradedLyricsIds = remember { mutableSetOf<String>() }
 
@@ -364,7 +392,12 @@ fun BottomSheetPlayer(
                 )
             val fetched = entryPoint.lyricsHelper().getLyrics(currentMeta)
             val isBetterProvider = !shouldUpgrade || fetched.provider in preferredLyricsProviders
-            if (isBetterProvider) {
+            if (!isBetterProvider) return@LaunchedEffect
+            if (fetched.provider in nonCachedLyricsProviders) {
+                // Hasil kubu paling bawah: tampilkan, tapi jangan simpan permanen.
+                playerConnection.setTransientLyrics(LyricsEntity(currentMeta.id, fetched.lyrics, fetched.provider))
+            } else {
+                playerConnection.setTransientLyrics(null)
                 withContext(Dispatchers.IO) {
                     database.query {
                         upsert(LyricsEntity(currentMeta.id, fetched.lyrics, fetched.provider))
@@ -375,8 +408,9 @@ fun BottomSheetPlayer(
     }
 
     // Prefetch lirik lagu berikutnya supaya saat skip sudah siap.
-    LaunchedEffect(nextMetadataForLyrics?.id, mediaMetadata?.id, lyricsForFetch?.id) {
+    LaunchedEffect(nextMetadataForLyrics?.id, mediaMetadata?.id, lyricsForFetch?.id, appInForeground) {
         val nextMeta = nextMetadataForLyrics ?: return@LaunchedEffect
+        if (!appInForeground) return@LaunchedEffect
         if (lyricsForFetch?.id != mediaMetadata?.id) return@LaunchedEffect
         val existing =
             withContext(Dispatchers.IO) {
@@ -389,7 +423,9 @@ fun BottomSheetPlayer(
                 context.applicationContext,
                 com.metrolist.music.di.LyricsHelperEntryPoint::class.java,
             )
+        if (!appInForeground) return@LaunchedEffect
         val fetched = entryPoint.lyricsHelper().getLyrics(nextMeta)
+        if (fetched.provider in nonCachedLyricsProviders) return@LaunchedEffect
         withContext(Dispatchers.IO) {
             database.query {
                 upsert(LyricsEntity(nextMeta.id, fetched.lyrics, fetched.provider))
