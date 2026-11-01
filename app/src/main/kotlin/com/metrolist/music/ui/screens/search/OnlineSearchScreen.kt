@@ -129,9 +129,9 @@ fun OnlineSearchScreen(
         modifier =
             Modifier
                 .fillMaxSize()
-                // Scrim tipis (bukan hitam pekat): wallpaper masih terlihat,
-                // teks hasil pencarian tetap terbaca.
-                .background(Color.Black.copy(alpha = 0.30f)),
+                // Scrim gelap 80%: wallpaper masih samar terlihat, tapi teks
+                // hasil pencarian & riwayat tetap terbaca jelas.
+                .background(Color.Black.copy(alpha = 0.80f)),
     ) {
         // Show parsed URL item at the top if present
         if (viewState.isUrlQuery && viewState.parsedUrlItem != null) {
@@ -658,9 +658,8 @@ fun SuggestionItem(
             modifier
                 .fillMaxWidth()
                 .height(SuggestionItemHeight)
-                // Block tipis (bukan solid) supaya tiap baris riwayat tetap
-                // terpisah tanpa menutupi wallpaper.
-                .background(Color.White.copy(alpha = 0.06f))
+                // Baris riwayat/saran: kaca putih tipis di atas scrim 80%.
+                .background(Color.White.copy(alpha = 0.14f))
                 .clickable(onClick = onClick)
                 .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)),
     ) {
