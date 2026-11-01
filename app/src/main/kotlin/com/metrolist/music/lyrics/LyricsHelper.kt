@@ -49,8 +49,13 @@ private val ALL_TIER_NAMES = TIER_1 + TIER_2 + TIER_3
 /** Jeda sebelum kubu 2 ikut jalan kalau kubu 1 belum ada hasil. */
 private const val TIER_1_HEAD_START_MS = 1_500L
 
-/** Jeda untuk setiap kubu berikutnya (kubu 3, 4, ...). */
-private const val TIER_N_HEAD_START_MS = 2_000L
+/**
+ * Jeda untuk setiap kubu berikutnya (kubu 3, 4, ...).
+ * Diukur dari server LyricsPlus: kalau lagunya ada, jawabannya 0,03–0,3 dtk;
+ * kalau harus nembak upstream dan tidak ketemu, baru balas 404 di ~8–10 dtk.
+ * Jadi menunggu 1,5 dtk sudah cukup — kalau lewat itu hampir pasti LP kosong.
+ */
+private const val TIER_N_HEAD_START_MS = 1_500L
 
 class LyricsHelper
 @Inject
