@@ -16,7 +16,8 @@ import com.metrolist.music.utils.reportException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.CompletableDeferred
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -34,8 +35,17 @@ private const val MAX_LYRICS_FETCH_MS = 20_000L
 private const val PER_PROVIDER_TIMEOUT_MS = 10_000L
 private const val PROVIDER_NONE = ""
 
-/** Provider yang dilombakan: siapa cepat memberi lirik, dia dipakai. */
-private val RACE_PROVIDERS = setOf("Paxsenix", "Unison", "BetterLyrics")
+/** Kubu 1: lirik per suku kata (paling presisi), langsung dijalankan. */
+private val TIER_1 = setOf("Paxsenix", "Unison", "BetterLyrics")
+
+/** Kubu 2: cadangan luas (sebagian per kata/baris). */
+private val TIER_2 = setOf("LyricsPlus", "LrcLib", "KuGou")
+
+/** Jeda sebelum kubu 2 ikut jalan kalau kubu 1 belum ada hasil. */
+private const val TIER_1_HEAD_START_MS = 1_500L
+
+/** Jeda sebelum kubu 3 (YouTube) dipakai. */
+private const val TIER_2_HEAD_START_MS = 2_000L
 
 class LyricsHelper
 @Inject
@@ -83,80 +93,92 @@ constructor(
             // pencocokan durasi provider lain gagal.
             val durationSec = (mediaMetadata.duration / 1000).toInt()
 
-            // Semua provider dijalankan PARALEL, lalu hasilnya dipilih sesuai
-            // urutan prioritas. Secara berurutan, provider lambat (Paxsenix
-            // retry, KuGou 3 request) menghabiskan jatah waktu sehingga KuGou
-            // tidak pernah sempat dicoba dan lagu jatuh ke lirik YouTube.
-            Timber.tag("LyricsHelper").d("Starting parallel fetch for: $cleanedTitle by ${mediaMetadata.artists.joinToString { it.name }}")
+            // Bertingkat bertahap (staggered):
+            //  - Kubu 1 (lirik per suku kata) langsung jalan
+            //  - Kubu 2 menyusul kalau 1.5 dtk kubu 1 belum kasih hasil
+            //  - Kubu 3 (YouTube) baru kalau 1 & 2 sama-sama kosong
+            // Tujuannya: request hemat + kualitas dijaga, tanpa nunggu 10 dtk
+            // kalau lagunya cuma ada di kubu 2.
+            Timber.tag("LyricsHelper").d("Staggered fetch for: $cleanedTitle by ${mediaMetadata.artists.joinToString { it.name }}")
             Timber.tag("LyricsHelper").d("Enabled providers in order: ${enabledProviders.joinToString { it.name }}")
 
             val found: LyricsWithProvider? =
                 coroutineScope {
                     val artistLine = mediaMetadata.artists.joinToString { it.name }
                     val albumTitle = mediaMetadata.album?.title
-                    val fetches =
-                        enabledProviders.associateWith { provider ->
-                            async(Dispatchers.IO) {
-                                runCatching {
-                                    withTimeoutOrNull(PER_PROVIDER_TIMEOUT_MS) {
-                                        provider.getLyrics(
-                                            context,
-                                            mediaMetadata.id,
-                                            cleanedTitle,
-                                            artistLine,
-                                            durationSec,
-                                            albumTitle,
-                                        )
-                                    }?.getOrNull()
-                                }.getOrElse { e ->
-                                    Timber.tag("LyricsHelper").w("${provider.name} threw: ${e.message}")
-                                    null
-                                }?.takeIf { it.isNotBlank() }
-                            }
-                        }
 
-                    // Paxsenix vs Unison: dijalankan bersamaan, yang lebih dulu
-                    // mengembalikan lirik dipakai. Provider lain tetap mengikuti
-                    // urutan prioritas seperti biasa.
-                    val racers = enabledProviders.filter { it.name in RACE_PROVIDERS }
-                    val racerNames = racers.map { it.name }.toSet()
-                    var winner: Pair<LyricsProvider, String>? = null
-                    if (racers.size > 1) {
-                        val results = Channel<Pair<LyricsProvider, String>>(Channel.UNLIMITED)
-                        val jobs =
-                            racers.map { provider ->
-                                launch {
-                                    fetches[provider]?.await()?.let { results.send(provider to it) }
+                    suspend fun fetch(provider: LyricsProvider): String? =
+                        runCatching {
+                            withTimeoutOrNull(PER_PROVIDER_TIMEOUT_MS) {
+                                provider.getLyrics(
+                                    context,
+                                    mediaMetadata.id,
+                                    cleanedTitle,
+                                    artistLine,
+                                    durationSec,
+                                    albumTitle,
+                                )
+                            }?.getOrNull()
+                        }.getOrElse { e ->
+                            Timber.tag("LyricsHelper").w("${provider.name} threw: ${e.message}")
+                            null
+                        }?.takeIf { it.isNotBlank() }
+
+                    val tier1 = enabledProviders.filter { it.name in TIER_1 }
+                    val tier2 = enabledProviders.filter { it.name in TIER_2 }
+                    val tier3 = enabledProviders.filter { it.name !in TIER_1 && it.name !in TIER_2 }
+
+                    val winner = CompletableDeferred<Pair<LyricsProvider, String>>()
+                    val tier1Pending = AtomicInteger(tier1.size)
+                    val tier1AllFailed = CompletableDeferred<Unit>()
+                    val tier2Pending = AtomicInteger(tier2.size)
+                    val tier2AllFailed = CompletableDeferred<Unit>()
+
+                    fun spawn(provider: LyricsProvider) =
+                        launch(Dispatchers.IO) {
+                            val lyrics = fetch(provider)
+                            if (lyrics != null) {
+                                Timber.tag("LyricsHelper").i("Got lyrics from ${provider.name}")
+                                winner.complete(provider to lyrics)
+                            } else {
+                                Timber.tag("LyricsHelper").w("${provider.name} failed")
+                                if (provider.name in TIER_1 && tier1Pending.decrementAndGet() == 0) {
+                                    tier1AllFailed.complete(Unit)
+                                }
+                                if (provider.name in TIER_2 && tier2Pending.decrementAndGet() == 0) {
+                                    tier2AllFailed.complete(Unit)
                                 }
                             }
-                        launch {
-                            jobs.forEach { it.join() }
-                            results.close()
                         }
-                        winner = results.receiveCatching().getOrNull()
+
+                    tier1.forEach { spawn(it) }
+
+                    // Kubu 2 menyusul kalau kubu 1 belum berhasil dalam 1.5 dtk,
+                    // atau lebih cepat lagi begitu semua anggota kubu 1 gagal.
+                    launch {
+                        withTimeoutOrNull(TIER_1_HEAD_START_MS) { tier1AllFailed.await() }
+                        if (!winner.isCompleted && tier2.isNotEmpty()) {
+                            Timber.tag("LyricsHelper").d("Kubu 1 belum ada hasil, menyalakan kubu 2")
+                            tier2.forEach { spawn(it) }
+                            withTimeoutOrNull(TIER_2_HEAD_START_MS) { tier2AllFailed.await() }
+                        }
+                        // Kubu 3 hanya kalau kubu 1 & 2 tetap kosong.
+                        if (!winner.isCompleted && tier3.isNotEmpty()) {
+                            Timber.tag("LyricsHelper").d("Kubu 1 & 2 kosong, memakai kubu 3")
+                            tier3.forEach { spawn(it) }
+                        }
                     }
 
-                    if (winner != null) {
-                        Timber.tag("LyricsHelper").i("Got lyrics from ${winner.first.name} (pacu cepat)")
-                        return@coroutineScope LyricsWithProvider(
-                            LyricsUtils.filterLyricsCreditLines(winner.second),
-                            winner.first.name,
+                    val result =
+                        withTimeoutOrNull(MAX_LYRICS_FETCH_MS) {
+                            winner.await()
+                        }
+                    result?.let { (provider, lyrics) ->
+                        LyricsWithProvider(
+                            LyricsUtils.filterLyricsCreditLines(lyrics),
+                            provider.name,
                         )
                     }
-
-                    for ((provider, job) in fetches) {
-                        if (provider.name in racerNames) continue
-                        val lyrics = job.await()
-                        if (lyrics != null) {
-                            Timber.tag("LyricsHelper").i("Got lyrics from ${provider.name}")
-                            return@coroutineScope LyricsWithProvider(
-                                LyricsUtils.filterLyricsCreditLines(lyrics),
-                                provider.name,
-                            )
-                        }
-                        Timber.tag("LyricsHelper").w("${provider.name} failed")
-                    }
-                    null
                 }
             if (found != null) return@withTimeoutOrNull found
 
