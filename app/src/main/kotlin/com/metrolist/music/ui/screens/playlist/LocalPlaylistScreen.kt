@@ -870,6 +870,8 @@ fun LocalPlaylistHeader(
 ) {
     val navController = LocalNavController.current
     val playerConnection = LocalPlayerConnection.current ?: return
+    val isPlayingNow by playerConnection.isEffectivelyPlaying.collectAsStateWithLifecycle()
+    val queueTitleNow by playerConnection.queueTitle.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val database = LocalDatabase.current
     val menuState = LocalMenuState.current
@@ -1347,14 +1349,19 @@ fun LocalPlaylistHeader(
             }
 
             // Play Button - Larger primary circular button
+            val isThisQueue = queueTitleNow == playlist.playlist.name
             Surface(
                 onClick = {
-                    playerConnection.playQueue(
-                        ListQueue(
-                            title = playlist.playlist.name,
-                            items = songs.map { it.song.toMediaItem() },
-                        ),
-                    )
+                    if (isThisQueue) {
+                        playerConnection.togglePlayPause()
+                    } else {
+                        playerConnection.playQueue(
+                            ListQueue(
+                                title = playlist.playlist.name,
+                                items = songs.map { it.song.toMediaItem() },
+                            ),
+                        )
+                    }
                 },
                 color = MaterialTheme.colorScheme.primary,
                 shape = CircleShape,
@@ -1365,8 +1372,8 @@ fun LocalPlaylistHeader(
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.play),
-                        contentDescription = stringResource(R.string.play),
+                        painter = painterResource(if (isThisQueue && isPlayingNow) R.drawable.pause else R.drawable.play),
+                        contentDescription = stringResource(if (isThisQueue && isPlayingNow) R.string.pause else R.string.play),
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(32.dp),
                     )

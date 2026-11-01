@@ -844,6 +844,8 @@ private fun AutoPlaylistHeader(
     modifier: Modifier = Modifier,
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
+    val isPlayingNow by playerConnection.isEffectivelyPlaying.collectAsStateWithLifecycle()
+    val queueTitleNow by playerConnection.queueTitle.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val downloadUtil = LocalDownloadUtil.current
 
@@ -943,14 +945,19 @@ private fun AutoPlaylistHeader(
             }
 
             // Play Button - Larger primary circular button
+            val isThisQueue = queueTitleNow == name
             Surface(
                 onClick = {
-                    playerConnection.playQueue(
-                        ListQueue(
-                            title = name,
-                            items = songs.map { it.toMediaItem() },
-                        ),
-                    )
+                    if (isThisQueue) {
+                        playerConnection.togglePlayPause()
+                    } else {
+                        playerConnection.playQueue(
+                            ListQueue(
+                                title = name,
+                                items = songs.map { it.toMediaItem() },
+                            ),
+                        )
+                    }
                 },
                 color = MaterialTheme.colorScheme.primary,
                 shape = androidx.compose.foundation.shape.CircleShape,
@@ -961,8 +968,8 @@ private fun AutoPlaylistHeader(
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.play),
-                        contentDescription = stringResource(R.string.play),
+                        painter = painterResource(if (isThisQueue && isPlayingNow) R.drawable.pause else R.drawable.play),
+                        contentDescription = stringResource(if (isThisQueue && isPlayingNow) R.string.pause else R.string.play),
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(32.dp),
                     )
