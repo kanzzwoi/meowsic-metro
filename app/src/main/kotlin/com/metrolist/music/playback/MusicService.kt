@@ -1218,12 +1218,27 @@ class MusicService :
                 }
             }
 
-            // Automix (rekomendasi) sengaja TIDAK dipulihkan dari sesi lalu:
-            // sisa data lama bikin daftar antrian kelihatan penuh lagu random
-            // padahal user cuma memutar playlist kecil. Automix hanya hidup
-            // selama sesi berjalan dan dibuang tiap playQueue.
             val automixFile = filesDir.resolve(PERSISTENT_AUTOMIX_FILE)
-            if (automixFile.exists()) { automixFile.delete() }
+            if (automixFile.exists()) {
+                runCatching {
+                    automixFile.inputStream().use { fis ->
+                        ObjectInputStream(fis).use { oos ->
+                            oos.readObject() as PersistQueue
+                        }
+                    }
+                }.onSuccess { queue ->
+                    runCatching {
+                        automixItems.value = queue.items.map { it.toMediaItem() }
+                    }.onFailure { error ->
+                        Timber.tag(TAG).w(error, "Failed to restore automix queue, clearing data")
+                        clearPersistedQueueFiles()
+                    }
+                }.onFailure { error ->
+                    Timber.tag(TAG).w(error, "Failed to read automix queue, clearing data")
+                    clearPersistedQueueFiles()
+                }
+            }
+
             val playerStateFile = filesDir.resolve(PERSISTENT_PLAYER_STATE_FILE)
             if (playerStateFile.exists()) {
                 runCatching {
@@ -1787,9 +1802,6 @@ class MusicService :
 
         currentQueue = queue
         queueTitle = null
-        // Buang automix (rekomendasi) sisa antrian sebelumnya supaya daftar
-        // antrian yang baru tidak tercampur lagu random.
-        clearAutomix()
         val persistShuffleAcrossQueues = dataStore.get(PersistentShuffleAcrossQueuesKey, false)
         if (!persistShuffleAcrossQueues && !restoringQueue) {
             player.shuffleModeEnabled = false
