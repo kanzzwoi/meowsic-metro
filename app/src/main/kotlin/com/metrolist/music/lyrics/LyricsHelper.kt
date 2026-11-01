@@ -16,6 +16,7 @@ import com.metrolist.music.utils.reportException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -32,6 +33,9 @@ import javax.inject.Inject
 private const val MAX_LYRICS_FETCH_MS = 20_000L
 private const val PER_PROVIDER_TIMEOUT_MS = 10_000L
 private const val PROVIDER_NONE = ""
+
+/** Provider yang dilombakan: siapa cepat memberi lirik, dia dipakai. */
+private val RACE_PROVIDERS = setOf("Paxsenix", "Unison")
 
 class LyricsHelper
 @Inject
@@ -90,29 +94,58 @@ constructor(
                 coroutineScope {
                     val artistLine = mediaMetadata.artists.joinToString { it.name }
                     val albumTitle = mediaMetadata.album?.title
-                    val jobs =
-                        enabledProviders.map { provider ->
-                            provider to
-                                async(Dispatchers.IO) {
-                                    runCatching {
-                                        withTimeoutOrNull(PER_PROVIDER_TIMEOUT_MS) {
-                                            provider.getLyrics(
-                                                context,
-                                                mediaMetadata.id,
-                                                cleanedTitle,
-                                                artistLine,
-                                                durationSec,
-                                                albumTitle,
-                                            )
-                                        }?.getOrNull()
-                                    }.getOrElse { e ->
-                                        Timber.tag("LyricsHelper").w("${provider.name} threw: ${e.message}")
-                                        null
-                                    }?.takeIf { it.isNotBlank() }
-                                }
+                    val fetches =
+                        enabledProviders.associateWith { provider ->
+                            async(Dispatchers.IO) {
+                                runCatching {
+                                    withTimeoutOrNull(PER_PROVIDER_TIMEOUT_MS) {
+                                        provider.getLyrics(
+                                            context,
+                                            mediaMetadata.id,
+                                            cleanedTitle,
+                                            artistLine,
+                                            durationSec,
+                                            albumTitle,
+                                        )
+                                    }?.getOrNull()
+                                }.getOrElse { e ->
+                                    Timber.tag("LyricsHelper").w("${provider.name} threw: ${e.message}")
+                                    null
+                                }?.takeIf { it.isNotBlank() }
+                            }
                         }
 
-                    for ((provider, job) in jobs) {
+                    // Paxsenix vs Unison: dijalankan bersamaan, yang lebih dulu
+                    // mengembalikan lirik dipakai. Provider lain tetap mengikuti
+                    // urutan prioritas seperti biasa.
+                    val racers = enabledProviders.filter { it.name in RACE_PROVIDERS }
+                    val racerNames = racers.map { it.name }.toSet()
+                    var winner: Pair<LyricsProvider, String>? = null
+                    if (racers.size > 1) {
+                        val results = Channel<Pair<LyricsProvider, String>>(Channel.UNLIMITED)
+                        val jobs =
+                            racers.map { provider ->
+                                launch {
+                                    fetches[provider]?.await()?.let { results.send(provider to it) }
+                                }
+                            }
+                        launch {
+                            jobs.forEach { it.join() }
+                            results.close()
+                        }
+                        winner = results.receiveCatching().getOrNull()
+                    }
+
+                    if (winner != null) {
+                        Timber.tag("LyricsHelper").i("Got lyrics from ${winner.first.name} (pacu cepat)")
+                        return@coroutineScope LyricsWithProvider(
+                            LyricsUtils.filterLyricsCreditLines(winner.second),
+                            winner.first.name,
+                        )
+                    }
+
+                    for ((provider, job) in fetches) {
+                        if (provider.name in racerNames) continue
                         val lyrics = job.await()
                         if (lyrics != null) {
                             Timber.tag("LyricsHelper").i("Got lyrics from ${provider.name}")
