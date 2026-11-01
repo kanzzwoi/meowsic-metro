@@ -203,6 +203,16 @@ fun ExperimentalLyrics(
     val currentSong by playerConnection.currentSong.collectAsStateWithLifecycle(initialValue = null)
     val lyrics = remember(lyricsEntity) { lyricsEntity?.lyrics?.trim() }
 
+    // Loading yang deterministik: selama lirik lagu INI belum ada di DB,
+    // tampilkan placeholder. Sebelumnya indikator cuma muncul kalau
+    // lyrics == null, jadi kadang lirik lagu sebelumnya masih nongol
+    // (tanpa loading) dan kadang placeholder-nya cuma sekilas.
+    val isTranslatingLyrics =
+        translationStatus is LyricsTranslationHelper.TranslationStatus.Translating ||
+            translationStatus is LyricsTranslationHelper.TranslationStatus.Success
+    val isLoadingLyrics =
+        !isTranslatingLyrics && (lyricsEntity == null || (mediaMetadata?.id?.let { lyricsEntity.id != it } == true))
+
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
         defaultValue = PlayerBackgroundStyle.default
@@ -648,11 +658,11 @@ fun ExperimentalLyrics(
             modifier = Modifier.zIndex(1f).padding(top = 56.dp)
         )
 
-        if (lyrics == LYRICS_NOT_FOUND) {
+        if (lyrics == LYRICS_NOT_FOUND && !isLoadingLyrics) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(text = stringResource(R.string.lyrics_not_found), fontSize = 20.sp, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.alpha(0.5f))
             }
-        } else if (lyrics == null && (translationStatus is LyricsTranslationHelper.TranslationStatus.Idle || translationStatus is LyricsTranslationHelper.TranslationStatus.Error)) {
+        } else if (isLoadingLyrics) {
              Column(modifier = Modifier.padding(top = 100.dp)) {
                  ShimmerHost { repeat(10) { Box(contentAlignment = when (lyricsTextPosition) {
                      LyricsPosition.LEFT -> Alignment.CenterStart; LyricsPosition.CENTER -> Alignment.Center; else -> Alignment.CenterEnd

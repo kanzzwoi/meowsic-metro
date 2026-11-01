@@ -831,14 +831,16 @@ object LyricsUtils {
             val line = lines[index]
             if (line.time > position) break // Past current position, stop early
 
-            // Determine this line's end time
-            val lineEndMs: Long = if (!line.words.isNullOrEmpty()) {
-                // Use last word's endTime converted to ms
-                (line.words.last().endTime * 1000).toLong()
-            } else {
-                // Fallback: next line's start time
-                if (index + 1 < lines.size) lines[index + 1].time else Long.MAX_VALUE
-            }
+            // Baris tetap terang sampai baris berikutnya mulai (bukan berhenti
+            // di akhir kata terakhir). Dulu, begitu kata terakhir selesai, baris
+            // langsung meredup padahal belum ada baris baru → terlihat seperti
+            // "loading"/hilang. Untuk baris terakhir, biarkan terang terus.
+            val lineEndMs: Long =
+                if (index + 1 < lines.size) {
+                    lines[index + 1].time - 1
+                } else {
+                    Long.MAX_VALUE
+                }
 
             if (position <= lineEndMs) {
                 active.add(index)
