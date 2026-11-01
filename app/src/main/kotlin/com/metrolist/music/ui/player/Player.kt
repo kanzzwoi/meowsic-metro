@@ -231,8 +231,14 @@ fun BottomSheetPlayer(
     val (hideStatusBarOnFullscreen) = rememberPreference(HideStatusBarOnFullscreenKey, false)
     val cropAlbumArt by rememberPreference(CropAlbumArtKey, false)
 
-    var showInlineLyrics by rememberSaveable {
+    var showInlineLyricsRaw by rememberSaveable {
         mutableStateOf(false)
+    }
+    // Video/lagu tempat lirik dibuka. Dipakai untuk menutup lirik otomatis saat
+    // lagu berganti TANPA mengubah state saat transisi (dulu memutasi state
+    // tepat ketika track berganti dan UI player bisa nyangkut di 0:00/paused).
+    var lyricsOpenedForTrackId by rememberSaveable {
+        mutableStateOf<String?>(null)
     }
 
     var isFullScreen by rememberSaveable {
@@ -325,16 +331,11 @@ fun BottomSheetPlayer(
     val playbackState by playerConnection.playbackState.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
 
-    // Pindah lagu = balik ke tampilan thumbnail biasa, bukan lanjut buka lirik.
-    var lastTrackIdForLyrics by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(mediaMetadata?.id) {
-        val currentId = mediaMetadata?.id
-        val previousId = lastTrackIdForLyrics
-        if (previousId != null && currentId != null && currentId != previousId) {
-            showInlineLyrics = false
-        }
-        lastTrackIdForLyrics = currentId
-    }
+    // Nilai efektif: lirik hanya tampil kalau dibuka untuk lagu yang sedang main.
+    // Ganti lagu (skip, next otomatis, pilih dari queue) otomatis balik ke
+    // thumbnail tanpa perlu menyentuh state apa pun.
+    val showInlineLyrics = showInlineLyricsRaw &&
+        (lyricsOpenedForTrackId == null || lyricsOpenedForTrackId == mediaMetadata?.id)
     val currentSong by playerConnection.currentSong.collectAsStateWithLifecycle(initialValue = null)
     val automix by playerConnection.service.automixItems.collectAsStateWithLifecycle()
     val repeatMode by playerConnection.repeatMode.collectAsStateWithLifecycle()
@@ -1996,7 +1997,14 @@ fun BottomSheetPlayer(
                 showInlineLyrics = showInlineLyrics,
                 playerBackground = playerBackground,
                 onToggleLyrics = {
-                    showInlineLyrics = !showInlineLyrics
+                    // Pakai nilai efektif: kalau lirik sedang tersembunyi karena
+                    // lagu berganti, tap pertama langsung membukanya lagi.
+                    if (showInlineLyrics) {
+                        showInlineLyricsRaw = false
+                    } else {
+                        lyricsOpenedForTrackId = mediaMetadata?.id
+                        showInlineLyricsRaw = true
+                    }
                 },
             )
         }
