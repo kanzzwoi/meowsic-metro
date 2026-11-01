@@ -168,7 +168,10 @@ object LyricsPlusProvider : LyricsProvider {
     }
 
     override fun isEnabled(context: Context): Boolean =
-        context.dataStore[EnableLyricsPlus] ?: false
+        // Default HARUS sama dengan toggle di Pengaturan (true). Kalau key belum
+        // pernah disimpan, provider ini dulu dianggap nonaktif sehingga lirik
+        // LyricsPlus tidak pernah di-fetch sama sekali.
+        context.dataStore[EnableLyricsPlus] ?: true
 
     private suspend fun fetchFromUrl(
         url: String,
