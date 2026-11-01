@@ -46,6 +46,12 @@ private val TIER_3 = setOf("LrcLib")
 
 private val ALL_TIER_NAMES = TIER_1 + TIER_2 + TIER_3
 
+/** Tenggat "upgrade" lirik ke kubu 1 (Paxsenix bisa 12-13 detik). */
+private const val UPGRADE_FETCH_TIMEOUT_MS = 28_000L
+
+/** Batas per provider saat upgrade (Paxsenix bisa 12-13 dtk). */
+private const val UPGRADE_PER_PROVIDER_TIMEOUT_MS = 24_000L
+
 /** Jeda sebelum kubu 2 ikut jalan kalau kubu 1 belum ada hasil. */
 private const val TIER_1_HEAD_START_MS = 1_500L
 
@@ -71,6 +77,52 @@ constructor(
 
     private val cache = LruCache<String, List<LyricsResult>>(MAX_CACHE_SIZE)
     private var currentLyricsJob: Job? = null
+
+    /**
+     * Cuma nanya kubu 1 (Paxsenix / BetterLyrics / Unison) dengan tenggat
+     * longgar. Dipakai untuk menaikkan kualitas lirik yang tadinya menang cepat
+     * dari kubu bawah (mis. LrcLib), karena Paxsenix bisa butuh 12-13 detik
+     * untuk lagu yang belum ada di cache-nya.
+     */
+    suspend fun getTierOneLyrics(mediaMetadata: MediaMetadata): LyricsWithProvider? {
+        val orderedProviders = context.dataStore.data
+            .map { preferences -> resolveLyricsProviders(preferences) }
+            .first()
+        val enabled = orderedProviders.filter { it.isEnabled(context) && it.name in TIER_1 }
+        if (enabled.isEmpty()) return null
+
+        val cleanedTitle = LyricsUtils.cleanTitleForSearch(mediaMetadata.title)
+        val durationSec = (mediaMetadata.duration / 1000).toInt()
+        val artistLine = mediaMetadata.artists.joinToString { it.name }
+        val albumTitle = mediaMetadata.album?.title
+
+        return withTimeoutOrNull(UPGRADE_FETCH_TIMEOUT_MS) {
+            coroutineScope {
+                val winner = CompletableDeferred<LyricsWithProvider>()
+                enabled.forEach { provider ->
+                    launch(Dispatchers.IO) {
+                        val text =
+                            runCatching {
+                                // Paxsenix pernah 12,8 dtk untuk lagu yang belum
+                                // ada di cache-nya, jadi jangan dipotong 10 dtk.
+                                withTimeoutOrNull(UPGRADE_PER_PROVIDER_TIMEOUT_MS) {
+                                    provider.getLyrics(
+                                        context,
+                                        mediaMetadata.id,
+                                        cleanedTitle,
+                                        artistLine,
+                                        durationSec,
+                                        albumTitle,
+                                    )
+                                }?.getOrNull()
+                            }.getOrNull()?.takeIf { it.isNotBlank() }
+                        if (text != null) winner.complete(LyricsWithProvider(text, provider.name))
+                    }
+                }
+                winner.await()
+            }
+        }
+    }
 
     suspend fun getLyrics(mediaMetadata: MediaMetadata): LyricsWithProvider {
         currentLyricsJob?.cancel()

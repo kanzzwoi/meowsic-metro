@@ -354,8 +354,8 @@ fun BottomSheetPlayer(
         }
     }
 
-    val lowTierLyricsProviders = remember { setOf("LrcLib", "KuGou", "YouTube", "YouTubeSubtitle") }
-    val nonCachedLyricsProviders = remember { setOf("KuGou", "YouTube", "YouTubeSubtitle") }
+    val lowTierLyricsProviders = remember { setOf("LrcLib", "Kugou", "YouTube Music", "YouTube Subtitle") }
+    val nonCachedLyricsProviders = remember { setOf("Kugou", "YouTube Music", "YouTube Subtitle") }
 
     // Status app terlihat di layar. Prefetch lagu berikutnya hanya jalan di
     // foreground supaya kuota nggak kepakai saat layar mati.
@@ -390,7 +390,14 @@ fun BottomSheetPlayer(
                     context.applicationContext,
                     com.metrolist.music.di.LyricsHelperEntryPoint::class.java,
                 )
-            val fetched = entryPoint.lyricsHelper().getLyrics(currentMeta)
+            // Kalau lagi upgrade, jangan ikut balapan cepat (yang selalu dimenangi
+            // LrcLib). Tanya kubu 1 langsung dengan tenggat longgar.
+            val fetched =
+                if (shouldUpgrade) {
+                    entryPoint.lyricsHelper().getTierOneLyrics(currentMeta) ?: return@LaunchedEffect
+                } else {
+                    entryPoint.lyricsHelper().getLyrics(currentMeta)
+                }
             val isBetterProvider = !shouldUpgrade || fetched.provider in preferredLyricsProviders
             if (!isBetterProvider) return@LaunchedEffect
             if (fetched.provider in nonCachedLyricsProviders) {
