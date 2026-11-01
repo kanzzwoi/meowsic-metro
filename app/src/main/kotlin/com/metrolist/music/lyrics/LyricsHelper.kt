@@ -35,7 +35,7 @@ private const val PER_PROVIDER_TIMEOUT_MS = 10_000L
 private const val PROVIDER_NONE = ""
 
 /** Provider yang dilombakan: siapa cepat memberi lirik, dia dipakai. */
-private val RACE_PROVIDERS = setOf("Paxsenix", "Unison", "BetterLyrics", "LrcLib")
+private val RACE_PROVIDERS = setOf("Paxsenix", "Unison", "BetterLyrics")
 
 class LyricsHelper
 @Inject
