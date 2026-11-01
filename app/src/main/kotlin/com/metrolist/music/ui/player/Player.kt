@@ -324,6 +324,17 @@ fun BottomSheetPlayer(
 
     val playbackState by playerConnection.playbackState.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+
+    // Pindah lagu = balik ke tampilan thumbnail biasa, bukan lanjut buka lirik.
+    var lastTrackIdForLyrics by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(mediaMetadata?.id) {
+        val currentId = mediaMetadata?.id
+        val previousId = lastTrackIdForLyrics
+        if (previousId != null && currentId != null && currentId != previousId) {
+            showInlineLyrics = false
+        }
+        lastTrackIdForLyrics = currentId
+    }
     val currentSong by playerConnection.currentSong.collectAsStateWithLifecycle(initialValue = null)
     val automix by playerConnection.service.automixItems.collectAsStateWithLifecycle()
     val repeatMode by playerConnection.repeatMode.collectAsStateWithLifecycle()
