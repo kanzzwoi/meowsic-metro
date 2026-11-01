@@ -135,6 +135,17 @@ android {
             )
         }
         debug {
+            // -PslimDebug=true => build debug diperkecil pakai R8 supaya bisa
+            // dikirim lewat Telegram (limit 50 MB). Package & signature tetap
+            // sama, jadi update nimpa app yang sudah terpasang.
+            if (providers.gradleProperty("slimDebug").orNull?.toBoolean() == true) {
+                isMinifyEnabled = true
+                isShrinkResources = true
+                proguardFiles(
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
+                    "proguard-rules.pro",
+                )
+            }
             if (applicationIdOverride == null) {
                 applicationIdSuffix = ".debug"
             }
