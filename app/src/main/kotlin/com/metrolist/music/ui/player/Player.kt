@@ -2032,8 +2032,22 @@ fun InlineLyricsView(
             }
         }
 
+    // Lirik lama yang tersimpan dari provider kubu rendah (LrcLib/KuGou/YouTube)
+    // di-upgrade sekali per lagu, supaya urutan kubu (Paxsenix/BetterLyrics/
+    // Unison → LyricsPlus → LrcLib → sisanya) tetap dihormati.
+    val lowTierLyricsProviders = remember { setOf("LrcLib", "KuGou", "YouTube", "YouTubeSubtitle") }
+    val preferredLyricsProviders = remember { setOf("Paxsenix", "BetterLyrics", "Unison", "LyricsPlus") }
+    val upgradedLyricsIds = remember { mutableSetOf<String>() }
+
     LaunchedEffect(mediaMetadata?.id, currentLyrics) {
-        if (mediaMetadata != null && currentLyrics == null) {
+        val currentMeta = mediaMetadata
+        val cachedForCurrent = currentLyrics?.takeIf { currentMeta != null && it.id == currentMeta.id }
+        val shouldUpgrade =
+            currentMeta != null &&
+                cachedForCurrent != null &&
+                cachedForCurrent.provider in lowTierLyricsProviders &&
+                upgradedLyricsIds.add(currentMeta.id)
+        if (currentMeta != null && (cachedForCurrent == null || shouldUpgrade)) {
             delay(500)
             coroutineScope.launch(Dispatchers.IO) {
                 try {
@@ -2043,9 +2057,13 @@ fun InlineLyricsView(
                             com.metrolist.music.di.LyricsHelperEntryPoint::class.java,
                         )
                     val lyricsHelper = entryPoint.lyricsHelper()
-                    val fetchedLyricsWithProvider = lyricsHelper.getLyrics(mediaMetadata)
-                    database.query {
-                        upsert(LyricsEntity(mediaMetadata.id, fetchedLyricsWithProvider.lyrics, fetchedLyricsWithProvider.provider))
+                    val fetchedLyricsWithProvider = lyricsHelper.getLyrics(currentMeta)
+                    val isBetterProvider =
+                        !shouldUpgrade || fetchedLyricsWithProvider.provider in preferredLyricsProviders
+                    if (isBetterProvider) {
+                        database.query {
+                            upsert(LyricsEntity(currentMeta.id, fetchedLyricsWithProvider.lyrics, fetchedLyricsWithProvider.provider))
+                        }
                     }
                 } catch (e: Exception) {
                     // Handle error

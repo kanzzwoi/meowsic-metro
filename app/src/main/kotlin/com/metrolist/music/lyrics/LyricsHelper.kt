@@ -36,16 +36,21 @@ private const val PER_PROVIDER_TIMEOUT_MS = 10_000L
 private const val PROVIDER_NONE = ""
 
 /** Kubu 1: lirik per suku kata (paling presisi), langsung dijalankan. */
-private val TIER_1 = setOf("Paxsenix", "Unison", "BetterLyrics")
+private val TIER_1 = setOf("Paxsenix", "BetterLyrics", "Unison")
 
-/** Kubu 2: cadangan luas (sebagian per kata/baris). */
-private val TIER_2 = setOf("LyricsPlus", "LrcLib", "KuGou")
+/** Kubu 2: LyricsPlus — cepat dan sebagian sudah per kata. */
+private val TIER_2 = setOf("LyricsPlus")
+
+/** Kubu 3: LrcLib — per baris. */
+private val TIER_3 = setOf("LrcLib")
+
+private val ALL_TIER_NAMES = TIER_1 + TIER_2 + TIER_3
 
 /** Jeda sebelum kubu 2 ikut jalan kalau kubu 1 belum ada hasil. */
 private const val TIER_1_HEAD_START_MS = 1_500L
 
-/** Jeda sebelum kubu 3 (YouTube) dipakai. */
-private const val TIER_2_HEAD_START_MS = 2_000L
+/** Jeda untuk setiap kubu berikutnya (kubu 3, 4, ...). */
+private const val TIER_N_HEAD_START_MS = 2_000L
 
 class LyricsHelper
 @Inject
@@ -94,11 +99,10 @@ constructor(
             val durationSec = (mediaMetadata.duration / 1000).toInt()
 
             // Bertingkat bertahap (staggered):
-            //  - Kubu 1 (lirik per suku kata) langsung jalan
-            //  - Kubu 2 menyusul kalau 1.5 dtk kubu 1 belum kasih hasil
-            //  - Kubu 3 (YouTube) baru kalau 1 & 2 sama-sama kosong
-            // Tujuannya: request hemat + kualitas dijaga, tanpa nunggu 10 dtk
-            // kalau lagunya cuma ada di kubu 2.
+            //   Kubu 1: Paxsenix, BetterLyrics, Unison (lirik per suku kata)
+            //   Kubu 2: LyricsPlus (cepat, sebagian per kata)
+            //   Kubu 3: LrcLib (per baris)
+            //   Kubu 4: sisanya (KuGou, YouTube) — paling akhir
             Timber.tag("LyricsHelper").d("Staggered fetch for: $cleanedTitle by ${mediaMetadata.artists.joinToString { it.name }}")
             Timber.tag("LyricsHelper").d("Enabled providers in order: ${enabledProviders.joinToString { it.name }}")
 
@@ -124,48 +128,54 @@ constructor(
                             null
                         }?.takeIf { it.isNotBlank() }
 
-                    val tier1 = enabledProviders.filter { it.name in TIER_1 }
-                    val tier2 = enabledProviders.filter { it.name in TIER_2 }
-                    val tier3 = enabledProviders.filter { it.name !in TIER_1 && it.name !in TIER_2 }
+                    val tiers =
+                        listOf(
+                            enabledProviders.filter { it.name in TIER_1 },
+                            enabledProviders.filter { it.name in TIER_2 },
+                            enabledProviders.filter { it.name in TIER_3 },
+                            enabledProviders.filter { it.name !in ALL_TIER_NAMES },
+                        )
 
                     val winner = CompletableDeferred<Pair<LyricsProvider, String>>()
-                    val tier1Pending = AtomicInteger(tier1.size)
-                    val tier1AllFailed = CompletableDeferred<Unit>()
-                    val tier2Pending = AtomicInteger(tier2.size)
-                    val tier2AllFailed = CompletableDeferred<Unit>()
 
-                    fun spawn(provider: LyricsProvider) =
-                        launch(Dispatchers.IO) {
-                            val lyrics = fetch(provider)
-                            if (lyrics != null) {
-                                Timber.tag("LyricsHelper").i("Got lyrics from ${provider.name}")
-                                winner.complete(provider to lyrics)
-                            } else {
-                                Timber.tag("LyricsHelper").w("${provider.name} failed")
-                                if (provider.name in TIER_1 && tier1Pending.decrementAndGet() == 0) {
-                                    tier1AllFailed.complete(Unit)
-                                }
-                                if (provider.name in TIER_2 && tier2Pending.decrementAndGet() == 0) {
-                                    tier2AllFailed.complete(Unit)
-                                }
-                            }
+                    class Gate(size: Int) {
+                        val pending = AtomicInteger(size)
+                        val allFailed = CompletableDeferred<Unit>()
+                    }
+
+                    val gates = tiers.map { Gate(it.size) }
+
+                    fun spawn(
+                        provider: LyricsProvider,
+                        gate: Gate,
+                    ) = launch(Dispatchers.IO) {
+                        val lyrics = fetch(provider)
+                        if (lyrics != null) {
+                            Timber.tag("LyricsHelper").i("Got lyrics from ${provider.name}")
+                            winner.complete(provider to lyrics)
+                        } else {
+                            Timber.tag("LyricsHelper").w("${provider.name} failed")
+                            if (gate.pending.decrementAndGet() == 0) gate.allFailed.complete(Unit)
                         }
+                    }
 
-                    tier1.forEach { spawn(it) }
+                    tiers[0].forEach { spawn(it, gates[0]) }
 
-                    // Kubu 2 menyusul kalau kubu 1 belum berhasil dalam 1.5 dtk,
-                    // atau lebih cepat lagi begitu semua anggota kubu 1 gagal.
+                    // Kubu berikutnya menyala kalau kubu sebelumnya gagal semua,
+                    // atau belum ada hasil dalam jatah waktu yang ditentukan.
                     launch {
-                        withTimeoutOrNull(TIER_1_HEAD_START_MS) { tier1AllFailed.await() }
-                        if (!winner.isCompleted && tier2.isNotEmpty()) {
-                            Timber.tag("LyricsHelper").d("Kubu 1 belum ada hasil, menyalakan kubu 2")
-                            tier2.forEach { spawn(it) }
-                            withTimeoutOrNull(TIER_2_HEAD_START_MS) { tier2AllFailed.await() }
-                        }
-                        // Kubu 3 hanya kalau kubu 1 & 2 tetap kosong.
-                        if (!winner.isCompleted && tier3.isNotEmpty()) {
-                            Timber.tag("LyricsHelper").d("Kubu 1 & 2 kosong, memakai kubu 3")
-                            tier3.forEach { spawn(it) }
+                        for (index in 1 until tiers.size) {
+                            if (winner.isCompleted) return@launch
+                            val headStart =
+                                when (index) {
+                                    1 -> TIER_1_HEAD_START_MS
+                                    else -> TIER_N_HEAD_START_MS
+                                }
+                            withTimeoutOrNull(headStart) { gates[index - 1].allFailed.await() }
+                            if (winner.isCompleted) return@launch
+                            if (tiers[index].isEmpty()) continue
+                            Timber.tag("LyricsHelper").d("Menyalakan kubu ${index + 1}")
+                            tiers[index].forEach { spawn(it, gates[index]) }
                         }
                     }
 
