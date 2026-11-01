@@ -189,6 +189,8 @@ import com.metrolist.music.utils.rememberEnumPreference
 import com.metrolist.music.utils.rememberPreference
 import com.metrolist.music.utils.safeDataStoreEdit
 import dagger.hilt.android.EntryPointAccessors
+import com.metrolist.innertube.YouTube
+import com.metrolist.innertube.models.ArtistItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -1096,10 +1098,30 @@ fun BottomSheetPlayer(
                                                                 state.collapseSoft()
                                                             }
                                                             artistName.isNotBlank() -> {
-                                                                navController.navigate(
-                                                                    "search/${android.net.Uri.encode(artistName)}"
-                                                                )
+                                                                // Lagu online sering tanpa id artis. Resolve dulu
+                                                                // ke halaman artis lewat pencarian artis YT Music,
+                                                                // supaya tap langsung masuk profil artis (bukan
+                                                                // cuma buka layar pencarian).
                                                                 state.collapseSoft()
+                                                                scope.launch {
+                                                                    val resolved =
+                                                                        runCatching {
+                                                                            YouTube
+                                                                                .search(artistName, YouTube.SearchFilter.FILTER_ARTIST)
+                                                                                .getOrNull()
+                                                                                ?.items
+                                                                                ?.filterIsInstance<ArtistItem>()
+                                                                                ?.firstOrNull()
+                                                                                ?.id
+                                                                        }.getOrNull()
+                                                                    if (!resolved.isNullOrBlank()) {
+                                                                        navController.navigate("artist/$resolved")
+                                                                    } else {
+                                                                        navController.navigate(
+                                                                            "search/${android.net.Uri.encode(artistName)}"
+                                                                        )
+                                                                    }
+                                                                }
                                                             }
                                                         }
                                                     },
