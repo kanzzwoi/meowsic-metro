@@ -325,6 +325,78 @@ fun BottomSheetPlayer(
     val playbackState by playerConnection.playbackState.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
     val currentSong by playerConnection.currentSong.collectAsStateWithLifecycle(initialValue = null)
+
+    // Lirik di-fetch otomatis begitu lagu dimulai (nggak perlu buka panel lirik
+    // dulu). Sebelumnya efek ini ada di InlineLyricsView yang baru tersusun saat
+    // panel lirik dibuka, jadi fetch-nya cuma jalan di kondisi itu.
+    val database = LocalDatabase.current
+    val lyricsForFetch by playerConnection.currentLyrics.collectAsStateWithLifecycle(initialValue = null)
+    val queueWindowsForLyrics by playerConnection.queueWindows.collectAsStateWithLifecycle(initialValue = emptyList())
+    val currentWindowIndexForLyrics by playerConnection.currentWindowIndex.collectAsStateWithLifecycle(initialValue = -1)
+    val nextMetadataForLyrics =
+        remember(queueWindowsForLyrics, currentWindowIndexForLyrics) {
+            if (currentWindowIndexForLyrics >= 0 && currentWindowIndexForLyrics + 1 < queueWindowsForLyrics.size) {
+                queueWindowsForLyrics[currentWindowIndexForLyrics + 1].mediaItem.metadata
+            } else {
+                null
+            }
+        }
+
+    // Lirik lama dari provider kubu rendah (LrcLib/KuGou/YouTube) di-upgrade
+    // sekali per lagu supaya urutan kubu tetap dihormati.
+    val lowTierLyricsProviders = remember { setOf("LrcLib", "KuGou", "YouTube", "YouTubeSubtitle") }
+    val preferredLyricsProviders = remember { setOf("Paxsenix", "BetterLyrics", "Unison", "LyricsPlus") }
+    val upgradedLyricsIds = remember { mutableSetOf<String>() }
+
+    LaunchedEffect(mediaMetadata?.id, lyricsForFetch) {
+        val currentMeta = mediaMetadata ?: return@LaunchedEffect
+        val cachedForCurrent = lyricsForFetch?.takeIf { it.id == currentMeta.id }
+        val shouldUpgrade =
+            cachedForCurrent != null &&
+                cachedForCurrent.provider in lowTierLyricsProviders &&
+                upgradedLyricsIds.add(currentMeta.id)
+        if (cachedForCurrent == null || shouldUpgrade) {
+            delay(400)
+            val entryPoint =
+                EntryPointAccessors.fromApplication(
+                    context.applicationContext,
+                    com.metrolist.music.di.LyricsHelperEntryPoint::class.java,
+                )
+            val fetched = entryPoint.lyricsHelper().getLyrics(currentMeta)
+            val isBetterProvider = !shouldUpgrade || fetched.provider in preferredLyricsProviders
+            if (isBetterProvider) {
+                withContext(Dispatchers.IO) {
+                    database.query {
+                        upsert(LyricsEntity(currentMeta.id, fetched.lyrics, fetched.provider))
+                    }
+                }
+            }
+        }
+    }
+
+    // Prefetch lirik lagu berikutnya supaya saat skip sudah siap.
+    LaunchedEffect(nextMetadataForLyrics?.id, mediaMetadata?.id, lyricsForFetch?.id) {
+        val nextMeta = nextMetadataForLyrics ?: return@LaunchedEffect
+        if (lyricsForFetch?.id != mediaMetadata?.id) return@LaunchedEffect
+        val existing =
+            withContext(Dispatchers.IO) {
+                runCatching { database.lyrics(nextMeta.id).first() }.getOrNull()
+            }
+        if (existing != null) return@LaunchedEffect
+        delay(600)
+        val entryPoint =
+            EntryPointAccessors.fromApplication(
+                context.applicationContext,
+                com.metrolist.music.di.LyricsHelperEntryPoint::class.java,
+            )
+        val fetched = entryPoint.lyricsHelper().getLyrics(nextMeta)
+        withContext(Dispatchers.IO) {
+            database.query {
+                upsert(LyricsEntity(nextMeta.id, fetched.lyrics, fetched.provider))
+            }
+        }
+    }
+
     val automix by playerConnection.service.automixItems.collectAsStateWithLifecycle()
     val repeatMode by playerConnection.repeatMode.collectAsStateWithLifecycle()
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsStateWithLifecycle()
@@ -2032,83 +2104,6 @@ fun InlineLyricsView(
             }
         }
 
-    // Lirik lama yang tersimpan dari provider kubu rendah (LrcLib/KuGou/YouTube)
-    // di-upgrade sekali per lagu, supaya urutan kubu (Paxsenix/BetterLyrics/
-    // Unison → LyricsPlus → LrcLib → sisanya) tetap dihormati.
-    val lowTierLyricsProviders = remember { setOf("LrcLib", "KuGou", "YouTube", "YouTubeSubtitle") }
-    val preferredLyricsProviders = remember { setOf("Paxsenix", "BetterLyrics", "Unison", "LyricsPlus") }
-    val upgradedLyricsIds = remember { mutableSetOf<String>() }
-
-    LaunchedEffect(mediaMetadata?.id, currentLyrics) {
-        val currentMeta = mediaMetadata
-        val cachedForCurrent = currentLyrics?.takeIf { currentMeta != null && it.id == currentMeta.id }
-        val shouldUpgrade =
-            currentMeta != null &&
-                cachedForCurrent != null &&
-                cachedForCurrent.provider in lowTierLyricsProviders &&
-                upgradedLyricsIds.add(currentMeta.id)
-        if (currentMeta != null && (cachedForCurrent == null || shouldUpgrade)) {
-            delay(500)
-            coroutineScope.launch(Dispatchers.IO) {
-                try {
-                    val entryPoint =
-                        EntryPointAccessors.fromApplication(
-                            context.applicationContext,
-                            com.metrolist.music.di.LyricsHelperEntryPoint::class.java,
-                        )
-                    val lyricsHelper = entryPoint.lyricsHelper()
-                    val fetchedLyricsWithProvider = lyricsHelper.getLyrics(currentMeta)
-                    val isBetterProvider =
-                        !shouldUpgrade || fetchedLyricsWithProvider.provider in preferredLyricsProviders
-                    if (isBetterProvider) {
-                        database.query {
-                            upsert(LyricsEntity(currentMeta.id, fetchedLyricsWithProvider.lyrics, fetchedLyricsWithProvider.provider))
-                        }
-                    }
-                } catch (e: Exception) {
-                    // Handle error
-                }
-            }
-        }
-    }
-
-    // Prefetch lyrics for the next queue item only while the lyrics pane is visible, the app is in the
-    // foreground, and the current track's lyrics row has finished loading (avoids competing with the
-    // active fetch).
-    LaunchedEffect(
-        nextMetadata?.id,
-        showLyrics,
-        appInForeground,
-        mediaMetadata?.id,
-        currentLyrics,
-    ) {
-        if (!showLyrics || !appInForeground || nextMetadata == null) return@LaunchedEffect
-        val loadedForCurrent =
-            currentLyrics?.let { lyrics ->
-                mediaMetadata == null || lyrics.id == mediaMetadata.id
-            } == true
-        if (mediaMetadata != null && !loadedForCurrent) return@LaunchedEffect
-        val nextId = nextMetadata.id
-        delay(400)
-        if (!showLyrics || !appInForeground || !isActive) return@LaunchedEffect
-        withContext(Dispatchers.IO) {
-            try {
-                val existing = database.lyrics(nextId).first()
-                if (existing != null) return@withContext
-                val entryPoint =
-                    EntryPointAccessors.fromApplication(
-                        context.applicationContext,
-                        com.metrolist.music.di.LyricsHelperEntryPoint::class.java,
-                    )
-                val lyricsHelper = entryPoint.lyricsHelper()
-                val fetched = lyricsHelper.getLyrics(nextMetadata)
-                database.query {
-                    upsert(LyricsEntity(nextId, fetched.lyrics, fetched.provider))
-                }
-            } catch (_: Exception) {
-            }
-        }
-    }
 
     Box(
         modifier =
