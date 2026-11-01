@@ -1165,35 +1165,6 @@ class MainActivity : FragmentActivity() {
                                             )
                                         },
                                         actions = {
-                                            val scope = rememberCoroutineScope()
-                                            // Area sentuh diperbesar 48dp (standar minimum
-                                            // aksesibilitas). Sebelumnya ikon 24dp dengan
-                                            // hitbox kecil, sehingga sering butuh 3x tekan
-                                            // karena IconButton bertumpuk dengan action lain.
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(48.dp)
-                                                    .clip(CircleShape)
-                                                    .clickable(
-                                                        interactionSource = remember { MutableInteractionSource() },
-                                                        indication = ripple(),
-                                                    ) {
-                                                        scope.launch {
-                                                            val next = if (useDarkTheme) com.metrolist.music.ui.screens.settings.DarkMode.OFF else com.metrolist.music.ui.screens.settings.DarkMode.ON
-                                                            applicationContext.safeDataStoreEdit { it[com.metrolist.music.constants.DarkModeKey] = next.name }
-                                                        }
-                                                    },
-                                                contentAlignment = Alignment.Center,
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(
-                                                        if (useDarkTheme) R.drawable.ic_toolbar_moon
-                                                        else R.drawable.ic_toolbar_sun,
-                                                    ),
-                                                    contentDescription = if (useDarkTheme) "Mode terang" else "Mode gelap",
-                                                    modifier = Modifier.size(24.dp),
-                                                )
-                                            }
                                             if (showHistoryButton) {
                                                 IconButton(onClick = { navController.navigate("history") }) {
                                                     Icon(
