@@ -125,7 +125,7 @@ constructor(
         if (enabled.isEmpty()) return null
 
         val cleanedTitle = LyricsUtils.cleanTitleForSearch(mediaMetadata.title)
-        val durationSec = (mediaMetadata.duration / 1000).toInt()
+        val durationSec = mediaMetadata.duration
         val artistLine = mediaMetadata.artists.joinToString { it.name }
         val albumTitle = mediaMetadata.album?.title
 
@@ -188,11 +188,11 @@ constructor(
         val result = withTimeoutOrNull(MAX_LYRICS_FETCH_MS) {
             val cleanedTitle = LyricsUtils.cleanTitleForSearch(mediaMetadata.title)
             val enabledProviders = orderedProviders.filter { it.isEnabled(context) }
-            // MediaMetadata menyimpan durasi dalam milidetik, sedangkan semua
-            // provider (BetterLyrics, LrcLib, Paxsenix, KuGou) memakai detik.
-            // Mengirim ms membuat cache BetterLyrics selalu meleset (401) dan
-            // pencocokan durasi provider lain gagal.
-            val durationSec = (mediaMetadata.duration / 1000).toInt()
+            // MediaMetadata.duration SUDAH dalam detik (SongItem.duration dari
+            // InnerTube). Sebelumnya dibagi 1000 sehingga provider menerima 0:
+            // BetterLyrics menghilangkan parameter d -> cache selalu meleset
+            // (401 / lambat 10 dtk), LrcLib & provider lain gagal mencocokkan.
+            val durationSec = mediaMetadata.duration
 
             // Bertingkat bertahap (staggered):
             //   Kubu 1: Paxsenix, BetterLyrics, Unison (lirik per suku kata)
