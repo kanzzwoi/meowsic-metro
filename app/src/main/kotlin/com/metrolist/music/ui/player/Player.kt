@@ -417,7 +417,7 @@ fun BottomSheetPlayer(
                 fetched.provider,
                 (System.currentTimeMillis() - startedAt) / 1000.0,
                 if (WORD_TIMING_REGEX.containsMatchIn(fetched.lyrics)) "per kata" else "per baris",
-            )
+            ) + (com.metrolist.music.lyrics.LyricsStats.detail?.let { " [$it]" } ?: "")
         if (fetched.provider in nonCachedLyricsProviders) {
             playerConnection.setTransientLyrics(LyricsEntity(currentMeta.id, fetched.lyrics, fetched.provider))
         } else {

@@ -63,6 +63,9 @@ object LyricsStats {
     @Volatile var last: String? = null
     @Volatile var lastTrackId: String? = null
 
+    /** Catatan tiap provider untuk fetch terakhir: nama, milidetik, hasil. */
+    @Volatile var detail: String? = null
+
     /** Info hanya berlaku untuk lagu yang sama, supaya label tidak menampilkan
      *  hasil fetch lagu sebelumnya. */
     fun forTrack(id: String?): String? = last?.takeIf { id != null && id == lastTrackId }
@@ -141,7 +144,7 @@ constructor(
                                         mediaMetadata.id,
                                         cleanedTitle,
                                         artistLine,
-                                        durationSec,
+                                        if (provider.name == "BetterLyrics") mediaMetadata.duration else durationSec,
                                         albumTitle,
                                     )
                                 }?.getOrNull()
@@ -215,7 +218,7 @@ constructor(
                                     mediaMetadata.id,
                                     cleanedTitle,
                                     artistLine,
-                                    durationSec,
+                                    if (provider.name == "BetterLyrics") mediaMetadata.duration else durationSec,
                                     albumTitle,
                                 )
                             }?.getOrNull()
@@ -235,9 +238,14 @@ constructor(
                     suspend fun race(providers: List<LyricsProvider>): Pair<LyricsProvider, String>? {
                         if (providers.isEmpty()) return null
                         val winner = CompletableDeferred<Pair<LyricsProvider, String>>()
+                        val notes = java.util.Collections.synchronizedList(mutableListOf<String>())
                         providers.forEach { provider ->
                             launch(Dispatchers.IO) {
+                                val t0 = System.currentTimeMillis()
                                 val lyrics = fetch(provider, RACE_PROVIDER_TIMEOUT_MS)
+                                val spent = (System.currentTimeMillis() - t0) / 1000.0
+                                notes.add("%s %.1fs".format(provider.name, spent))
+                                LyricsStats.detail = notes.joinToString(", ")
                                 val usable = lyrics?.takeIf { HAS_TIMESTAMP_REGEX.containsMatchIn(it) }
                                 if (usable == null) {
                                     Timber.tag("LyricsHelper").w("${provider.name}: gagal / tanpa timestamp")
