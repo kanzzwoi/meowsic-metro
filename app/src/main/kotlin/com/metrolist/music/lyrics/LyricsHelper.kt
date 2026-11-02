@@ -61,6 +61,11 @@ private val ALL_TIER_NAMES = TIER_1 + TIER_2 + TIER_3
 /** Info ringkas hasil fetch terakhir, ditampilkan di panel lirik. */
 object LyricsStats {
     @Volatile var last: String? = null
+    @Volatile var lastTrackId: String? = null
+
+    /** Info hanya berlaku untuk lagu yang sama, supaya label tidak menampilkan
+     *  hasil fetch lagu sebelumnya. */
+    fun forTrack(id: String?): String? = last?.takeIf { id != null && id == lastTrackId }
 }
 
 /** Ada timestamp sama sekali (per baris maupun per kata). */
@@ -266,6 +271,7 @@ constructor(
                 }
             if (found != null) {
                 val elapsed = (System.currentTimeMillis() - startedAt) / 1000.0
+                LyricsStats.lastTrackId = mediaMetadata.id
                 LyricsStats.last =
                     "%s • %.1f dtk • %s".format(
                         found.provider,

@@ -379,40 +379,25 @@ fun BottomSheetPlayer(
     LaunchedEffect(mediaMetadata?.id, lyricsForFetch) {
         val currentMeta = mediaMetadata ?: return@LaunchedEffect
         val cachedForCurrent = lyricsForFetch?.takeIf { it.id == currentMeta.id }
-        // Upgrade juga kalau lirik tersimpan tidak punya timing per kata
-        // (mis. hanya per baris dari Unison/LyricsPlus).
-        val lacksWordTiming =
-            cachedForCurrent?.lyrics?.let { !it.contains(WORD_TIMING_REGEX) } ?: false
-        val shouldUpgrade =
-            cachedForCurrent != null &&
-                (cachedForCurrent.provider in lowTierLyricsProviders || lacksWordTiming) &&
-                upgradedLyricsIds.add(currentMeta.id)
-        if (cachedForCurrent == null || shouldUpgrade) {
-            delay(400)
-            val entryPoint =
-                EntryPointAccessors.fromApplication(
-                    context.applicationContext,
-                    com.metrolist.music.di.LyricsHelperEntryPoint::class.java,
-                )
-            // Kalau lagi upgrade, jangan ikut balapan cepat (yang selalu dimenangi
-            // LrcLib). Tanya kubu 1 langsung dengan tenggat longgar.
-            val fetched =
-                if (shouldUpgrade) {
-                    entryPoint.lyricsHelper().getTierOneLyrics(currentMeta) ?: return@LaunchedEffect
-                } else {
-                    entryPoint.lyricsHelper().getLyrics(currentMeta)
-                }
-            val isBetterProvider = !shouldUpgrade || fetched.provider in preferredLyricsProviders
-            if (!isBetterProvider) return@LaunchedEffect
-            if (fetched.provider in nonCachedLyricsProviders) {
-                // Hasil kubu paling bawah: tampilkan, tapi jangan simpan permanen.
-                playerConnection.setTransientLyrics(LyricsEntity(currentMeta.id, fetched.lyrics, fetched.provider))
-            } else {
-                playerConnection.setTransientLyrics(null)
-                withContext(Dispatchers.IO) {
-                    database.query {
-                        upsert(LyricsEntity(currentMeta.id, fetched.lyrics, fetched.provider))
-                    }
+        // Lirik yang sudah tampil TIDAK diganti di tengah lagu. Penggantian
+        // mendadak (per baris -> per kata) bikin teks lompat dan terasa
+        // "terombang-ambing". Kualitas dikejar lewat prefetch lagu berikutnya.
+        if (cachedForCurrent != null) return@LaunchedEffect
+        delay(150)
+        val entryPoint =
+            EntryPointAccessors.fromApplication(
+                context.applicationContext,
+                com.metrolist.music.di.LyricsHelperEntryPoint::class.java,
+            )
+        val fetched = entryPoint.lyricsHelper().getLyrics(currentMeta)
+        if (fetched.provider in nonCachedLyricsProviders) {
+            // Hasil kubu paling bawah: tampilkan, tapi jangan simpan permanen.
+            playerConnection.setTransientLyrics(LyricsEntity(currentMeta.id, fetched.lyrics, fetched.provider))
+        } else {
+            playerConnection.setTransientLyrics(null)
+            withContext(Dispatchers.IO) {
+                database.query {
+                    upsert(LyricsEntity(currentMeta.id, fetched.lyrics, fetched.provider))
                 }
             }
         }

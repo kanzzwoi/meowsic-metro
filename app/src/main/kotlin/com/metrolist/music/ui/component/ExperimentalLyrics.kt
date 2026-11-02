@@ -731,7 +731,7 @@ fun ExperimentalLyrics(
                     Text(
                         text =
                             stringResource(R.string.lyrics_from_provider, lyricsEntity.provider) +
-                                (com.metrolist.music.lyrics.LyricsStats.last?.let { " • $it" } ?: ""),
+                                (com.metrolist.music.lyrics.LyricsStats.forTrack(lyricsEntity.id)?.let { " • $it" } ?: ""),
                         fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         modifier = Modifier.fillMaxWidth().offset { IntOffset(0, (animatedProviderBase + userManualOffset).roundToInt()) }.padding(horizontal = 24.dp, vertical = 4.dp)
                     )
