@@ -409,7 +409,15 @@ fun BottomSheetPlayer(
         }
 
         // Belum ada lirik: tampilkan hasil TERCEPAT apa pun levelnya.
+        val startedAt = System.currentTimeMillis()
         val fetched = entryPoint.lyricsHelper().getLyrics(currentMeta)
+        com.metrolist.music.lyrics.LyricsStats.lastTrackId = currentMeta.id
+        com.metrolist.music.lyrics.LyricsStats.last =
+            "%s • %.1f dtk • %s".format(
+                fetched.provider,
+                (System.currentTimeMillis() - startedAt) / 1000.0,
+                if (WORD_TIMING_REGEX.containsMatchIn(fetched.lyrics)) "per kata" else "per baris",
+            )
         if (fetched.provider in nonCachedLyricsProviders) {
             playerConnection.setTransientLyrics(LyricsEntity(currentMeta.id, fetched.lyrics, fetched.provider))
         } else {
