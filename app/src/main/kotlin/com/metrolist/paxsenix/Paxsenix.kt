@@ -353,7 +353,48 @@ object Paxsenix {
         val lyricsType = response.type
         Timber.d("Lyrics response: type=$lyricsType")
         
-        // Prioritize ttmlContent using the robust TTMLParser
+        // 1) Lirik per suku kata dari `content` — paling presisi, jadi paling awal.
+        // Sebelumnya blok ini ada di paling akhir, sehingga kalau server juga
+        // mengirim field `plain` (tanpa timestamp), versi per suku kata tidak
+        // pernah dipakai dan app malah memakai lirik per baris provider lain.
+        if (lyricsType == "Syllable" && response.content.isNotEmpty()) {
+            val lrc =
+                buildString {
+                    response.content.forEach { line ->
+                        val timeMs = line.timestamp
+                        val minutes = timeMs / 1000 / 60
+                        val seconds = (timeMs / 1000) % 60
+                        val centiseconds = (timeMs % 1000) / 10
+
+                        val agent = when {
+                            line.background -> "{bg}"
+                            line.oppositeTurn -> "{agent:v2}"
+                            else -> "{agent:v1}"
+                        }
+
+                        val lineText = line.text.joinToString(" ") { it.text }
+
+                        if (lineText.isNotBlank()) {
+                            appendLine(String.format(Locale.US, "[%02d:%02d.%02d]%s%s", minutes, seconds, centiseconds, agent, lineText))
+
+                            if (line.text.isNotEmpty()) {
+                                val wordsData = line.text.joinToString("|") { word ->
+                                    "${word.text}:${word.timestamp.toDouble() / 1000}:${word.endtime.toDouble() / 1000}"
+                                }
+                                if (wordsData.isNotEmpty()) {
+                                    appendLine("<$wordsData>")
+                                }
+                            }
+                        }
+                    }
+                }
+            if (lrc.isNotBlank()) {
+                Timber.d("Generated syllable LRC from content (${response.content.size} lines)")
+                return@runCatching lrc
+            }
+        }
+
+        // 2) TTML
         if (!response.ttmlContent.isNullOrBlank()) {
             val lrc = convertTTMLToAppFormat(response.ttmlContent)
             if (lrc.isNotEmpty()) {
@@ -362,7 +403,7 @@ object Paxsenix {
             }
         }
 
-        // Fallback to ELRC formats if TTML failed or is missing
+        // 3) ELRC
         if (!response.elrcMultiPerson.isNullOrBlank()) {
             Timber.d("Using elrcMultiPerson as fallback")
             return@runCatching response.elrcMultiPerson
@@ -372,6 +413,7 @@ object Paxsenix {
             return@runCatching response.elrc
         }
 
+        // 4) Teks tanpa timestamp
         if (!response.plain.isNullOrBlank()) {
             Timber.d("Using plain lyrics field")
             return@runCatching response.plain
@@ -380,52 +422,14 @@ object Paxsenix {
         if (response.content.isEmpty()) {
             throw IllegalStateException("No lyrics found")
         }
-        
-        val hasWordLevel = lyricsType == "Syllable"
-        Timber.d("Using content array as source, hasWordLevel=$hasWordLevel")
 
-        if (!hasWordLevel) {
-            // Non-synced: return as plain text with no timestamps
-            val plain = response.content
-                .map { line -> line.text.joinToString(" ") { it.text } }
-                .filter { it.isNotBlank() }
-                .joinToString("\n")
-            Timber.d("Generated plain (non-synced) lyrics: ${response.content.size} lines")
-            return@runCatching plain
-        }
-
-        val lrc = buildString {
-            response.content.forEach { line ->
-                val timeMs = line.timestamp
-                val minutes = timeMs / 1000 / 60
-                val seconds = (timeMs / 1000) % 60
-                val centiseconds = (timeMs % 1000) / 10
-
-                val agent = when {
-                    line.background -> "{bg}"
-                    line.oppositeTurn -> "{agent:v2}"
-                    else -> "{agent:v1}"
-                }
-
-                val lineText = line.text.joinToString(" ") { it.text }
-
-                if (lineText.isNotBlank()) {
-                    appendLine(String.format(Locale.US, "[%02d:%02d.%02d]%s%s", minutes, seconds, centiseconds, agent, lineText))
-
-                    if (line.text.isNotEmpty()) {
-                        val wordsData = line.text.joinToString("|") { word ->
-                            "${word.text}:${word.timestamp.toDouble() / 1000}:${word.endtime.toDouble() / 1000}"
-                        }
-                        if (wordsData.isNotEmpty()) {
-                            appendLine("<$wordsData>")
-                        }
-                    }
-                }
-            }
-        }
-
-        Timber.d("Generated ${response.content.size} lines from content array")
-        return@runCatching lrc
+        // 5) content tapi bukan Syllable: teks per baris tanpa timestamp
+        val plain = response.content
+            .map { line -> line.text.joinToString(" ") { it.text } }
+            .filter { it.isNotBlank() }
+            .joinToString("\n")
+        Timber.d("Generated plain (non-synced) lyrics: ${response.content.size} lines")
+        return@runCatching plain
     }
 
     suspend fun getAllLyrics(
