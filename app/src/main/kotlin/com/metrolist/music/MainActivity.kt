@@ -316,17 +316,32 @@ class MainActivity : FragmentActivity() {
 
     private var reconnectAttempts = 0
 
-    /** Sambung ulang ke MusicService setelah service dimatikan (maks 3x). */
+    /**
+     * Sambung ulang ke MusicService, HANYA saat activity terlihat.
+     *
+     * bindService(BIND_AUTO_CREATE) dari background membuat MusicService dibuat
+     * lalu gagal startForeground (ForegroundServiceStartNotAllowedException di
+     * Android 12+), sehingga service langsung stopSelf dan terulang — playback
+     * ikut mati. Kalau activity tidak sedang di depan, cukup tunggu onStart()
+     * yang memang melakukan bind.
+     */
     private fun reconnectToService() {
-        if (reconnectAttempts >= 3) {
-            com.metrolist.music.playback.PlaybackLog.log("activity", "reconnect menyerah setelah 3 percobaan")
+        if (reconnectAttempts >= 1) {
+            com.metrolist.music.playback.PlaybackLog.log("activity", "reconnect dilewati (sudah pernah dicoba)")
+            return
+        }
+        if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+            com.metrolist.music.playback.PlaybackLog.log("activity", "reconnect ditunda: activity tidak di depan")
             return
         }
         reconnectAttempts++
-        val attempt = reconnectAttempts
         lifecycleScope.launch {
-            kotlinx.coroutines.delay(800L * attempt)
+            kotlinx.coroutines.delay(600L)
             if (isServiceBound || isFinishing || isDestroyed) return@launch
+            if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+                com.metrolist.music.playback.PlaybackLog.log("activity", "rebind dibatalkan: activity sudah di belakang")
+                return@launch
+            }
             runCatching {
                 bindService(
                     Intent(this@MainActivity, MusicService::class.java),
@@ -334,10 +349,9 @@ class MainActivity : FragmentActivity() {
                     BIND_AUTO_CREATE,
                 )
                 isServiceBound = true
-                com.metrolist.music.playback.PlaybackLog.log("activity", "rebind percobaan $attempt")
+                com.metrolist.music.playback.PlaybackLog.log("activity", "rebind (activity di depan)")
             }.onFailure {
                 com.metrolist.music.playback.PlaybackLog.log("activity", "rebind gagal: ${it.message}")
-                reconnectToService()
             }
         }
     }
@@ -359,6 +373,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onStart() {
         super.onStart()
+        reconnectAttempts = 0
         // Request notification permission on Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
