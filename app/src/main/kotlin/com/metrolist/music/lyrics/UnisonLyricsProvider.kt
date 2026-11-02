@@ -107,6 +107,14 @@ object UnisonLyricsProvider : LyricsProvider {
         val raw = data?.lyrics?.takeIf { it.isNotBlank() } ?: return@runCatching null
         Timber.tag(TAG).d("got ${data.format} (${data.syncType}, ${data.confidence})")
 
+        // "plain" = teks tanpa timestamp sama sekali. Jangan dianggap berhasil:
+        // kalau diterima, lagu tampil tanpa sorotan baris dan mengalahkan
+        // provider lain yang punya timestamps hanya karena Unison cepat.
+        if (data.syncType?.lowercase() == "plain" || data.format?.lowercase() == "plain") {
+            Timber.tag(TAG).d("skip unsynced (plain) result")
+            return@runCatching null
+        }
+
         when (data.format?.lowercase()) {
             "ttml" -> {
                 val lines = TTMLParser.parseTTML(raw)

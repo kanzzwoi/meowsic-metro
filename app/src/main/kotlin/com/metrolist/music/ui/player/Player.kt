@@ -379,9 +379,13 @@ fun BottomSheetPlayer(
     LaunchedEffect(mediaMetadata?.id, lyricsForFetch) {
         val currentMeta = mediaMetadata ?: return@LaunchedEffect
         val cachedForCurrent = lyricsForFetch?.takeIf { it.id == currentMeta.id }
+        // Upgrade juga kalau lirik tersimpan tidak punya timing per kata
+        // (mis. hanya per baris dari Unison/LyricsPlus).
+        val lacksWordTiming =
+            cachedForCurrent?.lyrics?.let { !it.contains(WORD_TIMING_REGEX) } ?: false
         val shouldUpgrade =
             cachedForCurrent != null &&
-                cachedForCurrent.provider in lowTierLyricsProviders &&
+                (cachedForCurrent.provider in lowTierLyricsProviders || lacksWordTiming) &&
                 upgradedLyricsIds.add(currentMeta.id)
         if (cachedForCurrent == null || shouldUpgrade) {
             delay(400)
@@ -2233,3 +2237,7 @@ private fun PlayerMoreMenuButton(
         )
     }
 }
+
+
+/** LRC dengan timestamp per kata, contoh: <00:12.34>kata. */
+private val WORD_TIMING_REGEX = Regex("<\\d{1,2}:\\d{2}[.:]\\d{1,3}")
