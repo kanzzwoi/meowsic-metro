@@ -376,22 +376,41 @@ fun BottomSheetPlayer(
     val preferredLyricsProviders = remember { setOf("Paxsenix", "BetterLyrics", "Unison", "LyricsPlus") }
     val upgradedLyricsIds = remember { mutableSetOf<String>() }
 
+    val lyricsScope = rememberCoroutineScope()
+
     LaunchedEffect(mediaMetadata?.id, lyricsForFetch) {
         val currentMeta = mediaMetadata ?: return@LaunchedEffect
         val cachedForCurrent = lyricsForFetch?.takeIf { it.id == currentMeta.id }
-        // Lirik yang sudah tampil TIDAK diganti di tengah lagu. Penggantian
-        // mendadak (per baris -> per kata) bikin teks lompat dan terasa
-        // "terombang-ambing". Kualitas dikejar lewat prefetch lagu berikutnya.
-        if (cachedForCurrent != null) return@LaunchedEffect
-        delay(150)
         val entryPoint =
             EntryPointAccessors.fromApplication(
                 context.applicationContext,
                 com.metrolist.music.di.LyricsHelperEntryPoint::class.java,
             )
+
+        if (cachedForCurrent != null) {
+            // Lirik sudah tampil. Kalau masih per baris, cari versi per kata
+            // diam-diam; hanya ditukar kalau teks barisnya sama (jadi tidak
+            // ada lompatan), dan tidak pernah menahan tampilan awal.
+            val needsWordLevel = !cachedForCurrent.lyrics.contains(WORD_TIMING_REGEX)
+            if (needsWordLevel && upgradedLyricsIds.add(currentMeta.id)) {
+                lyricsScope.launch {
+                    val better = entryPoint.lyricsHelper().getTierOneLyrics(currentMeta) ?: return@launch
+                    if (better.provider == cachedForCurrent.provider) return@launch
+                    val sameLines = lyricsLinesMatch(cachedForCurrent.lyrics, better.lyrics)
+                    if (!sameLines) return@launch
+                    withContext(Dispatchers.IO) {
+                        database.query {
+                            upsert(LyricsEntity(currentMeta.id, better.lyrics, better.provider))
+                        }
+                    }
+                }
+            }
+            return@LaunchedEffect
+        }
+
+        // Belum ada lirik: tampilkan hasil TERCEPAT apa pun levelnya.
         val fetched = entryPoint.lyricsHelper().getLyrics(currentMeta)
         if (fetched.provider in nonCachedLyricsProviders) {
-            // Hasil kubu paling bawah: tampilkan, tapi jangan simpan permanen.
             playerConnection.setTransientLyrics(LyricsEntity(currentMeta.id, fetched.lyrics, fetched.provider))
         } else {
             playerConnection.setTransientLyrics(null)
@@ -2226,3 +2245,27 @@ private fun PlayerMoreMenuButton(
 
 /** LRC dengan timestamp per kata, contoh: <00:12.34>kata. */
 private val WORD_TIMING_REGEX = Regex("(?m)^\\s*<[^>\\n]+:\\d")
+
+
+/** Bandingkan teks lirik tanpa timestamp/tag, supaya penggantian versi per kata
+ *  tidak mengubah susunan baris yang sedang dibaca. */
+private fun lyricsLinesMatch(a: String, b: String): Boolean {
+    fun lines(text: String): List<String> =
+        text.lineSequence()
+            .map {
+                it.replace(Regex("^\\[\\d\\d:\\d\\d[.:]\\d{2,3}\\]"), "")
+                    .replace(Regex("^\\{agent:[^}]+\\}"), "")
+                    .replace(Regex("^\\{bg\\}"), "")
+                    .replace(Regex("(?m)^\\s*<[^>\\n]+:\\d[^>]*>"), "")
+                    .trim()
+                    .lowercase()
+            }
+            .filter { it.isNotEmpty() }
+            .toList()
+
+    val la = lines(a)
+    val lb = lines(b)
+    if (la.isEmpty() || lb.isEmpty()) return false
+    val common = la.intersect(lb.toSet()).size
+    return common.toDouble() / la.size >= 0.8
+}
