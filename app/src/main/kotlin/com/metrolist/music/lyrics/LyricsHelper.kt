@@ -32,11 +32,11 @@ import timber.log.Timber
 import javax.inject.Inject
 import kotlinx.coroutines.selects.select
 
-private const val MAX_LYRICS_FETCH_MS = 25_000L
+private const val MAX_LYRICS_FETCH_MS = 12_000L
 private const val PER_PROVIDER_TIMEOUT_MS = 10_000L
 
-/** Jatah per provider di kubu 1 — Paxsenix pernah 17,8 dtk untuk lagu baru. */
-private const val RACE_A_PROVIDER_TIMEOUT_MS = 12_000L
+/** Jatah per provider saat balapan. */
+private const val RACE_PROVIDER_TIMEOUT_MS = 10_000L
 
 /**
  * Kalau belum ada lirik per kata setelah jeda ini, tampilkan dulu versi per
@@ -63,16 +63,19 @@ object LyricsStats {
     @Volatile var last: String? = null
 }
 
+/** Ada timestamp sama sekali (per baris maupun per kata). */
+private val HAS_TIMESTAMP_REGEX = Regex("\\[\\d{1,2}:\\d{2}|(?m)^\\s*<[^>\\n]+:\\d")
+
 private val WORD_LEVEL_REGEX = Regex("(?m)^\\s*<[^>\\n]+:\\d")
 
 /**
  * Tenggat "upgrade" lirik ke kubu 1. Diukur: Paxsenix paling lama 12,78 dtk
  * untuk lagu yang belum ada di cache-nya, jadi 15 dtk sudah ada margin.
  */
-private const val UPGRADE_FETCH_TIMEOUT_MS = 20_000L
+private const val UPGRADE_FETCH_TIMEOUT_MS = 12_000L
 
 /** Batas per provider saat upgrade (sedikit di bawah tenggat total). */
-private const val UPGRADE_PER_PROVIDER_TIMEOUT_MS = 19_000L
+private const val UPGRADE_PER_PROVIDER_TIMEOUT_MS = 10_000L
 
 /** Jeda sebelum kubu 2 ikut jalan kalau kubu 1 belum ada hasil. */
 private const val TIER_1_HEAD_START_MS = 1_500L
@@ -220,80 +223,37 @@ constructor(
                     val tierB = enabledProviders.filter { it.name in TIER_2 }
                     val tierC = enabledProviders.filter { it.name !in ALL_TIER_NAMES }
 
-                    // Kubu 1 berlomba bersamaan: yang per kata langsung dipakai.
-                    // Kalau yang datang duluan cuma per baris, hasilnya disimpan
-                    // dan tetap menunggu provider lain sampai semuanya selesai —
-                    // baru pakai per baris kalau tidak ada satu pun yang per kata.
-                    val wordResult = CompletableDeferred<Pair<LyricsProvider, String>>()
-                    val lineResult = CompletableDeferred<Pair<LyricsProvider, String>>()
-                    val allADone = CompletableDeferred<Unit>()
-                    val pendingA = AtomicInteger(tierA.size)
-
-                    fun spawnA(provider: LyricsProvider) =
-                        launch(Dispatchers.IO) {
-                            val lyrics = fetch(provider, RACE_A_PROVIDER_TIMEOUT_MS)
-                            if (lyrics != null) {
-                                if (WORD_LEVEL_REGEX.containsMatchIn(lyrics)) {
-                                    Timber.tag("LyricsHelper").i("${provider.name}: lirik per kata")
-                                    wordResult.complete(provider to lyrics)
-                                } else {
-                                    Timber.tag("LyricsHelper").i("${provider.name}: lirik per baris (cadangan)")
-                                    if (!lineResult.isCompleted) lineResult.complete(provider to lyrics)
-                                }
-                            } else {
-                                Timber.tag("LyricsHelper").w("${provider.name} gagal")
-                            }
-                            if (pendingA.decrementAndGet() == 0) allADone.complete(Unit)
-                        }
-
-                    tierA.forEach { spawnA(it) }
-
-                    suspend fun awaitTierA(): Pair<LyricsProvider, String>? {
-                        if (tierA.isEmpty()) return null
-                        // Tunggu lirik per kata, atau semua provider selesai.
-                        // Lewat 7 dtk: pakai per baris dulu biar user nggak nunggu,
-                        // nanti di-upgrade ke per kata di background.
-                        val firstKind =
-                            withTimeoutOrNull(MAX_LYRICS_FETCH_MS) {
-                                select<String> {
-                                    wordResult.onAwait { "word" }
-                                    lineResult.onAwait { "line" }
-                                    allADone.onAwait { "done" }
-                                }
-                            }
-                        return when (firstKind) {
-                            "word" -> wordResult.getCompleted()
-                            "line" ->
-                                withTimeoutOrNull(LINE_FALLBACK_WAIT_MS) { wordResult.await() }
-                                    ?: lineResult.getCompleted()
-                            "done" -> if (lineResult.isCompleted) lineResult.getCompleted() else null
-                            else ->
-                                when {
-                                    wordResult.isCompleted -> wordResult.getCompleted()
-                                    lineResult.isCompleted -> lineResult.getCompleted()
-                                    else -> null
-                                }
-                        }
-                    }
-
-                    suspend fun raceOthers(providers: List<LyricsProvider>): Pair<LyricsProvider, String>? {
+                    // Tanpa fase menunggu: provider mana pun yang balas pertama
+                    // langsung dipakai. Lirik tanpa timestamp (plain) dianggap
+                    // gagal karena tidak bisa disinkronkan. Kualitas per kata
+                    // dikejar di belakang layar lewat jalur upgrade.
+                    suspend fun race(providers: List<LyricsProvider>): Pair<LyricsProvider, String>? {
                         if (providers.isEmpty()) return null
                         val winner = CompletableDeferred<Pair<LyricsProvider, String>>()
                         providers.forEach { provider ->
                             launch(Dispatchers.IO) {
-                                val lyrics = fetch(provider)
-                                if (lyrics != null) winner.complete(provider to lyrics)
+                                val lyrics = fetch(provider, RACE_PROVIDER_TIMEOUT_MS)
+                                val usable = lyrics?.takeIf { HAS_TIMESTAMP_REGEX.containsMatchIn(it) }
+                                if (usable == null) {
+                                    Timber.tag("LyricsHelper").w("${provider.name}: gagal / tanpa timestamp")
+                                    return@launch
+                                }
+                                Timber.tag("LyricsHelper").i(
+                                    "${provider.name}: " +
+                                        if (WORD_LEVEL_REGEX.containsMatchIn(usable)) "per kata" else "per baris",
+                                )
+                                winner.complete(provider to usable)
                             }
                         }
-                        return withTimeoutOrNull(PER_PROVIDER_TIMEOUT_MS) { winner.await() }
+                        return withTimeoutOrNull(RACE_PROVIDER_TIMEOUT_MS) { winner.await() }
                     }
 
-                    val found: Pair<LyricsProvider, String>? =
-                        awaitTierA()
-                            ?: raceOthers(tierB)?.also {
+                    val found =
+                        race(tierA)
+                            ?: race(tierB)?.also {
                                 Timber.tag("LyricsHelper").i("cadangan: ${it.first.name}")
                             }
-                            ?: raceOthers(tierC)?.also {
+                            ?: race(tierC)?.also {
                                 Timber.tag("LyricsHelper").i("terakhir: ${it.first.name}")
                             }
 
