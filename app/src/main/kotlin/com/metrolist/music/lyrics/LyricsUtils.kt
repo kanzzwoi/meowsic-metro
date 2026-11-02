@@ -57,10 +57,19 @@ object LyricsUtils {
 
             val lowerText = textContent.lowercase(Locale.getDefault())
             
-            val isCredit = lowerText.startsWith("synced by") ||
-                    lowerText.startsWith("lyrics by") ||
-                    lowerText.startsWith("music by") ||
-                    lowerText.startsWith("arranged by") ||
+            val creditPrefixes =
+                listOf(
+                    "synced by", "lyrics by", "music by", "arranged by",
+                    "composed by", "composer:", "composed", "producer:", "produced by",
+                    "written by", "performed by", "mixed by", "mastered by",
+                    "published by", "cover by", "vocal by", "songwriter", "songwriters",
+                    "artist:", "album:", "title:", "label:", "copyright",
+                    // Kanton/Mandarin/Jepang/Korea yang sering muncul di sumber CN
+                    "作词", "作曲", "作詞", "編曲", "编曲", "制作人", "製作人", "監製", "监制",
+                    "작사", "작곡", "편곡",
+                )
+            val isCredit =
+                creditPrefixes.any { prefix -> lowerText.startsWith(prefix) } ||
                     (lowerText.startsWith("[") && lowerText.endsWith("]") && lowerText.length < 40 && lowerText.contains("synced by"))
             
             !isCredit
