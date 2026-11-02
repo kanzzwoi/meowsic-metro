@@ -55,8 +55,14 @@ object KuGou {
         runCatching {
             val keyword = generateKeyword(title, artist, album)
             getLyricsCandidate(keyword, duration)?.let { candidate ->
-                Base64.Default.decode(downloadLyrics(candidate.id, candidate.accesskey).content).decodeToString()
-                    .normalize()
+                // KRC = lirik karaoke per kata. Kalau gagal, baru pakai LRC biasa.
+                val fromKrc = runCatching {
+                    val raw = downloadLyrics(candidate.id, candidate.accesskey, fmt = "krc").content
+                    krcToLrc(decryptKrc(Base64.Default.decode(raw))).takeIf { it.isNotBlank() }
+                }.getOrNull()
+                fromKrc
+                    ?: Base64.Default.decode(downloadLyrics(candidate.id, candidate.accesskey).content).decodeToString()
+                        .normalize()
             } ?: throw IllegalStateException("No lyrics candidate")
         }
 
@@ -182,15 +188,79 @@ object KuGou {
             parameter("hash", hash)
         }.body<SearchLyricsResponse>()
 
-    private suspend fun downloadLyrics(id: Long, accessKey: String) =
+    private suspend fun downloadLyrics(id: Long, accessKey: String, fmt: String = "lrc") =
         client.get("https://lyrics.kugou.com/download") {
-            parameter("fmt", "lrc")
+            parameter("fmt", fmt)
             parameter("charset", "utf8")
             parameter("client", "pc")
             parameter("ver", 1)
             parameter("id", id)
             parameter("accesskey", accessKey)
         }.body<DownloadLyricsResponse>()
+
+    /** KRC dienkripsi: 4 byte header, sisanya XOR per byte lalu zlib. */
+    private fun decryptKrc(raw: ByteArray): String {
+        if (raw.size < 8) return ""
+        val key =
+            byteArrayOf(
+                0x40, 0x47, 0x61, 0x77, 0x5e, 0x32, 0x74, 0x47,
+                0x51, 0x36, 0x31, 0x2d, 0xce.toByte(), 0xd2.toByte(), 0x6e, 0x69,
+            )
+        val data = raw.copyOf()
+        for (i in 4 until data.size) {
+            data[i] = (data[i].toInt() xor key[(i - 4) % key.size].toInt()).toByte()
+        }
+        val inflater = java.util.zip.Inflater()
+        inflater.setInput(data, 4, data.size - 4)
+        val out = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        while (!inflater.finished()) {
+            val n = inflater.inflate(buffer)
+            if (n == 0) break
+            out.write(buffer, 0, n)
+        }
+        inflater.end()
+        return out.toString("UTF-8")
+    }
+
+    /** KRC: [mulai,durasi]<offset,durasi,0>kata  ->  format app per kata. */
+    private fun krcToLrc(krc: String): String {
+        val lineRegex = Regex("^\\[(\\d+),(\\d+)\\](.*)$")
+        val wordRegex = Regex("<(\\d+),(\\d+),\\d+>([^<]*)")
+        val sb = StringBuilder()
+        krc.lineSequence().forEach { rawLine ->
+            val m = lineRegex.find(rawLine.trim()) ?: return@forEach
+            val lineStart = m.groupValues[1].toLongOrNull() ?: return@forEach
+            val words =
+                wordRegex.findAll(m.groupValues[3]).map { hit ->
+                    val offset = hit.groupValues[1].toLongOrNull() ?: 0L
+                    val dur = hit.groupValues[2].toLongOrNull() ?: 0L
+                    Triple(hit.groupValues[3], lineStart + offset, lineStart + offset + dur)
+                }.toList()
+            if (words.isEmpty()) return@forEach
+            val text = words.joinToString("") { it.first }.trim()
+            if (text.isBlank()) return@forEach
+            sb.appendLine(formatLrcTime(lineStart, text))
+            val wordData =
+                words
+                    .filter { it.first.isNotBlank() }
+                    .joinToString("|") { "${it.first.trim()}:${it.second / 1000.0}:${it.third / 1000.0}" }
+            if (wordData.isNotBlank()) sb.appendLine("<$wordData>")
+        }
+        return sb.toString()
+    }
+
+    private fun formatLrcTime(ms: Long, text: String): String {
+        val totalSeconds = ms / 1000
+        return String.format(
+            java.util.Locale.US,
+            "[%02d:%02d.%02d]%s",
+            totalSeconds / 60,
+            totalSeconds % 60,
+            (ms % 1000) / 10,
+            text,
+        )
+    }
 
     private fun normalizeTitle(title: String) =
         title.replace("\\(.*\\)".toRegex(), "").replace("（.*）".toRegex(), "")

@@ -47,7 +47,7 @@ private const val LINE_FALLBACK_WAIT_MS = 1_500L
 private const val PROVIDER_NONE = ""
 
 /** Kubu 1 (berlomba bersamaan): siapa cepat & punya timing per kata, dia menang. */
-private val TIER_1 = setOf("Paxsenix", "BetterLyrics", "Unison", "LyricsPlus")
+private val TIER_1 = setOf("Kugou", "Paxsenix", "BetterLyrics", "Unison", "LyricsPlus")
 
 /** Kubu 2: cadangan per baris. */
 private val TIER_2 = setOf("LrcLib", "Kugou")
