@@ -2134,7 +2134,17 @@ fun InlineLyricsView(
     val currentLyrics by playerConnection.currentLyrics.collectAsStateWithLifecycle(initialValue = null)
     val queueWindows by playerConnection.queueWindows.collectAsStateWithLifecycle(initialValue = emptyList())
     val currentWindowIndex by playerConnection.currentWindowIndex.collectAsStateWithLifecycle(initialValue = -1)
-    val lyrics = remember(currentLyrics) { currentLyrics?.lyrics?.trim() }
+    val lyrics =
+        remember(currentLyrics) {
+            // Filter juga saat baca, supaya lirik yang sudah tersimpan di cache
+            // (sebelum filter diperluas) tetap kehilangan baris kredit.
+            currentLyrics
+                ?.lyrics
+                ?.takeUnless { it == LyricsEntity.LYRICS_NOT_FOUND }
+                ?.let { com.metrolist.music.lyrics.LyricsUtils.filterLyricsCreditLines(it) }
+                ?.trim()
+                ?: currentLyrics?.lyrics?.trim()
+        }
     val context = LocalContext.current
     val database = LocalDatabase.current
     val coroutineScope = rememberCoroutineScope()
