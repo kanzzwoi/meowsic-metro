@@ -2267,5 +2267,5 @@ private fun lyricsLinesMatch(a: String, b: String): Boolean {
     val lb = lines(b)
     if (la.isEmpty() || lb.isEmpty()) return false
     val common = la.intersect(lb.toSet()).size
-    return common.toDouble() / la.size >= 0.8
+    return common.toDouble() / la.size >= 0.6
 }
