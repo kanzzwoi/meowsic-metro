@@ -65,7 +65,8 @@ object KuGou {
     ) {
         val keyword = generateKeyword(title, artist, album)
         searchSongs(keyword).data.info.forEach {
-            if (duration == -1 || abs(it.duration - duration) <= DURATION_TOLERANCE) {
+            val durationOk = duration == -1 || abs(it.duration - duration) <= DURATION_TOLERANCE
+            if (durationOk && looksLikeSameSong(keyword, it.songname, it.singername)) {
                 searchLyricsByHash(it.hash).candidates.firstOrNull()?.let { candidate ->
                     Base64.Default.decode(downloadLyrics(candidate.id, candidate.accesskey).content).decodeToString()
                         .normalize().let(callback)
@@ -81,13 +82,52 @@ object KuGou {
     suspend fun getLyricsCandidate(
         keyword: Keyword, duration: Int
     ): SearchLyricsResponse.Candidate? {
+        // KuGou suka mencocokkan lagu China yang durasinya kebetulan mirip.
+        // Jadi judul & artis wajib dicek dulu; kalau tidak yakin, lebih baik
+        // tidak ada lirik daripada lirik lagu lain.
         searchSongs(keyword).data.info.forEach { song ->
-            if (duration == -1 || abs(song.duration - duration) <= DURATION_TOLERANCE) { // if duration == -1, we don't care duration
-                val candidate = searchLyricsByHash(song.hash).candidates.firstOrNull()
-                if (candidate != null) return candidate
-            }
+            val durationOk = duration == -1 || abs(song.duration - duration) <= DURATION_TOLERANCE
+            if (!durationOk) return@forEach
+            if (!looksLikeSameSong(keyword, song.songname, song.singername)) return@forEach
+            val candidate = searchLyricsByHash(song.hash).candidates.firstOrNull()
+            if (candidate != null) return candidate
         }
-        return searchLyricsByKeyword(keyword, duration).candidates.firstOrNull()
+        return searchLyricsByKeyword(keyword, duration)
+            .candidates
+            .firstOrNull { duration == -1 || abs(it.duration - duration) <= DURATION_TOLERANCE }
+    }
+
+    private fun normalizeForMatch(text: String?): String =
+        (text ?: "")
+            .lowercase()
+            .replace(Regex("\\(.*?\\)|（.*?）|\\[.*?]"), " ")
+            .replace(Regex("[^\\p{L}\\p{N} ]+"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+
+    /** Cocokkan judul + artis secara longgar tapi cukup ketat untuk menolak
+     *  lagu lain yang cuma mirip durasinya. */
+    private fun looksLikeSameSong(keyword: Keyword, songName: String?, singerName: String?): Boolean {
+        val wantTitle = normalizeForMatch(keyword.title)
+        val gotTitle = normalizeForMatch(songName)
+        if (wantTitle.isEmpty() || gotTitle.isEmpty()) return false
+        val titleMatch =
+            gotTitle == wantTitle ||
+                gotTitle.contains(wantTitle) ||
+                wantTitle.contains(gotTitle) ||
+                similarity(wantTitle, gotTitle) >= 0.6
+        if (!titleMatch) return false
+        val wantArtist = normalizeForMatch(keyword.artist)
+        val gotArtist = normalizeForMatch(singerName)
+        if (wantArtist.isEmpty() || gotArtist.isEmpty()) return titleMatch
+        return gotArtist.contains(wantArtist) || wantArtist.contains(gotArtist) || similarity(wantArtist, gotArtist) >= 0.5
+    }
+
+    private fun similarity(a: String, b: String): Double {
+        val ta = a.split(" ").filter { it.isNotBlank() }.toSet()
+        val tb = b.split(" ").filter { it.isNotBlank() }.toSet()
+        if (ta.isEmpty() || tb.isEmpty()) return 0.0
+        return ta.intersect(tb).size.toDouble() / maxOf(ta.size, tb.size)
     }
 
     suspend fun searchSongs(keyword: Keyword) =

@@ -17,6 +17,8 @@ data class SearchSongResponse(
         data class Info(
             val duration: Int,
             val hash: String,
+            val songname: String? = null,
+            val singername: String? = null,
         )
     }
 }
