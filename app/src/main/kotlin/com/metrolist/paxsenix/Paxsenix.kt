@@ -3,6 +3,7 @@ package com.metrolist.paxsenix
 import android.content.Context
 import com.metrolist.music.betterlyrics.TTMLParser
 import com.metrolist.paxsenix.models.AppleMusicSearchResponse
+import com.metrolist.paxsenix.models.LyricText
 import com.metrolist.paxsenix.models.LyricsResponse
 
 import com.metrolist.paxsenix.models.SearchResult
@@ -329,6 +330,31 @@ object Paxsenix {
 
     // Server Paxsenix membalas 503 "busy" saat ramai. Tanpa percobaan ulang,
     // lagu langsung jatuh ke KuGou yang sering memberi lirik tidak cocok.
+
+    /**
+     * Bagian `text` dari Paxsenix berisi potongan suku kata. Tanda `part = true`
+     * berarti potongan itu masih lanjutan kata yang sama, jadi tidak boleh
+     * dipisah spasi. Tanpa penggabungan ini lirik tampil patah-patah
+     * ("Lem ba ran fo to").
+     */
+    private fun buildWords(parts: List<LyricText>): List<Triple<String, Double, Double>> {
+        val words = mutableListOf<Triple<String, Double, Double>>()
+        val buffer = StringBuilder()
+        var start = 0L
+        var end = 0L
+        parts.forEach { part ->
+            if (buffer.isEmpty()) start = part.timestamp
+            buffer.append(part.text)
+            end = part.endtime
+            if (!part.part) {
+                words.add(Triple(buffer.toString(), start / 1000.0, end / 1000.0))
+                buffer.clear()
+            }
+        }
+        if (buffer.isNotEmpty()) words.add(Triple(buffer.toString(), start / 1000.0, end / 1000.0))
+        return words
+    }
+
     private suspend fun requestLyrics(id: String): LyricsResponse {
         var lastError: Throwable? = null
         repeat(3) { attempt ->
@@ -372,18 +398,15 @@ object Paxsenix {
                             else -> "{agent:v1}"
                         }
 
-                        val lineText = line.text.joinToString(" ") { it.text }
+                        val words = buildWords(line.text)
+                        val lineText = words.joinToString(" ") { it.first }
 
                         if (lineText.isNotBlank()) {
                             appendLine(String.format(Locale.US, "[%02d:%02d.%02d]%s%s", minutes, seconds, centiseconds, agent, lineText))
 
-                            if (line.text.isNotEmpty()) {
-                                val wordsData = line.text.joinToString("|") { word ->
-                                    "${word.text}:${word.timestamp.toDouble() / 1000}:${word.endtime.toDouble() / 1000}"
-                                }
-                                if (wordsData.isNotEmpty()) {
-                                    appendLine("<$wordsData>")
-                                }
+                            if (words.isNotEmpty()) {
+                                val wordsData = words.joinToString("|") { (text, start, end) -> "$text:$start:$end" }
+                                appendLine("<$wordsData>")
                             }
                         }
                     }
@@ -425,7 +448,7 @@ object Paxsenix {
 
         // 5) content tapi bukan Syllable: teks per baris tanpa timestamp
         val plain = response.content
-            .map { line -> line.text.joinToString(" ") { it.text } }
+            .map { line -> buildWords(line.text).joinToString(" ") { it.first } }
             .filter { it.isNotBlank() }
             .joinToString("\n")
         Timber.d("Generated plain (non-synced) lyrics: ${response.content.size} lines")
