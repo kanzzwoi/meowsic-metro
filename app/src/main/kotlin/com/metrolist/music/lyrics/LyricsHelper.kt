@@ -132,8 +132,9 @@ constructor(
         return withTimeoutOrNull(UPGRADE_FETCH_TIMEOUT_MS) {
             coroutineScope {
                 val winner = CompletableDeferred<LyricsWithProvider>()
+                val jobs = mutableListOf<Job>()
                 enabled.forEach { provider ->
-                    launch(Dispatchers.IO) {
+                    jobs += launch(Dispatchers.IO) {
                         val text =
                             runCatching {
                                 // Paxsenix pernah 12,8 dtk untuk lagu yang belum
@@ -156,7 +157,12 @@ constructor(
                         }
                     }
                 }
-                winner.await()
+                withTimeoutOrNull(UPGRADE_FETCH_TIMEOUT_MS) { winner.await() }?.also {
+                    jobs.forEach { job -> job.cancel() }
+                } ?: run {
+                    jobs.forEach { job -> job.cancel() }
+                    null
+                }
             }
         }
     }
@@ -239,8 +245,13 @@ constructor(
                         if (providers.isEmpty()) return null
                         val winner = CompletableDeferred<Pair<LyricsProvider, String>>()
                         val notes = java.util.Collections.synchronizedList(mutableListOf<String>())
+                        // Job dikumpulkan supaya yang belum selesai bisa dibatalkan
+                        // begitu ada pemenang. Tanpa ini coroutineScope menunggu
+                        // SEMUA provider selesai (Paxsenix bisa 10 dtk) sebelum
+                        // hasil dikembalikan.
+                        val jobs = mutableListOf<Job>()
                         providers.forEach { provider ->
-                            launch(Dispatchers.IO) {
+                            jobs += launch(Dispatchers.IO) {
                                 val t0 = System.currentTimeMillis()
                                 val lyrics = fetch(provider, RACE_PROVIDER_TIMEOUT_MS)
                                 val spent = (System.currentTimeMillis() - t0) / 1000.0
@@ -258,7 +269,9 @@ constructor(
                                 winner.complete(provider to usable)
                             }
                         }
-                        return withTimeoutOrNull(RACE_PROVIDER_TIMEOUT_MS) { winner.await() }
+                        val result = withTimeoutOrNull(RACE_PROVIDER_TIMEOUT_MS) { winner.await() }
+                        jobs.forEach { it.cancel() }
+                        return result
                     }
 
                     val found =
