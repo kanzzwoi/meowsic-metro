@@ -1068,7 +1068,7 @@ private fun PendingSuggestionsSection(
             modifier = Modifier.padding(16.dp),
         ) {
             Text(
-                text = stringResource(R.string.pending_suggestions),
+                text = "Usulan lagu",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
@@ -1076,12 +1076,15 @@ private fun PendingSuggestionsSection(
             Spacer(modifier = Modifier.height(12.dp))
 
             suggestions.forEach { suggestion ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                Column(
                     modifier =
                         Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
+                ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.queue_music),
@@ -1099,28 +1102,43 @@ private fun PendingSuggestionsSection(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = suggestion.fromUsername,
+                            text = "Dari ${suggestion.fromUsername}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    MaterialIconButton(onClick = { onApprove(suggestion.suggestionId) }) {
-                        Icon(
-                            painter = painterResource(R.drawable.check),
-                            contentDescription = stringResource(R.string.approve),
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                    MaterialIconButton(onClick = { onReject(suggestion.suggestionId) }) {
-                        Icon(
-                            painter = painterResource(R.drawable.close),
-                            contentDescription = stringResource(R.string.reject),
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(24.dp),
-                        )
+                }
+
+                    // Tombol berlabel: ikon saja bikin host bingung mana yang
+                    // "setujui" dan mana yang "tolak".
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextButton(onClick = { onReject(suggestion.suggestionId) }) {
+                            Icon(
+                                painter = painterResource(R.drawable.close),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("Tolak", color = MaterialTheme.colorScheme.error)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        FilledTonalButton(onClick = { onApprove(suggestion.suggestionId) }) {
+                            Icon(
+                                painter = painterResource(R.drawable.check),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("Setujui")
+                        }
                     }
                 }
             }
