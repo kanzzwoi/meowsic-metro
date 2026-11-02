@@ -1507,7 +1507,10 @@ fun HomeScreen(
                     }
                 }
 
-                homeSections.forEach { section ->
+                // Saat chip "Fav Kanz" aktif, beranda disembunyikan sepenuhnya —
+                // sebelumnya feed beranda tetap lanjut di bawah daftar Fav Kanz
+                // sehingga scroll terasa "tembus" ke beranda.
+                if (!favKanzSelected) homeSections.forEach { section ->
                     when (section) {
                         HomeSection.SpeedDial -> {
                             speedDialItems.takeIf { it.isNotEmpty() }?.let { items ->
