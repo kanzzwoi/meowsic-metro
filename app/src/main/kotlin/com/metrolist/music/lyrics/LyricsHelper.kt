@@ -36,13 +36,14 @@ private const val MAX_LYRICS_FETCH_MS = 25_000L
 private const val PER_PROVIDER_TIMEOUT_MS = 10_000L
 
 /** Jatah per provider di kubu 1 — Paxsenix pernah 17,8 dtk untuk lagu baru. */
-private const val RACE_A_PROVIDER_TIMEOUT_MS = 20_000L
+private const val RACE_A_PROVIDER_TIMEOUT_MS = 12_000L
 
 /**
  * Kalau belum ada lirik per kata setelah jeda ini, tampilkan dulu versi per
  * baris (sementara). Upgrade ke per kata jalan di background.
+ * Dibuat pendek supaya lirik selalu muncul cepat; kualitas menyusul.
  */
-private const val LINE_FALLBACK_WAIT_MS = 7_000L
+private const val LINE_FALLBACK_WAIT_MS = 1_500L
 private const val PROVIDER_NONE = ""
 
 /** Kubu 1 (berlomba bersamaan): siapa cepat & punya timing per kata, dia menang. */
@@ -57,6 +58,11 @@ private val TIER_3 = setOf<String>()
 private val ALL_TIER_NAMES = TIER_1 + TIER_2 + TIER_3
 
 /** Penanda timestamp per kata di LRC, contoh: <00:12.34>kata */
+/** Info ringkas hasil fetch terakhir, ditampilkan di panel lirik. */
+object LyricsStats {
+    @Volatile var last: String? = null
+}
+
 private val WORD_LEVEL_REGEX = Regex("(?m)^\\s*<[^>\\n]+:\\d")
 
 /**
@@ -146,6 +152,7 @@ constructor(
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     suspend fun getLyrics(mediaMetadata: MediaMetadata): LyricsWithProvider {
+        val startedAt = System.currentTimeMillis()
         currentLyricsJob?.cancel()
 
         val cached = cache.get(mediaMetadata.id)?.firstOrNull()
@@ -247,14 +254,18 @@ constructor(
                         // Lewat 7 dtk: pakai per baris dulu biar user nggak nunggu,
                         // nanti di-upgrade ke per kata di background.
                         val firstKind =
-                            withTimeoutOrNull(LINE_FALLBACK_WAIT_MS) {
+                            withTimeoutOrNull(MAX_LYRICS_FETCH_MS) {
                                 select<String> {
                                     wordResult.onAwait { "word" }
+                                    lineResult.onAwait { "line" }
                                     allADone.onAwait { "done" }
                                 }
                             }
                         return when (firstKind) {
                             "word" -> wordResult.getCompleted()
+                            "line" ->
+                                withTimeoutOrNull(LINE_FALLBACK_WAIT_MS) { wordResult.await() }
+                                    ?: lineResult.getCompleted()
                             "done" -> if (lineResult.isCompleted) lineResult.getCompleted() else null
                             else ->
                                 when {
@@ -293,7 +304,17 @@ constructor(
                         )
                     }
                 }
-            if (found != null) return@withTimeoutOrNull found
+            if (found != null) {
+                val elapsed = (System.currentTimeMillis() - startedAt) / 1000.0
+                LyricsStats.last =
+                    "%s • %.1f dtk • %s".format(
+                        found.provider,
+                        elapsed,
+                        if (WORD_LEVEL_REGEX.containsMatchIn(found.lyrics)) "per kata" else "per baris",
+                    )
+                Timber.tag("LyricsHelper").i("RESULT ${LyricsStats.last}")
+                return@withTimeoutOrNull found
+            }
 
             Timber.tag("LyricsHelper").w("No lyrics found after checking all providers")
             LyricsWithProvider(LYRICS_NOT_FOUND, PROVIDER_NONE)
