@@ -32,8 +32,11 @@ import timber.log.Timber
 import javax.inject.Inject
 import kotlinx.coroutines.selects.select
 
-private const val MAX_LYRICS_FETCH_MS = 20_000L
+private const val MAX_LYRICS_FETCH_MS = 25_000L
 private const val PER_PROVIDER_TIMEOUT_MS = 10_000L
+
+/** Jatah per provider di kubu 1 — Paxsenix pernah 17,8 dtk untuk lagu baru. */
+private const val RACE_A_PROVIDER_TIMEOUT_MS = 20_000L
 private const val PROVIDER_NONE = ""
 
 /** Kubu 1 (berlomba bersamaan): siapa cepat & punya timing per kata, dia menang. */
@@ -46,9 +49,6 @@ private val TIER_2 = setOf("LrcLib", "Kugou")
 private val TIER_3 = setOf<String>()
 
 private val ALL_TIER_NAMES = TIER_1 + TIER_2 + TIER_3
-
-/** Lama menunggu provider lain kalau yang datang duluan cuma lirik per baris. */
-private const val WORD_PREFERENCE_GRACE_MS = 4_000L
 
 /** Penanda timestamp per kata di LRC, contoh: <00:12.34>kata */
 private val WORD_LEVEL_REGEX = Regex("(?m)^\\s*<[^>\\n]+:\\d")
@@ -183,9 +183,12 @@ constructor(
                     val artistLine = mediaMetadata.artists.joinToString { it.name }
                     val albumTitle = mediaMetadata.album?.title
 
-                    suspend fun fetch(provider: LyricsProvider): String? =
+                    suspend fun fetch(
+                        provider: LyricsProvider,
+                        timeoutMs: Long = PER_PROVIDER_TIMEOUT_MS,
+                    ): String? =
                         runCatching {
-                            withTimeoutOrNull(PER_PROVIDER_TIMEOUT_MS) {
+                            withTimeoutOrNull(timeoutMs) {
                                 provider.getLyrics(
                                     context,
                                     mediaMetadata.id,
@@ -204,9 +207,10 @@ constructor(
                     val tierB = enabledProviders.filter { it.name in TIER_2 }
                     val tierC = enabledProviders.filter { it.name !in ALL_TIER_NAMES }
 
-                    // Kubu 1 berlomba bersamaan: hasil per kata menang, per baris
-                    // disimpan sebagai cadangan kalau dalam jeda singkat tidak ada
-                    // provider yang punya timing per kata.
+                    // Kubu 1 berlomba bersamaan: yang per kata langsung dipakai.
+                    // Kalau yang datang duluan cuma per baris, hasilnya disimpan
+                    // dan tetap menunggu provider lain sampai semuanya selesai —
+                    // baru pakai per baris kalau tidak ada satu pun yang per kata.
                     val wordResult = CompletableDeferred<Pair<LyricsProvider, String>>()
                     val lineResult = CompletableDeferred<Pair<LyricsProvider, String>>()
                     val allADone = CompletableDeferred<Unit>()
@@ -214,7 +218,7 @@ constructor(
 
                     fun spawnA(provider: LyricsProvider) =
                         launch(Dispatchers.IO) {
-                            val lyrics = fetch(provider)
+                            val lyrics = fetch(provider, RACE_A_PROVIDER_TIMEOUT_MS)
                             if (lyrics != null) {
                                 if (WORD_LEVEL_REGEX.containsMatchIn(lyrics)) {
                                     Timber.tag("LyricsHelper").i("${provider.name}: lirik per kata")
@@ -233,23 +237,24 @@ constructor(
 
                     suspend fun awaitTierA(): Pair<LyricsProvider, String>? {
                         if (tierA.isEmpty()) return null
+                        // Tunggu sampai salah satu kasih lirik per kata, ATAU semua
+                        // provider kubu 1 selesai (baru pakai yang per baris).
                         val firstKind =
                             withTimeoutOrNull(MAX_LYRICS_FETCH_MS) {
                                 select<String> {
                                     wordResult.onAwait { "word" }
-                                    lineResult.onAwait { "line" }
                                     allADone.onAwait { "done" }
                                 }
                             }
                         return when (firstKind) {
                             "word" -> wordResult.getCompleted()
-                            // Ada per baris duluan: beri kesempatan singkat ke
-                            // provider lain yang mungkin punya versi per kata.
-                            "line" ->
-                                withTimeoutOrNull(WORD_PREFERENCE_GRACE_MS) { wordResult.await() }
-                                    ?: lineResult.getCompleted()
                             "done" -> if (lineResult.isCompleted) lineResult.getCompleted() else null
-                            else -> null
+                            else ->
+                                when {
+                                    wordResult.isCompleted -> wordResult.getCompleted()
+                                    lineResult.isCompleted -> lineResult.getCompleted()
+                                    else -> null
+                                }
                         }
                     }
 
