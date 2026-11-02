@@ -201,18 +201,30 @@ object LyricsPlusProvider : LyricsProvider {
             return null
         }
 
+        // Server utama (binimum) sering hanya punya lirik per baris, sedangkan
+        // mirror-nya punya per suku kata. Jadi kalau hasil pertama cuma per
+        // baris, simpan sebagai cadangan dan coba server lain dulu.
+        var lineOnlyFallback: LyricsPlusResponse? = null
+        val startedAt = System.currentTimeMillis()
         for (baseUrl in getPrioritizedServers()) {
+            // Sudah ada cadangan per baris dan sudah kelamaan: jangan terus
+            // mencoba mirror, tampilkan apa adanya.
+            if (lineOnlyFallback != null && System.currentTimeMillis() - startedAt > 6_000) break
             try {
                 val result = fetchFromUrl(baseUrl, title, artist, duration, album)
                 if (result != null && !result.lyrics.isNullOrEmpty()) {
-                    lastWorkingServer = baseUrl
-                    return result
+                    val hasWordLevel = result.lyrics.any { !it.syllabus.isNullOrEmpty() }
+                    if (hasWordLevel) {
+                        lastWorkingServer = baseUrl
+                        return result
+                    }
+                    if (lineOnlyFallback == null) lineOnlyFallback = result
                 }
             } catch (e: Exception) {
                 Timber.tag("LyricsPlus").d(e, "Failed to fetch from $baseUrl")
             }
         }
-        return null
+        return lineOnlyFallback
     }
 
     private suspend fun fetchBinimumLyricsApi(
