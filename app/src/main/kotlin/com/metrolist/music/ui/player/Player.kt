@@ -2240,4 +2240,4 @@ private fun PlayerMoreMenuButton(
 
 
 /** LRC dengan timestamp per kata, contoh: <00:12.34>kata. */
-private val WORD_TIMING_REGEX = Regex("<\\d{1,2}:\\d{2}[.:]\\d{1,3}")
+private val WORD_TIMING_REGEX = Regex("(?m)^\\s*<[^>\\n]+:\\d")

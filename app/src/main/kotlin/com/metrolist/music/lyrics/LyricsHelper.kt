@@ -30,30 +30,37 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import javax.inject.Inject
+import kotlinx.coroutines.selects.select
 
 private const val MAX_LYRICS_FETCH_MS = 20_000L
 private const val PER_PROVIDER_TIMEOUT_MS = 10_000L
 private const val PROVIDER_NONE = ""
 
-/** Kubu 1: lirik per suku kata (paling presisi), langsung dijalankan. */
-private val TIER_1 = setOf("Paxsenix", "BetterLyrics", "Unison")
+/** Kubu 1 (berlomba bersamaan): siapa cepat & punya timing per kata, dia menang. */
+private val TIER_1 = setOf("Paxsenix", "BetterLyrics", "Unison", "LyricsPlus")
 
-/** Kubu 2: LyricsPlus — cepat dan sebagian sudah per kata. */
-private val TIER_2 = setOf("LyricsPlus")
+/** Kubu 2: cadangan per baris. */
+private val TIER_2 = setOf("LrcLib", "Kugou")
 
-/** Kubu 3: LrcLib — per baris. */
-private val TIER_3 = setOf("LrcLib")
+/** Kubu 3: sisa (YouTube) — paling akhir. */
+private val TIER_3 = setOf<String>()
 
 private val ALL_TIER_NAMES = TIER_1 + TIER_2 + TIER_3
+
+/** Lama menunggu provider lain kalau yang datang duluan cuma lirik per baris. */
+private const val WORD_PREFERENCE_GRACE_MS = 4_000L
+
+/** Penanda timestamp per kata di LRC, contoh: <00:12.34>kata */
+private val WORD_LEVEL_REGEX = Regex("(?m)^\\s*<[^>\\n]+:\\d")
 
 /**
  * Tenggat "upgrade" lirik ke kubu 1. Diukur: Paxsenix paling lama 12,78 dtk
  * untuk lagu yang belum ada di cache-nya, jadi 15 dtk sudah ada margin.
  */
-private const val UPGRADE_FETCH_TIMEOUT_MS = 15_000L
+private const val UPGRADE_FETCH_TIMEOUT_MS = 20_000L
 
 /** Batas per provider saat upgrade (sedikit di bawah tenggat total). */
-private const val UPGRADE_PER_PROVIDER_TIMEOUT_MS = 14_000L
+private const val UPGRADE_PER_PROVIDER_TIMEOUT_MS = 19_000L
 
 /** Jeda sebelum kubu 2 ikut jalan kalau kubu 1 belum ada hasil. */
 private const val TIER_1_HEAD_START_MS = 1_500L
@@ -119,7 +126,11 @@ constructor(
                                     )
                                 }?.getOrNull()
                             }.getOrNull()?.takeIf { it.isNotBlank() }
-                        if (text != null) winner.complete(LyricsWithProvider(text, provider.name))
+                        // Upgrade cuma boleh ke yang punya timing per kata; kalau
+                        // tidak, lirik per baris yang sudah ada malah turun kualitas.
+                        if (text != null && WORD_LEVEL_REGEX.containsMatchIn(text)) {
+                            winner.complete(LyricsWithProvider(text, provider.name))
+                        }
                     }
                 }
                 winner.await()
@@ -127,6 +138,7 @@ constructor(
         }
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     suspend fun getLyrics(mediaMetadata: MediaMetadata): LyricsWithProvider {
         currentLyricsJob?.cancel()
 
@@ -188,62 +200,81 @@ constructor(
                             null
                         }?.takeIf { it.isNotBlank() }
 
-                    val tiers =
-                        listOf(
-                            enabledProviders.filter { it.name in TIER_1 },
-                            enabledProviders.filter { it.name in TIER_2 },
-                            enabledProviders.filter { it.name in TIER_3 },
-                            enabledProviders.filter { it.name !in ALL_TIER_NAMES },
-                        )
+                    val tierA = enabledProviders.filter { it.name in TIER_1 }
+                    val tierB = enabledProviders.filter { it.name in TIER_2 }
+                    val tierC = enabledProviders.filter { it.name !in ALL_TIER_NAMES }
 
-                    val winner = CompletableDeferred<Pair<LyricsProvider, String>>()
+                    // Kubu 1 berlomba bersamaan: hasil per kata menang, per baris
+                    // disimpan sebagai cadangan kalau dalam jeda singkat tidak ada
+                    // provider yang punya timing per kata.
+                    val wordResult = CompletableDeferred<Pair<LyricsProvider, String>>()
+                    val lineResult = CompletableDeferred<Pair<LyricsProvider, String>>()
+                    val allADone = CompletableDeferred<Unit>()
+                    val pendingA = AtomicInteger(tierA.size)
 
-                    class Gate(size: Int) {
-                        val pending = AtomicInteger(size)
-                        val allFailed = CompletableDeferred<Unit>()
-                    }
-
-                    val gates = tiers.map { Gate(it.size) }
-
-                    fun spawn(
-                        provider: LyricsProvider,
-                        gate: Gate,
-                    ) = launch(Dispatchers.IO) {
-                        val lyrics = fetch(provider)
-                        if (lyrics != null) {
-                            Timber.tag("LyricsHelper").i("Got lyrics from ${provider.name}")
-                            winner.complete(provider to lyrics)
-                        } else {
-                            Timber.tag("LyricsHelper").w("${provider.name} failed")
-                            if (gate.pending.decrementAndGet() == 0) gate.allFailed.complete(Unit)
-                        }
-                    }
-
-                    tiers[0].forEach { spawn(it, gates[0]) }
-
-                    // Kubu berikutnya menyala kalau kubu sebelumnya gagal semua,
-                    // atau belum ada hasil dalam jatah waktu yang ditentukan.
-                    launch {
-                        for (index in 1 until tiers.size) {
-                            if (winner.isCompleted) return@launch
-                            val headStart =
-                                when (index) {
-                                    1 -> TIER_1_HEAD_START_MS
-                                    else -> TIER_N_HEAD_START_MS
+                    fun spawnA(provider: LyricsProvider) =
+                        launch(Dispatchers.IO) {
+                            val lyrics = fetch(provider)
+                            if (lyrics != null) {
+                                if (WORD_LEVEL_REGEX.containsMatchIn(lyrics)) {
+                                    Timber.tag("LyricsHelper").i("${provider.name}: lirik per kata")
+                                    wordResult.complete(provider to lyrics)
+                                } else {
+                                    Timber.tag("LyricsHelper").i("${provider.name}: lirik per baris (cadangan)")
+                                    if (!lineResult.isCompleted) lineResult.complete(provider to lyrics)
                                 }
-                            withTimeoutOrNull(headStart) { gates[index - 1].allFailed.await() }
-                            if (winner.isCompleted) return@launch
-                            if (tiers[index].isEmpty()) continue
-                            Timber.tag("LyricsHelper").d("Menyalakan kubu ${index + 1}")
-                            tiers[index].forEach { spawn(it, gates[index]) }
+                            } else {
+                                Timber.tag("LyricsHelper").w("${provider.name} gagal")
+                            }
+                            if (pendingA.decrementAndGet() == 0) allADone.complete(Unit)
+                        }
+
+                    tierA.forEach { spawnA(it) }
+
+                    suspend fun awaitTierA(): Pair<LyricsProvider, String>? {
+                        if (tierA.isEmpty()) return null
+                        val firstKind =
+                            withTimeoutOrNull(MAX_LYRICS_FETCH_MS) {
+                                select<String> {
+                                    wordResult.onAwait { "word" }
+                                    lineResult.onAwait { "line" }
+                                    allADone.onAwait { "done" }
+                                }
+                            }
+                        return when (firstKind) {
+                            "word" -> wordResult.getCompleted()
+                            // Ada per baris duluan: beri kesempatan singkat ke
+                            // provider lain yang mungkin punya versi per kata.
+                            "line" ->
+                                withTimeoutOrNull(WORD_PREFERENCE_GRACE_MS) { wordResult.await() }
+                                    ?: lineResult.getCompleted()
+                            "done" -> if (lineResult.isCompleted) lineResult.getCompleted() else null
+                            else -> null
                         }
                     }
 
-                    val result =
-                        withTimeoutOrNull(MAX_LYRICS_FETCH_MS) {
-                            winner.await()
+                    suspend fun raceOthers(providers: List<LyricsProvider>): Pair<LyricsProvider, String>? {
+                        if (providers.isEmpty()) return null
+                        val winner = CompletableDeferred<Pair<LyricsProvider, String>>()
+                        providers.forEach { provider ->
+                            launch(Dispatchers.IO) {
+                                val lyrics = fetch(provider)
+                                if (lyrics != null) winner.complete(provider to lyrics)
+                            }
                         }
-                    result?.let { (provider, lyrics) ->
+                        return withTimeoutOrNull(PER_PROVIDER_TIMEOUT_MS) { winner.await() }
+                    }
+
+                    val found: Pair<LyricsProvider, String>? =
+                        awaitTierA()
+                            ?: raceOthers(tierB)?.also {
+                                Timber.tag("LyricsHelper").i("cadangan: ${it.first.name}")
+                            }
+                            ?: raceOthers(tierC)?.also {
+                                Timber.tag("LyricsHelper").i("terakhir: ${it.first.name}")
+                            }
+
+                    found?.let { (provider, lyrics) ->
                         LyricsWithProvider(
                             LyricsUtils.filterLyricsCreditLines(lyrics),
                             provider.name,
