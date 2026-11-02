@@ -244,7 +244,9 @@ constructor(
                     suspend fun race(providers: List<LyricsProvider>): Pair<LyricsProvider, String>? {
                         if (providers.isEmpty()) return null
                         val winner = CompletableDeferred<Pair<LyricsProvider, String>>()
-                        val notes = java.util.Collections.synchronizedList(mutableListOf<String>())
+                        // CopyOnWriteArrayList aman dibaca sambil ditulis (joinToString
+                        // meng iterasi list, synchronizedList tidak aman untuk itu).
+                        val notes = java.util.concurrent.CopyOnWriteArrayList<String>()
                         // Job dikumpulkan supaya yang belum selesai bisa dibatalkan
                         // begitu ada pemenang. Tanpa ini coroutineScope menunggu
                         // SEMUA provider selesai (Paxsenix bisa 10 dtk) sebelum
