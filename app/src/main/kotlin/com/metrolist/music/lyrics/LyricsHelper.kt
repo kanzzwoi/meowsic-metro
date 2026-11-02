@@ -144,7 +144,7 @@ constructor(
                                         mediaMetadata.id,
                                         cleanedTitle,
                                         artistLine,
-                                        if (provider.name == "BetterLyrics") mediaMetadata.duration else durationSec,
+                                        durationSec,
                                         albumTitle,
                                     )
                                 }?.getOrNull()
@@ -218,7 +218,7 @@ constructor(
                                     mediaMetadata.id,
                                     cleanedTitle,
                                     artistLine,
-                                    if (provider.name == "BetterLyrics") mediaMetadata.duration else durationSec,
+                                    durationSec,
                                     albumTitle,
                                 )
                             }?.getOrNull()
