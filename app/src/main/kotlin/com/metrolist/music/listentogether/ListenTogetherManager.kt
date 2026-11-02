@@ -473,6 +473,26 @@ class ListenTogetherManager
          * Set the player connection for playback sync.
          * Should be called when PlayerConnection is available.
          */
+        /** Tambahkan lagu hasil usulan member ke antrian host (lalu tersinkron ke semua). */
+        private fun addApprovedSuggestion(track: TrackInfo) {
+            val connection = playerConnection
+            if (connection == null || !isHost) return
+            scope.launch {
+                val result = withContext(Dispatchers.IO) { YouTube.queue(listOf(track.id)) }
+                result.onSuccess { list ->
+                    val mediaItem = list.firstOrNull()?.toMediaMetadata()?.toMediaItem()
+                    if (mediaItem != null) {
+                        connection.allowInternalSync = true
+                        try {
+                            connection.addToQueue(mediaItem)
+                        } finally {
+                            connection.allowInternalSync = false
+                        }
+                    }
+                }.onFailure { Timber.tag(TAG).e(it, "Failed to add approved suggestion ${track.id}") }
+            }
+        }
+
         fun setPlayerConnection(connection: PlayerConnection?) {
             Timber.tag(TAG).d("setPlayerConnection: ${connection != null}, isInRoom: $isInRoom")
 
@@ -564,6 +584,9 @@ class ListenTogetherManager
          */
         fun initialize() {
             Timber.tag(TAG).d("Initializing ListenTogetherManager")
+
+            // Usulan lagu yang disetujui host harus benar-benar masuk antrian.
+            client.onSuggestionApproved = { track -> addApprovedSuggestion(track) }
             eventCollectorJob?.cancel()
             eventCollectorJob =
                 scope.launch {

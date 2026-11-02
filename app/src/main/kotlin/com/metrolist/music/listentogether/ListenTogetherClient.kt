@@ -287,6 +287,12 @@ class ListenTogetherClient
         private val _pendingSuggestions = MutableStateFlow<List<SuggestionReceivedPayload>>(emptyList())
         val pendingSuggestions: StateFlow<List<SuggestionReceivedPayload>> = _pendingSuggestions.asStateFlow()
 
+        /**
+         * Dipanggil saat host menyetujui usulan lagu. Tanpa ini, tombol "setujui"
+         * cuma menghapus notifikasi: lagunya tidak pernah masuk antrian.
+         */
+        var onSuggestionApproved: ((TrackInfo) -> Unit)? = null
+
         // Blocked usernames (internal list for privacy)
         private val _blockedUsernames = MutableStateFlow<Set<String>>(emptySet())
         val blockedUsernames: StateFlow<Set<String>> = _blockedUsernames.asStateFlow()
@@ -1427,6 +1433,9 @@ class ListenTogetherClient
                                 // Automatically approve the suggestion
                                 log(LogLevel.INFO, "Auto-approving suggestion", "${payload.fromUsername}: ${payload.trackInfo.title}")
                                 approveSuggestion(payload.suggestionId)
+                                // Auto-approve tidak lewat daftar pending, jadi track-nya
+                                // harus diteruskan langsung ke antrian.
+                                onSuggestionApproved?.invoke(payload.trackInfo)
                             } else {
                                 // Add to pending list and show notification
                                 _pendingSuggestions.value += payload
@@ -1848,9 +1857,11 @@ class ListenTogetherClient
                 log(LogLevel.ERROR, "Cannot approve suggestion", "Not host")
                 return
             }
+            val approved = _pendingSuggestions.value.firstOrNull { it.suggestionId == suggestionId }
             sendMessage(MessageTypes.APPROVE_SUGGESTION, ApproveSuggestionPayload(suggestionId))
             // Remove locally from pending list
             _pendingSuggestions.value = _pendingSuggestions.value.filter { it.suggestionId != suggestionId }
+            approved?.trackInfo?.let { track -> onSuggestionApproved?.invoke(track) }
 
             // Dismiss notification immediately when approved from UI
             suggestionNotifications.remove(suggestionId)?.let { notifId ->
