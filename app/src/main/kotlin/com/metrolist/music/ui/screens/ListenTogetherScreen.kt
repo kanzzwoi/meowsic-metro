@@ -112,6 +112,14 @@ import com.metrolist.music.ui.utils.backToMain
 import com.metrolist.music.utils.rememberPreference
 import kotlinx.coroutines.launch
 import androidx.compose.material3.IconButton as MaterialIconButton
+import coil3.compose.AsyncImage
+import androidx.compose.material3.AlertDialog
+import com.metrolist.innertube.YouTube
+import com.metrolist.innertube.models.SongItem
+import com.metrolist.music.models.toMediaMetadata
+import com.metrolist.music.listentogether.TrackInfo
+import kotlinx.coroutines.delay
+import androidx.compose.ui.layout.ContentScale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -155,6 +163,7 @@ fun ListenTogetherScreen(
     var selectedUsername by rememberSaveable { mutableStateOf<String?>(null) }
     var showProfileEditor by rememberSaveable { mutableStateOf(false) }
     var chatExpanded by rememberSaveable { mutableStateOf(false) }
+    var showSuggestDialog by rememberSaveable { mutableStateOf(false) }
     var chatInput by rememberSaveable { mutableStateOf("") }
     val chatMessages by listenTogetherManager.chatMessages.collectAsStateWithLifecycle()
     val chatError by listenTogetherManager.chatError.collectAsStateWithLifecycle()
@@ -227,6 +236,27 @@ fun ListenTogetherScreen(
                     emoji = emoji,
                     color = color,
                 )
+            },
+        )
+    }
+
+    if (showSuggestDialog) {
+        SuggestSongDialog(
+            onDismiss = { showSuggestDialog = false },
+            onPick = { song ->
+                val meta = song.toMediaMetadata()
+                listenTogetherManager.suggestTrack(
+                    TrackInfo(
+                        id = meta.id,
+                        title = meta.title,
+                        artist = meta.artists.joinToString { it.name },
+                        album = meta.album?.title,
+                        duration = meta.duration.toLong(),
+                        thumbnail = meta.thumbnailUrl,
+                    ),
+                )
+                showSuggestDialog = false
+                Toast.makeText(context, R.string.listen_together_suggestion_sent, Toast.LENGTH_SHORT).show()
             },
         )
     }
@@ -374,6 +404,13 @@ fun ListenTogetherScreen(
                             onApprove = { listenTogetherManager.approveSuggestion(it) },
                             onReject = { listenTogetherManager.rejectSuggestion(it, "Rejected by host") },
                         )
+                    }
+                }
+
+                // Member nggak bisa memutar lagu, jadi kasih jalan sendiri buat usul.
+                if (!isHost) {
+                    item {
+                        SuggestSongCard(onClick = { showSuggestDialog = true })
                     }
                 }
 
@@ -1698,4 +1735,123 @@ private fun UserActionDialog(
             }
         }
     }
+}
+
+
+@Composable
+private fun SuggestSongCard(onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onClick)
+                    .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.queue_music),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Usulkan lagu", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    "Cari lagu, lalu kirim ke host untuk disetujui",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SuggestSongDialog(
+    onDismiss: () -> Unit,
+    onPick: (SongItem) -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<SongItem>>(emptyList()) }
+    var loading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(query) {
+        val q = query.trim()
+        if (q.length < 2) {
+            results = emptyList()
+            loading = false
+            return@LaunchedEffect
+        }
+        delay(450)
+        loading = true
+        YouTube.search(q, YouTube.SearchFilter.FILTER_SONG)
+            .onSuccess { result -> results = result.items.filterIsInstance<SongItem>() }
+        loading = false
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Usulkan lagu ke host") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = { Text("Cari judul lagu...") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(10.dp))
+                if (loading) {
+                    Box(Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(modifier = Modifier.size(22.dp))
+                    }
+                }
+                LazyColumn(modifier = Modifier.height(300.dp)) {
+                    items(results, key = { it.id }) { song ->
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onPick(song) }
+                                    .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            AsyncImage(
+                                model = song.thumbnail,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)),
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    song.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    song.artists.joinToString { it.name },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Tutup") }
+        },
+    )
 }
