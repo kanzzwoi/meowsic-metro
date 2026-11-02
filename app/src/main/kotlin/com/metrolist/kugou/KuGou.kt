@@ -51,18 +51,24 @@ private const val HEAD_CUT_LIMIT = 30
 object KuGou {
     var useTraditionalChinese: Boolean = false
 
+    /** KRC (per kata) dulu; kalau gagal baru LRC biasa (per baris). */
+    private suspend fun fetchLyricsText(candidate: SearchLyricsResponse.Candidate): String {
+        val fromKrc =
+            runCatching {
+                val raw = downloadLyrics(candidate.id, candidate.accesskey, fmt = "krc").content
+                krcToLrc(decryptKrc(Base64.Default.decode(raw))).takeIf { it.isNotBlank() }
+            }.getOrNull()
+        return fromKrc
+            ?: Base64.Default.decode(downloadLyrics(candidate.id, candidate.accesskey).content)
+                .decodeToString()
+                .normalize()
+    }
+
     suspend fun getLyrics(title: String, artist: String, duration: Int, album: String? = null): Result<String> =
         runCatching {
             val keyword = generateKeyword(title, artist, album)
             getLyricsCandidate(keyword, duration)?.let { candidate ->
-                // KRC = lirik karaoke per kata. Kalau gagal, baru pakai LRC biasa.
-                val fromKrc = runCatching {
-                    val raw = downloadLyrics(candidate.id, candidate.accesskey, fmt = "krc").content
-                    krcToLrc(decryptKrc(Base64.Default.decode(raw))).takeIf { it.isNotBlank() }
-                }.getOrNull()
-                fromKrc
-                    ?: Base64.Default.decode(downloadLyrics(candidate.id, candidate.accesskey).content).decodeToString()
-                        .normalize()
+                fetchLyricsText(candidate)
             } ?: throw IllegalStateException("No lyrics candidate")
         }
 
@@ -74,14 +80,12 @@ object KuGou {
             val durationOk = duration == -1 || abs(it.duration - duration) <= DURATION_TOLERANCE
             if (durationOk && looksLikeSameSong(keyword, it.songname, it.singername)) {
                 searchLyricsByHash(it.hash).candidates.firstOrNull()?.let { candidate ->
-                    Base64.Default.decode(downloadLyrics(candidate.id, candidate.accesskey).content).decodeToString()
-                        .normalize().let(callback)
+                    fetchLyricsText(candidate).let(callback)
                 }
             }
         }
         searchLyricsByKeyword(keyword, duration).candidates.forEach { candidate ->
-            Base64.Default.decode(downloadLyrics(candidate.id, candidate.accesskey).content).decodeToString()
-                .normalize().let(callback)
+            fetchLyricsText(candidate).let(callback)
         }
     }
 
