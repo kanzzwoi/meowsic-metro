@@ -37,6 +37,12 @@ private const val PER_PROVIDER_TIMEOUT_MS = 10_000L
 
 /** Jatah per provider di kubu 1 — Paxsenix pernah 17,8 dtk untuk lagu baru. */
 private const val RACE_A_PROVIDER_TIMEOUT_MS = 20_000L
+
+/**
+ * Kalau belum ada lirik per kata setelah jeda ini, tampilkan dulu versi per
+ * baris (sementara). Upgrade ke per kata jalan di background.
+ */
+private const val LINE_FALLBACK_WAIT_MS = 7_000L
 private const val PROVIDER_NONE = ""
 
 /** Kubu 1 (berlomba bersamaan): siapa cepat & punya timing per kata, dia menang. */
@@ -237,10 +243,11 @@ constructor(
 
                     suspend fun awaitTierA(): Pair<LyricsProvider, String>? {
                         if (tierA.isEmpty()) return null
-                        // Tunggu sampai salah satu kasih lirik per kata, ATAU semua
-                        // provider kubu 1 selesai (baru pakai yang per baris).
+                        // Tunggu lirik per kata, atau semua provider selesai.
+                        // Lewat 7 dtk: pakai per baris dulu biar user nggak nunggu,
+                        // nanti di-upgrade ke per kata di background.
                         val firstKind =
-                            withTimeoutOrNull(MAX_LYRICS_FETCH_MS) {
+                            withTimeoutOrNull(LINE_FALLBACK_WAIT_MS) {
                                 select<String> {
                                     wordResult.onAwait { "word" }
                                     allADone.onAwait { "done" }
