@@ -257,9 +257,16 @@ constructor(
                                 val t0 = System.currentTimeMillis()
                                 val lyrics = fetch(provider, RACE_PROVIDER_TIMEOUT_MS)
                                 val spent = (System.currentTimeMillis() - t0) / 1000.0
-                                notes.add("%s %.1fs".format(provider.name, spent))
-                                LyricsStats.detail = notes.joinToString(", ")
                                 val usable = lyrics?.takeIf { HAS_TIMESTAMP_REGEX.containsMatchIn(it) }
+                                // Tanda ✗ = provider ini GAGAL (bukan lebih cepat).
+                                notes.add(
+                                    "%s %.1fs%s".format(
+                                        provider.name,
+                                        spent,
+                                        if (usable == null) " ✗" else "",
+                                    ),
+                                )
+                                LyricsStats.detail = notes.joinToString(", ")
                                 if (usable == null) {
                                     Timber.tag("LyricsHelper").w("${provider.name}: gagal / tanpa timestamp")
                                     return@launch
