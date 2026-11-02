@@ -73,6 +73,9 @@ class App :
         // process claim WebView's data directory and crash the next main-process WebView.
         if (!isMainProcess()) return
 
+        com.metrolist.music.playback.PlaybackLog.init(this)
+        com.metrolist.music.playback.PlaybackLog.log("app", "onCreate v${BuildConfig.VERSION_NAME}(${BuildConfig.VERSION_CODE})")
+
         // Install crash handler first
         CrashHandler.install(this)
         ArtistNameAliases.initialize(this)

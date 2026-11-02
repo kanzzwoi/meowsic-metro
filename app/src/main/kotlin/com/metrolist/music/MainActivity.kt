@@ -293,6 +293,9 @@ class MainActivity : FragmentActivity() {
                 name: ComponentName?,
                 service: IBinder?,
             ) {
+                com.metrolist.music.playback.PlaybackLog.log("activity", "onServiceConnected: ${name?.className}")
+                reconnectAttempts = 0
+                isServiceBound = true
                 if (service is MusicBinder) {
                     playerConnection = PlayerConnection(this@MainActivity, service, database, lifecycleScope)
                     playerConnectionSnapshot = playerConnection
@@ -301,13 +304,43 @@ class MainActivity : FragmentActivity() {
             }
 
             override fun onServiceDisconnected(name: ComponentName?) {
-                // Disconnect Listen Together manager
+                // Service mati (OS membunuh / stopSelf). Tanpa rebind di sini UI
+                // membeku di state terakhir: notif hilang, tombol play, menit diam.
+                com.metrolist.music.playback.PlaybackLog.log("activity", "onServiceDisconnected: ${name?.className}")
                 listenTogetherManager.setPlayerConnection(null)
                 playerConnection?.dispose()
-                // DO NOT null out playerConnection here - keep it for when service reconnects
-                // DO NOT update playerConnectionSnapshot - this is the key to preventing recomposition
+                isServiceBound = false
+                reconnectToService()
             }
         }
+
+    private var reconnectAttempts = 0
+
+    /** Sambung ulang ke MusicService setelah service dimatikan (maks 3x). */
+    private fun reconnectToService() {
+        if (reconnectAttempts >= 3) {
+            com.metrolist.music.playback.PlaybackLog.log("activity", "reconnect menyerah setelah 3 percobaan")
+            return
+        }
+        reconnectAttempts++
+        val attempt = reconnectAttempts
+        lifecycleScope.launch {
+            kotlinx.coroutines.delay(800L * attempt)
+            if (isServiceBound || isFinishing || isDestroyed) return@launch
+            runCatching {
+                bindService(
+                    Intent(this@MainActivity, MusicService::class.java),
+                    serviceConnection,
+                    BIND_AUTO_CREATE,
+                )
+                isServiceBound = true
+                com.metrolist.music.playback.PlaybackLog.log("activity", "rebind percobaan $attempt")
+            }.onFailure {
+                com.metrolist.music.playback.PlaybackLog.log("activity", "rebind gagal: ${it.message}")
+                reconnectToService()
+            }
+        }
+    }
 
     private fun safeUnbindService(source: String) {
         if (!isServiceBound) return

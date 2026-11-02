@@ -1598,6 +1598,7 @@ class MusicService :
     }
 
     private fun stopOnError() {
+        PlaybackLog.log("player", "stopOnError -> pause")
         player.pause()
     }
 
@@ -3056,6 +3057,10 @@ class MusicService :
             return
         }
 
+        PlaybackLog.log(
+            "player",
+            "onPlayerError code=${error.errorCode} name=${error.errorCodeName} msg=${error.message}",
+        )
         val mediaId = player.currentMediaItem?.mediaId
         val failedStreamClient = mediaId?.let(songUrlCache::clientName)
         Timber
@@ -4256,6 +4261,7 @@ class MusicService :
             true
         } catch (e: ForegroundServiceStartNotAllowedException) {
             Timber.tag(TAG).w(e, deniedMessage)
+            PlaybackLog.log("service", "startForeground denied: ${e.javaClass.simpleName} ${e.message}")
             if (stopOnFailure) {
                 stopSelf()
             }
@@ -4270,6 +4276,7 @@ class MusicService :
         }
 
     override fun onDestroy() {
+        PlaybackLog.log("service", "onDestroy isRunning=$isRunning playing=${runCatching { player.isPlaying }.getOrDefault(false)}")
         isRunning = false
 
         if (!::player.isInitialized) {
@@ -4341,6 +4348,7 @@ class MusicService :
         }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        PlaybackLog.log("service", "onTaskRemoved stopOnTaskClear=${dataStore.get(StopMusicOnTaskClearKey, false)}")
         if (dataStore.get(StopMusicOnTaskClearKey, false)) {
             stopOnTaskClear()
         } else {

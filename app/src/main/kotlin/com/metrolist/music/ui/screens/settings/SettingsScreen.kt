@@ -212,6 +212,36 @@ fun SettingsScreen(
                 add(
                     Material3SettingsItem(
                         icon = painterResource(R.drawable.info),
+                        title = { Text("Bagikan log pemutaran") },
+                        onClick = {
+                            try {
+                                val file = com.metrolist.music.playback.PlaybackLog.file(context)
+                                if (!file.exists()) {
+                                    Toast.makeText(context, "Belum ada log", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.FileProvider",
+                                        file,
+                                    )
+                                    val share = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(
+                                        Intent.createChooser(share, "Bagikan log pemutaran"),
+                                    )
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Gagal membagikan log: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                    ),
+                )
+                add(
+                    Material3SettingsItem(
+                        icon = painterResource(R.drawable.info),
                         title = { Text(stringResource(R.string.about)) },
                         onClick = { navController.navigate("settings/about") }
                     )
