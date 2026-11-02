@@ -135,6 +135,15 @@ fun ListenTogetherSettings(navController: NavController) {
     var showBlockedUsersDialog by rememberSaveable { mutableStateOf(false) }
     var roomCodeInput by rememberSaveable { mutableStateOf("") }
 
+    // Nilai bawaan dulu tersimpan sebagai URL/IP mentah; kosongkan supaya IP-nya
+    // tidak muncul di layar mana pun (kosong = pakai server bawaan).
+    LaunchedEffect(Unit) {
+        val current = chatRelayUrl.trim().trimEnd('/')
+        if (current.isNotEmpty() && current.equals(RoomChatClient.DEFAULT_RELAY, ignoreCase = true)) {
+            chatRelayUrl = ""
+        }
+    }
+
     // Handle events
     LaunchedEffect(Unit) {
         manager.events.collectLatest { event ->
@@ -485,7 +494,12 @@ fun ListenTogetherSettings(navController: NavController) {
                             description = {
                                 Text(
                                     when {
-                                        chatRelayUrl.isBlank() -> "31.57.178.188:6130 (bawaan)"
+                                        // Jangan tampilkan IP server bawaan; cukup nama ramahnya.
+                                        chatRelayUrl.isBlank() ||
+                                            chatRelayUrl.trim().trimEnd('/').equals(
+                                                RoomChatClient.DEFAULT_RELAY,
+                                                ignoreCase = true,
+                                            ) -> "Server meowsic-kanz (bawaan)"
                                         chatRelayUrl.equals("ntfy", ignoreCase = true) -> stringResource(R.string.chat_relay_url_free)
                                         else -> chatRelayUrl
                                     },
