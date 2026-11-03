@@ -415,7 +415,13 @@ private fun NewMiniPlayer(
                     .offset { IntOffset(offsetXAnimatable.value.roundToInt(), 0) }
                     .clip(RoundedCornerShape(32.dp))
                     .background(color = backgroundColor)
-                    .border(1.dp, outlineColor.copy(alpha = 0.3f), RoundedCornerShape(32.dp))
+                    .border(
+                        width = 1.2.dp,
+                        // Putih transparan supaya mini player punya batas jelas di atas
+                        // background/wallpaper apa pun.
+                        color = if (useDarkTheme) Color.White.copy(alpha = 0.30f) else Color.Black.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(32.dp),
+                    )
                     .clickable(
                         interactionSource = interactionSource,
                         indication = LocalIndication.current,
@@ -505,31 +511,6 @@ private fun NewMiniPlayer(
                 )
             }
 
-            // Garis progres tipis di dasar mini player.
-            // Dibaca di fase draw supaya tidak memicu recomposition tiap detik.
-            Box(
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(start = 26.dp, end = 26.dp, bottom = 5.dp)
-                        .height(2.dp)
-                        .drawBehind {
-                            val radius = CornerRadius(size.height / 2f)
-                            drawRoundRect(
-                                color = Color.White.copy(alpha = 0.2f),
-                                cornerRadius = radius,
-                            )
-                            val p = progressState.progress
-                            if (p > 0f) {
-                                drawRoundRect(
-                                    color = Color.White.copy(alpha = 0.92f),
-                                    size = Size(size.width * p, size.height),
-                                    cornerRadius = radius,
-                                )
-                            }
-                        },
-            )
         }
     }
 }
