@@ -41,7 +41,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 199
-        versionName = "0.6.6"
+        versionName = "0.6.7"
         val baseVersionName = requireNotNull(versionName)
         buildConfigField("String", "BASE_VERSION_NAME", "\"$baseVersionName\"")
         buildCommit?.let { versionName = "$baseVersionName+$it" }
