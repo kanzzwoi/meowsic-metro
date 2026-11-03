@@ -356,8 +356,9 @@ fun BottomSheetPlayer(
         }
     }
 
-    val lowTierLyricsProviders = remember { setOf("LrcLib", "Kugou", "YouTube Music", "YouTube Subtitle") }
-    val nonCachedLyricsProviders = remember { setOf("Kugou", "YouTube Music", "YouTube Subtitle") }
+    val lowTierLyricsProviders = remember { setOf("LrcLib", "YouTube Music", "YouTube Subtitle") }
+    // KuGou sekarang ikut disimpan: liriknya per kata dan sudah stabil.
+    val nonCachedLyricsProviders = remember { setOf("YouTube Music", "YouTube Subtitle") }
 
     // Status app terlihat di layar. Prefetch lagu berikutnya hanya jalan di
     // foreground supaya kuota nggak kepakai saat layar mati.
