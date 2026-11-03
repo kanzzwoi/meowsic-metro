@@ -133,6 +133,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // Tanpa env password rilis resmi, tanda tangani dengan debug keystore
+            // supaya APK rilis (jauh lebih kecil) tetap bisa menimpa instalasi yang ada.
+            signingConfig =
+                if (System.getenv("STORE_PASSWORD") != null) {
+                    signingConfigs.getByName("release")
+                } else {
+                    signingConfigs.getByName("debug")
+                }
         }
         debug {
             // -PslimDebug=true => build debug diperkecil pakai R8 supaya bisa
