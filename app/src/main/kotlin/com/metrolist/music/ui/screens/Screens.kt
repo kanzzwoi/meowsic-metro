@@ -39,9 +39,9 @@ sealed class Screens(
     )
 
     object Library : Screens(
-        titleId = R.string.filter_library,
-        iconIdInactive = R.drawable.library_music_outlined,
-        iconIdActive = R.drawable.library_music_filled,
+        titleId = R.string.nav_library,
+        iconIdInactive = R.drawable.ic_nav_library,
+        iconIdActive = R.drawable.ic_nav_library,
         route = "library"
     )
 
