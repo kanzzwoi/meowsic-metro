@@ -2268,8 +2268,11 @@ private val WORD_TIMING_REGEX = Regex("(?m)^\\s*(<[^>\\n]+:\\d|<\\d+,\\d+,\\d+>)
 /** Bandingkan teks lirik tanpa timestamp/tag, supaya penggantian versi per kata
  *  tidak mengubah susunan baris yang sedang dibaca. */
 private fun lyricsLinesMatch(a: String, b: String): Boolean {
-    fun lines(text: String): List<String> =
-        text.lineSequence()
+    fun lines(rawText: String): List<String> =
+        // Baris kredit ("Composed by", "Produced by", watermark "Kugou") tidak
+        // dihitung: kalau ikut dibandingkan, teks dua provider selalu beda.
+        com.metrolist.music.lyrics.LyricsUtils.filterLyricsCreditLines(rawText)
+            .lineSequence()
             .map { raw ->
                 // Buang timestamp [mm:ss.xx] dan SEMUA markup kata:
                 //   <kata:1.23:1.56|...>  (Paxsenix)
@@ -2290,6 +2293,8 @@ private fun lyricsLinesMatch(a: String, b: String): Boolean {
     val la = lines(a)
     val lb = lines(b)
     if (la.isEmpty() || lb.isEmpty()) return false
-    val common = la.intersect(lb.toSet()).size
-    return common.toDouble() / la.size >= 0.6
+    val common = la.intersect(lb.toSet()).size.toDouble()
+    // Ambil rasio terbaik dari dua arah: provider boleh punya baris tambahan
+    // (kredit/watermark) tanpa menggagalkan pertukaran.
+    return maxOf(common / la.size, common / lb.size) >= 0.6
 }
