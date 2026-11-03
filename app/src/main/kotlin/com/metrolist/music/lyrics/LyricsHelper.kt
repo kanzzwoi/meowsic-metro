@@ -74,7 +74,7 @@ object LyricsStats {
 /** Ada timestamp sama sekali (per baris maupun per kata). */
 private val HAS_TIMESTAMP_REGEX = Regex("\\[\\d{1,2}:\\d{2}|(?m)^\\s*<[^>\\n]+:\\d")
 
-private val WORD_LEVEL_REGEX = Regex("(?m)^\\s*<[^>\\n]+:\\d")
+private val WORD_LEVEL_REGEX = Regex("(?m)^\\s*(<[^>\\n]+:\\d|<\\d+,\\d+,\\d+>)")
 
 /**
  * Tenggat "upgrade" lirik ke kubu 1. Diukur: Paxsenix paling lama 12,78 dtk

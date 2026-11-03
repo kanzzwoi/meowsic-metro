@@ -2262,7 +2262,7 @@ private fun PlayerMoreMenuButton(
 
 
 /** LRC dengan timestamp per kata, contoh: <00:12.34>kata. */
-private val WORD_TIMING_REGEX = Regex("(?m)^\\s*<[^>\\n]+:\\d")
+private val WORD_TIMING_REGEX = Regex("(?m)^\\s*(<[^>\\n]+:\\d|<\\d+,\\d+,\\d+>)")
 
 
 /** Bandingkan teks lirik tanpa timestamp/tag, supaya penggantian versi per kata
@@ -2270,13 +2270,19 @@ private val WORD_TIMING_REGEX = Regex("(?m)^\\s*<[^>\\n]+:\\d")
 private fun lyricsLinesMatch(a: String, b: String): Boolean {
     fun lines(text: String): List<String> =
         text.lineSequence()
-            .map {
-                it.replace(Regex("^\\[\\d\\d:\\d\\d[.:]\\d{2,3}\\]"), "")
-                    .replace(Regex("^\\{agent:[^}]+\\}"), "")
-                    .replace(Regex("^\\{bg\\}"), "")
-                    .replace(Regex("(?m)^\\s*<[^>\\n]+:\\d[^>]*>"), "")
-                    .trim()
-                    .lowercase()
+            .map { raw ->
+                // Buang timestamp [mm:ss.xx] dan SEMUA markup kata:
+                //   <kata:1.23:1.56|...>  (Paxsenix)
+                //   <0,500,0>             (KuGou KRC)
+                val cleaned =
+                    raw
+                        .replace(Regex("\\[\\d\\d:\\d\\d[.:]\\d{2,3}\\]"), " ")
+                        .replace(Regex("\\{agent:[^}]+\\}"), " ")
+                        .replace(Regex("\\{bg\\}"), " ")
+                        .replace(Regex("<[^>\\n]*>"), " ")
+                // Sisakan huruf/angka saja, tanpa spasi: beda spasi & tanda baca
+                // antar provider tidak boleh menggagalkan pencocokan.
+                cleaned.lowercase().replace(Regex("[^\\p{L}\\p{N}]+"), "")
             }
             .filter { it.isNotEmpty() }
             .toList()
