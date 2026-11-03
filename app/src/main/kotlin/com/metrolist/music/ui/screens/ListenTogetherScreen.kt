@@ -603,135 +603,129 @@ private fun ConnectionStatusCard(
     onDisconnect: () -> Unit,
     onReconnect: () -> Unit,
 ) {
+    val isBusy =
+        connectionState == ConnectionState.CONNECTING ||
+            connectionState == ConnectionState.RECONNECTING
+    val isOffline =
+        connectionState == ConnectionState.DISCONNECTED ||
+            connectionState == ConnectionState.ERROR
+
+    val label =
+        when (connectionState) {
+            ConnectionState.CONNECTED -> stringResource(R.string.listen_together_connected)
+            ConnectionState.CONNECTING -> stringResource(R.string.listen_together_connecting)
+            ConnectionState.RECONNECTING -> stringResource(R.string.listen_together_reconnecting)
+            ConnectionState.ERROR -> stringResource(R.string.listen_together_error)
+            ConnectionState.DISCONNECTED -> stringResource(R.string.listen_together_disconnected)
+        }
+    val subtitle =
+        when (connectionState) {
+            ConnectionState.CONNECTED -> "Tersambung ke server"
+            ConnectionState.CONNECTING, ConnectionState.RECONNECTING -> "Menyambungkan..."
+            ConnectionState.ERROR -> "Gagal menyambung, coba lagi"
+            ConnectionState.DISCONNECTED -> "Belum tersambung ke server"
+        }
+    val accent =
+        when (connectionState) {
+            ConnectionState.CONNECTED -> MaterialTheme.colorScheme.primary
+            ConnectionState.CONNECTING, ConnectionState.RECONNECTING -> MaterialTheme.colorScheme.tertiary
+            ConnectionState.ERROR -> MaterialTheme.colorScheme.error
+            ConnectionState.DISCONNECTED -> MaterialTheme.colorScheme.onSurfaceVariant
+        }
+    val container =
+        when (connectionState) {
+            ConnectionState.CONNECTED -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+            ConnectionState.CONNECTING, ConnectionState.RECONNECTING -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)
+            ConnectionState.ERROR -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+            ConnectionState.DISCONNECTED -> MaterialTheme.colorScheme.surfaceContainerHigh
+        }
+
     Card(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .animateContentSize(
-                    animationSpec =
-                        spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow,
-                        ),
-                ),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    when (connectionState) {
-                        ConnectionState.CONNECTED -> MaterialTheme.colorScheme.primaryContainer
-                        ConnectionState.CONNECTING, ConnectionState.RECONNECTING -> MaterialTheme.colorScheme.secondaryContainer
-                        ConnectionState.ERROR -> MaterialTheme.colorScheme.errorContainer
-                        ConnectionState.DISCONNECTED -> MaterialTheme.colorScheme.surfaceContainerHigh
-                    },
-            ),
+        colors = CardDefaults.cardColors(containerColor = container),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth(),
+            Box(
+                modifier =
+                    Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(accent.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center,
             ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(
-                                color =
-                                    when (connectionState) {
-                                        ConnectionState.CONNECTED -> MaterialTheme.colorScheme.primary
-                                        ConnectionState.CONNECTING, ConnectionState.RECONNECTING -> MaterialTheme.colorScheme.tertiary
-                                        ConnectionState.ERROR -> MaterialTheme.colorScheme.error
-                                        ConnectionState.DISCONNECTED -> MaterialTheme.colorScheme.outline
-                                    },
-                            ),
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text =
-                        when (connectionState) {
-                            ConnectionState.CONNECTED -> stringResource(R.string.listen_together_connected)
-                            ConnectionState.CONNECTING -> stringResource(R.string.listen_together_connecting)
-                            ConnectionState.RECONNECTING -> stringResource(R.string.listen_together_reconnecting)
-                            ConnectionState.ERROR -> stringResource(R.string.listen_together_error)
-                            ConnectionState.DISCONNECTED -> stringResource(R.string.listen_together_disconnected)
-                        },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color =
-                        when (connectionState) {
-                            ConnectionState.CONNECTED -> MaterialTheme.colorScheme.primary
-                            ConnectionState.CONNECTING, ConnectionState.RECONNECTING -> MaterialTheme.colorScheme.tertiary
-                            ConnectionState.ERROR -> MaterialTheme.colorScheme.error
-                            ConnectionState.DISCONNECTED -> MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
-
-            if (connectionState == ConnectionState.CONNECTING || connectionState == ConnectionState.RECONNECTING) {
-                Spacer(modifier = Modifier.height(12.dp))
-                LinearProgressIndicator(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp)),
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (connectionState == ConnectionState.DISCONNECTED || connectionState == ConnectionState.ERROR) {
-                    Button(
-                        onClick = onConnect,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                            ),
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.link),
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.connect), fontWeight = FontWeight.SemiBold)
-                    }
+                if (isBusy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = accent,
+                    )
                 } else {
-                    Button(
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(accent),
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = accent,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            if (isOffline) {
+                Button(
+                    onClick = onConnect,
+                    shape = RoundedCornerShape(14.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.link),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Hubungkan", fontWeight = FontWeight.SemiBold)
+                }
+            } else {
+                Column(horizontalAlignment = Alignment.End) {
+                    TextButton(
                         onClick = onDisconnect,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                            ),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                     ) {
-                        Text(stringResource(R.string.disconnect), fontWeight = FontWeight.SemiBold)
+                        Text("Putuskan", fontWeight = FontWeight.SemiBold)
                     }
-                    FilledTonalButton(
+                    TextButton(
                         onClick = onReconnect,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
+                        enabled = !isBusy,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                     ) {
-                        Text("Reconnect", fontWeight = FontWeight.SemiBold)
+                        Text("Ulangi", style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
         }
     }
 }
-
 @Composable
 private fun RoomStatusCard(
     roomCode: String,
@@ -1198,33 +1192,63 @@ private fun JoinCreateRoomSection(
     onJoinRoom: () -> Unit,
     onFieldFocused: () -> Unit = {},
 ) {
+    val hasUsername = usernameInput.trim().isNotBlank() || savedUsername.isNotBlank()
+    val hasRoomCode = roomCodeInput.length == 8
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors =
             CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             ),
     ) {
         Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // Username input
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.group),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Mulai atau gabung",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "Bikin room baru, atau masuk pakai kode dari teman.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
             OutlinedTextField(
                 value = usernameInput,
                 onValueChange = onUsernameChange,
-                label = { Text(stringResource(R.string.username)) },
+                label = { Text("Nama kamu") },
                 placeholder = { Text(stringResource(R.string.enter_username)) },
                 leadingIcon = {
                     Icon(
                         painterResource(R.drawable.person),
                         null,
                         tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
                     )
                 },
                 trailingIcon = {
@@ -1239,7 +1263,7 @@ private fun JoinCreateRoomSection(
                 colors =
                     OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
                         focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                     ),
@@ -1249,17 +1273,17 @@ private fun JoinCreateRoomSection(
                         .onFocusChanged { if (it.isFocused) onFieldFocused() },
             )
 
-            // Room code input
             OutlinedTextField(
                 value = roomCodeInput,
                 onValueChange = { if (it.length <= 8) onRoomCodeChange(it.uppercase()) },
-                label = { Text(stringResource(R.string.room_code)) },
-                placeholder = { Text(stringResource(R.string.enter_room_code)) },
+                label = { Text("Kode room") },
+                placeholder = { Text("8 huruf dari host") },
                 leadingIcon = {
                     Icon(
                         painterResource(R.drawable.group),
                         null,
                         tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
                     )
                 },
                 trailingIcon = {
@@ -1274,7 +1298,7 @@ private fun JoinCreateRoomSection(
                 colors =
                     OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
                         focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                     ),
@@ -1285,7 +1309,6 @@ private fun JoinCreateRoomSection(
                         .onFocusChanged { if (it.isFocused) onFieldFocused() },
             )
 
-            // Waiting for approval indicator
             AnimatedVisibility(
                 visible = isJoiningRoom,
                 enter = fadeIn() + slideInVertically(),
@@ -1293,35 +1316,29 @@ private fun JoinCreateRoomSection(
             ) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
                     ) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
                             color = MaterialTheme.colorScheme.primary,
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = waitingForApprovalText,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Center,
                         )
                     }
                 }
             }
 
-            // Error message
             AnimatedVisibility(
                 visible = joinErrorMessage != null,
                 enter = fadeIn() + slideInVertically(),
@@ -1329,86 +1346,79 @@ private fun JoinCreateRoomSection(
             ) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = MaterialTheme.colorScheme.errorContainer,
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
                     ) {
                         Icon(
                             painterResource(R.drawable.error),
                             contentDescription = null,
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.onErrorContainer,
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
                         Text(
                             text = joinErrorMessage ?: "",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                             fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Center,
                         )
                     }
                 }
             }
 
-            // Action buttons
-            val hasUsername = usernameInput.trim().isNotBlank() || savedUsername.isNotBlank()
-            val hasRoomCode = roomCodeInput.length == 8
-
-            // Create Room button - visible when username is provided
-            AnimatedVisibility(visible = hasUsername && !hasRoomCode) {
-                Button(
-                    onClick = onCreateRoom,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = hasUsername,
-                    shape = RoundedCornerShape(16.dp),
-                    colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                        ),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.add),
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.create_room), fontWeight = FontWeight.SemiBold)
-                }
+            Button(
+                onClick = onCreateRoom,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                enabled = hasUsername,
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.add),
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("Buat room baru", fontWeight = FontWeight.SemiBold)
             }
 
-            // Join Room button - visible when username and room code are provided
-            AnimatedVisibility(visible = hasUsername && hasRoomCode) {
-                Button(
-                    onClick = onJoinRoom,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = hasUsername && hasRoomCode,
-                    shape = RoundedCornerShape(16.dp),
-                    colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.tertiary,
-                        ),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.login),
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.join_room), fontWeight = FontWeight.SemiBold)
-                }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                HorizontalDivider(modifier = Modifier.weight(1f))
+                Text(
+                    text = "atau",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 10.dp),
+                )
+                HorizontalDivider(modifier = Modifier.weight(1f))
+            }
+
+            OutlinedButton(
+                onClick = onJoinRoom,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                enabled = hasUsername && hasRoomCode,
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.login),
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = if (hasRoomCode) "Gabung ke room" else "Gabung (isi kode dulu)",
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
         }
     }
 }
-
 @Composable
 private fun SettingsLinkCard(onClick: () -> Unit) {
     Card(
