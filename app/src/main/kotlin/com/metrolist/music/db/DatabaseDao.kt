@@ -761,6 +761,9 @@ interface DatabaseDao {
     @Query("SELECT * FROM lyrics WHERE id = :id")
     fun lyrics(id: String?): Flow<LyricsEntity?>
 
+    @Query("SELECT * FROM lyrics WHERE id = :id")
+    fun lyricsByIdBlocking(id: String): LyricsEntity?
+
     // Bersihkan lirik lama dari provider kubu paling bawah (KuGou/YouTube).
     // Hasil seperti itu sekarang hanya ditampilkan sementara, tidak disimpan.
     @Query("DELETE FROM lyrics WHERE provider IN ('Kugou', 'YouTube Music', 'YouTube Subtitle')")

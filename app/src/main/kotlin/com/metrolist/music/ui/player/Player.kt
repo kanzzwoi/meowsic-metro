@@ -5,6 +5,8 @@
 
 package com.metrolist.music.ui.player
 
+import com.metrolist.music.lyrics.upsertLyricsKeepingTranslation
+
 import androidx.activity.compose.BackHandler
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -399,9 +401,10 @@ fun BottomSheetPlayer(
                     val sameLines = lyricsLinesMatch(cachedForCurrent.lyrics, better.lyrics)
                     if (!sameLines) return@launch
                     withContext(Dispatchers.IO) {
-                        database.query {
-                            upsert(LyricsEntity(currentMeta.id, better.lyrics, better.provider))
-                        }
+                        // Jangan hapus terjemahan yang sudah tersimpan.
+                        database.upsertLyricsKeepingTranslation(
+                            LyricsEntity(currentMeta.id, better.lyrics, better.provider),
+                        )
                     }
                 }
             }
@@ -423,9 +426,9 @@ fun BottomSheetPlayer(
         } else {
             playerConnection.setTransientLyrics(null)
             withContext(Dispatchers.IO) {
-                database.query {
-                    upsert(LyricsEntity(currentMeta.id, fetched.lyrics, fetched.provider))
-                }
+                database.upsertLyricsKeepingTranslation(
+                    LyricsEntity(currentMeta.id, fetched.lyrics, fetched.provider),
+                )
             }
         }
     }
@@ -450,9 +453,9 @@ fun BottomSheetPlayer(
         val fetched = entryPoint.lyricsHelper().getLyrics(nextMeta)
         if (fetched.provider in nonCachedLyricsProviders) return@LaunchedEffect
         withContext(Dispatchers.IO) {
-            database.query {
-                upsert(LyricsEntity(nextMeta.id, fetched.lyrics, fetched.provider))
-            }
+            database.upsertLyricsKeepingTranslation(
+                LyricsEntity(nextMeta.id, fetched.lyrics, fetched.provider),
+            )
         }
     }
 
