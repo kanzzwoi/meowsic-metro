@@ -61,7 +61,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -502,6 +504,32 @@ private fun NewMiniPlayer(
                     onSurfaceColor = onSurfaceColor,
                 )
             }
+
+            // Garis progres tipis di dasar mini player.
+            // Dibaca di fase draw supaya tidak memicu recomposition tiap detik.
+            Box(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(start = 26.dp, end = 26.dp, bottom = 5.dp)
+                        .height(2.dp)
+                        .drawBehind {
+                            val radius = CornerRadius(size.height / 2f)
+                            drawRoundRect(
+                                color = Color.White.copy(alpha = 0.2f),
+                                cornerRadius = radius,
+                            )
+                            val p = progressState.progress
+                            if (p > 0f) {
+                                drawRoundRect(
+                                    color = Color.White.copy(alpha = 0.92f),
+                                    size = Size(size.width * p, size.height),
+                                    cornerRadius = radius,
+                                )
+                            }
+                        },
+            )
         }
     }
 }
