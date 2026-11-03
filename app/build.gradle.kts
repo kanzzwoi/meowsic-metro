@@ -136,10 +136,14 @@ android {
             // Tanpa env password rilis resmi, tanda tangani dengan debug keystore
             // supaya APK rilis (jauh lebih kecil) tetap bisa menimpa instalasi yang ada.
             signingConfig =
-                if (System.getenv("STORE_PASSWORD") != null) {
-                    signingConfigs.getByName("release")
-                } else {
-                    signingConfigs.getByName("debug")
+                when {
+                    System.getenv("STORE_PASSWORD") != null -> signingConfigs.getByName("release")
+                    // Lokal: pakai debug keystore supaya APK bisa langsung dipasang.
+                    // Di CI keystore ini tidak ada -> biarkan unsigned, nanti
+                    // ditandatangani langkah "Sign APK" pada workflow.
+                    file("${System.getProperty("user.home")}/.android/debug.keystore").exists() ->
+                        signingConfigs.getByName("debug")
+                    else -> null
                 }
         }
         debug {
