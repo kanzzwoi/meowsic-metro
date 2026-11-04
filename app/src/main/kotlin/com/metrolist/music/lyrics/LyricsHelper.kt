@@ -45,10 +45,12 @@ private const val RACE_PROVIDER_TIMEOUT_MS = 10_000L
  * Paxsenix paling lambat. Kalau dalam jeda ini tidak ada yang per kata,
  * pakai lirik per baris yang paling awal muncul (tanpa penukaran diam-diam).
  */
+/**
+ * Jeda seleksi: kalau yang datang duluan masih per baris, tunggu sampai jeda ini
+ * untuk memberi kesempatan provider mana pun yang punya lirik per kata/huruf.
+ * Semua provider setara; tidak ada yang diprioritaskan berdasarkan nama.
+ */
 private const val WORD_GRACE_MS = 2_000L
-
-/** Provider yang liriknya per huruf/suku kata (paling halus sorotannya). */
-private val SYLLABLE_LEVEL_PROVIDERS = setOf("Kugou")
 private const val PROVIDER_NONE = ""
 
 /** Kubu 1 (berlomba bersamaan): siapa cepat & punya timing per kata, dia menang. */
@@ -242,12 +244,11 @@ constructor(
                     val tierB = enabledProviders.filter { it.name in TIER_2 }
                     val tierC = enabledProviders.filter { it.name !in ALL_TIER_NAMES }
 
-                    // Urutan kualitas yang diutamakan:
-                    //   3 = lirik per huruf/suku kata (KuGou KRC)
-                    //   2 = lirik per kata (BetterLyrics/Unison/LyricsPlus/Paxsenix)
-                    //   1 = lirik per baris
-                    // Hasil terbaik dalam jeda tunggu yang dipakai; tidak ada
-                    // penukaran diam-diam setelah lirik tampil.
+                    // Semua provider setara. Yang diutamakan hanya jenis liriknya:
+                    //   per kata/huruf  >  per baris
+                    // Provider mana pun yang lebih dulu membawa per kata/huruf, itu
+                    // yang dipakai. Kalau sampai jeda habis tidak ada, pakai hasil
+                    // pertama yang masuk (per baris). Tanpa penukaran diam-diam.
                     suspend fun race(
                         providers: List<LyricsProvider>,
                         graceMs: Long = 0L,
@@ -290,26 +291,15 @@ constructor(
                             }
                         }
 
-                        fun rankOf(provider: LyricsProvider, lyrics: String): Int =
-                            when {
-                                !WORD_LEVEL_REGEX.containsMatchIn(lyrics) -> 1
-                                provider.name in SYLLABLE_LEVEL_PROVIDERS -> 3
-                                else -> 2
-                            }
-
-                        // Kalau provider per huruf tidak ikut berlomba, tidak perlu
-                        // menunggu sama sekali.
-                        val waitForSyllable =
-                            graceMs > 0 && providers.any { it.name in SYLLABLE_LEVEL_PROVIDERS }
-
-                        var best: Pair<LyricsProvider, String>? = null
-                        var bestRank = 0
+                        var firstAny: Pair<LyricsProvider, String>? = null
                         var firstAt = 0L
                         val hardDeadline = System.currentTimeMillis() + RACE_PROVIDER_TIMEOUT_MS
 
                         while (true) {
+                            // Jeda seleksi dihitung dari hasil pertama; sebelum itu
+                            // tunggu sampai batas waktu provider.
                             val limit =
-                                if (firstAt == 0L || !waitForSyllable) {
+                                if (firstAt == 0L || graceMs <= 0L) {
                                     hardDeadline
                                 } else {
                                     minOf(hardDeadline, firstAt + graceMs)
@@ -324,19 +314,18 @@ constructor(
                                 } ?: break
 
                             if (firstAt == 0L) firstAt = System.currentTimeMillis()
-                            val rank = rankOf(item.first, item.second)
-                            if (rank > bestRank) {
-                                best = item
-                                bestRank = rank
+                            if (firstAny == null) firstAny = item
+                            if (WORD_LEVEL_REGEX.containsMatchIn(item.second)) {
+                                // Provider mana pun, asal per kata/huruf: pakai ini.
+                                results.close()
+                                jobs.forEach { it.cancel() }
+                                return item
                             }
-                            // Tanpa provider per huruf, tidak ada yang bisa
-                            // mengalahkan hasil per kata: langsung selesai.
-                            if (bestRank >= if (waitForSyllable) 3 else 2) break
                         }
 
                         results.close()
                         jobs.forEach { it.cancel() }
-                        return best
+                        return firstAny
                     }
 
                     val found =
