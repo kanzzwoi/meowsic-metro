@@ -23,6 +23,7 @@ import com.metrolist.music.models.MediaMetadata
 import com.metrolist.music.models.MediaMetadata.Album
 import com.metrolist.music.models.MediaMetadata.Artist
 import com.metrolist.music.models.toMediaMetadata
+import com.metrolist.music.playback.PlaybackLog
 import com.metrolist.music.playback.PlayerConnection
 import com.metrolist.music.playback.queues.YouTubeQueue
 import com.metrolist.music.utils.dataStore
@@ -117,6 +118,9 @@ class ListenTogetherManager
         // Whether we're currently syncing (to prevent feedback loops)
         @Volatile
         private var isSyncing = false
+
+        /** Track yang gagal dimuat sekali; dicoba ulang sekali saja. */
+        private val retriedTrackIds = java.util.Collections.synchronizedSet(mutableSetOf<String>())
 
         // Track the last state we synced to avoid duplicate events
         private var lastSyncedIsPlaying: Boolean? = null
@@ -1240,6 +1244,11 @@ class ListenTogetherManager
             val actionQueueTitle = action.queueTitleOrNull
 
             Timber.tag(TAG).d("Handling playback sync: ${action.action}, position: $actionPosition")
+            PlaybackLog.log(
+                "lt",
+                "guest ${action.action} track=${actionTrackId ?: "-"} pos=$actionPosition " +
+                    "local=${player.currentMediaItem?.mediaId ?: "-"} playing=${player.playWhenReady}",
+            )
 
             isSyncing = true
 
@@ -1951,8 +1960,28 @@ class ListenTogetherManager
                                 }
                             }.onFailure { e ->
                                 Timber.tag(TAG).e(e, "Failed to load track ${track.id}")
+                                PlaybackLog.log("lt", "guest gagal memuat ${track.id}: ${e.message}")
                                 playerConnection?.allowInternalSync = false
                                 isSyncing = false
+                                // Sebelumnya guest diam saja di sini (host jalan, member beku).
+                                // Coba sekali lagi, kalau masih gagal minta sinkron ulang penuh.
+                                if (currentTrackGeneration == generation) {
+                                    scope.launch {
+                                        delay(800)
+                                        if (currentTrackGeneration != generation) {
+                                            client.requestSync()
+                                            return@launch
+                                        }
+                                        if (retriedTrackIds.add(track.id)) {
+                                            PlaybackLog.log("lt", "guest coba ulang memuat ${track.id}")
+                                            syncToTrack(track, shouldPlay, position)
+                                        } else {
+                                            PlaybackLog.log("lt", "guest menyerah memuat ${track.id} -> requestSync")
+                                            retriedTrackIds.remove(track.id)
+                                            client.requestSync()
+                                        }
+                                    }
+                                }
                             }
                     } catch (e: Exception) {
                         Timber.tag(TAG).e(e, "Error syncing to track")

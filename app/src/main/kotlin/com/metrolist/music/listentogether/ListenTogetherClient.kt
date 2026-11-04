@@ -25,6 +25,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.google.protobuf.MessageLite
 import com.metrolist.music.R
+import com.metrolist.music.playback.PlaybackLog
 import com.metrolist.music.constants.ListenTogetherAutoApprovalKey
 import com.metrolist.music.constants.ListenTogetherAutoApproveSuggestionsKey
 import com.metrolist.music.constants.ListenTogetherIsHostKey
@@ -599,6 +600,13 @@ class ListenTogetherClient
         // Wake lock to keep connection alive when in a room
         private var wakeLock: PowerManager.WakeLock? = null
 
+        /** Waktu PONG terakhir dari server, untuk mendeteksi socket yang "hidup
+         *  tapi bisu" (koneksi mati tanpa onFailure, khas saat app di background). */
+        @Volatile
+        private var lastPongAt = 0L
+
+        private var heartbeatJob: Job? = null
+
         // Track notification IDs for join requests to dismiss them from both UI and notification actions
         private val joinRequestNotifications = mutableMapOf<String, Int>()
 
@@ -710,9 +718,12 @@ class ListenTogetherClient
                             response: Response,
                         ) {
                             log(LogLevel.INFO, "Connected to server")
+                            PlaybackLog.log("lt", "ws open")
+                            lastPongAt = System.currentTimeMillis()
                             _connectionState.value = ConnectionState.CONNECTED
                             reconnectAttempts = 0
                             startPingJob()
+                            startHeartbeatWatchdog()
                             evaluateBackgroundDisconnectPolicy("socket_open")
 
                             // Try to reconnect to previous session if we have a valid token
@@ -748,6 +759,7 @@ class ListenTogetherClient
                             reason: String,
                         ) {
                             log(LogLevel.INFO, "Connection closed", "Code: $code, Reason: $reason")
+                            PlaybackLog.log("lt", "ws closed code=$code reason=$reason")
                             handleDisconnect()
                         }
 
@@ -757,6 +769,7 @@ class ListenTogetherClient
                             response: Response?,
                         ) {
                             log(LogLevel.ERROR, "Connection failure", t.message)
+                            PlaybackLog.log("lt", "ws failure: ${t.javaClass.simpleName}: ${t.message}")
                             handleConnectionFailure(t)
                         }
                     },
@@ -791,6 +804,8 @@ class ListenTogetherClient
             releaseWakeLock() // Release wake lock when disconnecting
             pingJob?.cancel()
             pingJob = null
+            heartbeatJob?.cancel()
+            heartbeatJob = null
             serverClock.reset()
             lastPlaybackRevision.set(0L)
             webSocket?.close(1000, "User disconnected")
@@ -831,6 +846,32 @@ class ListenTogetherClient
                         acquireWakeLock()
                         sendTimeSyncPing()
                         delay(PING_INTERVAL_MS)
+                    }
+                }
+        }
+
+        /**
+         * Server mengirim PONG tiap ping. Kalau 90 dtk tidak ada PONG sama sekali
+         * padahal soket masih "connected", sambungan dianggap mati (sering terjadi
+         * saat app di background) lalu disambung ulang. Tanpa ini, member diam-diam
+         * berhenti menerima update lagu dari host.
+         */
+        private fun startHeartbeatWatchdog() {
+            heartbeatJob?.cancel()
+            heartbeatJob =
+                scope.launch {
+                    while (true) {
+                        delay(20_000L)
+                        if (_connectionState.value != ConnectionState.CONNECTED) continue
+                        val last = lastPongAt
+                        if (last == 0L) continue
+                        val silentFor = System.currentTimeMillis() - last
+                        if (silentFor > 90_000L) {
+                            PlaybackLog.log("lt", "heartbeat timeout ${silentFor / 1000} dtk -> reconnect")
+                            log(LogLevel.WARNING, "Heartbeat timeout", "${silentFor / 1000}s tanpa PONG")
+                            lastPongAt = System.currentTimeMillis()
+                            webSocket?.cancel()
+                        }
                     }
                 }
         }
@@ -1112,6 +1153,10 @@ class ListenTogetherClient
             try {
                 // Decode message using Protobuf
                 val (msgType, payloadBytes) = codec.decode(data)
+
+                if (msgType == MessageTypes.PONG) {
+                    lastPongAt = System.currentTimeMillis()
+                }
 
                 when (msgType) {
                     MessageTypes.ROOM_CREATED -> {
