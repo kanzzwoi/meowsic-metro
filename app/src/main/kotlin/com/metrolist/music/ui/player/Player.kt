@@ -377,10 +377,6 @@ fun BottomSheetPlayer(
         onDispose { lifecycle.removeObserver(observer) }
     }
     val preferredLyricsProviders = remember { setOf("Paxsenix", "BetterLyrics", "Unison", "LyricsPlus") }
-    val upgradedLyricsIds = remember { mutableSetOf<String>() }
-
-    val lyricsScope = rememberCoroutineScope()
-
     LaunchedEffect(mediaMetadata?.id, lyricsForFetch) {
         val currentMeta = mediaMetadata ?: return@LaunchedEffect
         val cachedForCurrent = lyricsForFetch?.takeIf { it.id == currentMeta.id }
@@ -390,27 +386,8 @@ fun BottomSheetPlayer(
                 com.metrolist.music.di.LyricsHelperEntryPoint::class.java,
             )
 
-        if (cachedForCurrent != null) {
-            // Lirik sudah tampil. Kalau masih per baris, cari versi per kata
-            // diam-diam; hanya ditukar kalau teks barisnya sama (jadi tidak
-            // ada lompatan), dan tidak pernah menahan tampilan awal.
-            val needsWordLevel = !cachedForCurrent.lyrics.contains(WORD_TIMING_REGEX)
-            if (needsWordLevel && upgradedLyricsIds.add(currentMeta.id)) {
-                lyricsScope.launch {
-                    val better = entryPoint.lyricsHelper().getTierOneLyrics(currentMeta) ?: return@launch
-                    if (better.provider == cachedForCurrent.provider) return@launch
-                    val sameLines = lyricsLinesMatch(cachedForCurrent.lyrics, better.lyrics)
-                    if (!sameLines) return@launch
-                    withContext(Dispatchers.IO) {
-                        // Jangan hapus terjemahan yang sudah tersimpan.
-                        database.upsertLyricsKeepingTranslation(
-                            LyricsEntity(currentMeta.id, better.lyrics, better.provider),
-                        )
-                    }
-                }
-            }
-            return@LaunchedEffect
-        }
+        // Lirik sudah ada (dari cache): langsung pakai, tanpa penukaran diam-diam.
+        if (cachedForCurrent != null) return@LaunchedEffect
 
         // Belum ada lirik: tampilkan hasil TERCEPAT apa pun levelnya.
         val startedAt = System.currentTimeMillis()
@@ -2278,38 +2255,3 @@ private fun PlayerMoreMenuButton(
 
 /** LRC dengan timestamp per kata, contoh: <00:12.34>kata. */
 private val WORD_TIMING_REGEX = Regex("(?m)^\\s*(<[^>\\n]+:\\d|<\\d+,\\d+,\\d+>)")
-
-
-/** Bandingkan teks lirik tanpa timestamp/tag, supaya penggantian versi per kata
- *  tidak mengubah susunan baris yang sedang dibaca. */
-private fun lyricsLinesMatch(a: String, b: String): Boolean {
-    fun lines(rawText: String): List<String> =
-        // Baris kredit ("Composed by", "Produced by", watermark "Kugou") tidak
-        // dihitung: kalau ikut dibandingkan, teks dua provider selalu beda.
-        com.metrolist.music.lyrics.LyricsUtils.filterLyricsCreditLines(rawText)
-            .lineSequence()
-            .map { raw ->
-                // Buang timestamp [mm:ss.xx] dan SEMUA markup kata:
-                //   <kata:1.23:1.56|...>  (Paxsenix)
-                //   <0,500,0>             (KuGou KRC)
-                val cleaned =
-                    raw
-                        .replace(Regex("\\[\\d\\d:\\d\\d[.:]\\d{2,3}\\]"), " ")
-                        .replace(Regex("\\{agent:[^}]+\\}"), " ")
-                        .replace(Regex("\\{bg\\}"), " ")
-                        .replace(Regex("<[^>\\n]*>"), " ")
-                // Sisakan huruf/angka saja, tanpa spasi: beda spasi & tanda baca
-                // antar provider tidak boleh menggagalkan pencocokan.
-                cleaned.lowercase().replace(Regex("[^\\p{L}\\p{N}]+"), "")
-            }
-            .filter { it.isNotEmpty() }
-            .toList()
-
-    val la = lines(a)
-    val lb = lines(b)
-    if (la.isEmpty() || lb.isEmpty()) return false
-    val common = la.intersect(lb.toSet()).size.toDouble()
-    // Ambil rasio terbaik dari dua arah: provider boleh punya baris tambahan
-    // (kredit/watermark) tanpa menggagalkan pertukaran.
-    return maxOf(common / la.size, common / lb.size) >= 0.6
-}

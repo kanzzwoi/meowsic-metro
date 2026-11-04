@@ -20,6 +20,7 @@ import kotlinx.coroutines.CompletableDeferred
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -39,11 +40,12 @@ private const val PER_PROVIDER_TIMEOUT_MS = 10_000L
 private const val RACE_PROVIDER_TIMEOUT_MS = 10_000L
 
 /**
- * Kalau belum ada lirik per kata setelah jeda ini, tampilkan dulu versi per
- * baris (sementara). Upgrade ke per kata jalan di background.
- * Dibuat pendek supaya lirik selalu muncul cepat; kualitas menyusul.
+ * Jeda tunggu lirik PER KATA sebelum jatuh ke versi per baris.
+ * Provider per kata (BetterLyrics/Unison/LyricsPlus/KuGou) biasanya 0,3-1,5 dtk;
+ * Paxsenix paling lambat. Kalau dalam jeda ini tidak ada yang per kata,
+ * pakai lirik per baris yang paling awal muncul (tanpa penukaran diam-diam).
  */
-private const val LINE_FALLBACK_WAIT_MS = 1_500L
+private const val WORD_GRACE_MS = 2_000L
 private const val PROVIDER_NONE = ""
 
 /** Kubu 1 (berlomba bersamaan): siapa cepat & punya timing per kata, dia menang. */
@@ -237,23 +239,23 @@ constructor(
                     val tierB = enabledProviders.filter { it.name in TIER_2 }
                     val tierC = enabledProviders.filter { it.name !in ALL_TIER_NAMES }
 
-                    // Tanpa fase menunggu: provider mana pun yang balas pertama
-                    // langsung dipakai. Lirik tanpa timestamp (plain) dianggap
-                    // gagal karena tidak bisa disinkronkan. Kualitas per kata
-                    // dikejar di belakang layar lewat jalur upgrade.
-                    suspend fun race(providers: List<LyricsProvider>): Pair<LyricsProvider, String>? {
+                    // Lirik PER KATA diutamakan: begitu ada yang per kata, itu
+                    // yang dipakai. Kalau yang datang lebih dulu per baris, tunggu
+                    // sebentar (WORD_GRACE_MS); bila tidak ada per kata, pakai
+                    // per baris yang paling awal muncul. Tidak ada penukaran
+                    // diam-diam setelah lirik tampil.
+                    suspend fun race(
+                        providers: List<LyricsProvider>,
+                        graceMs: Long = 0L,
+                    ): Pair<LyricsProvider, String>? {
                         if (providers.isEmpty()) return null
-                        val winner = CompletableDeferred<Pair<LyricsProvider, String>>()
-                        // CopyOnWriteArrayList aman dibaca sambil ditulis (joinToString
-                        // meng iterasi list, synchronizedList tidak aman untuk itu).
+                        val results = Channel<Pair<LyricsProvider, String>>(Channel.UNLIMITED)
                         val notes = java.util.concurrent.CopyOnWriteArrayList<String>()
-                        // Job dikumpulkan supaya yang belum selesai bisa dibatalkan
-                        // begitu ada pemenang. Tanpa ini coroutineScope menunggu
-                        // SEMUA provider selesai (Paxsenix bisa 10 dtk) sebelum
-                        // hasil dikembalikan.
                         val jobs = mutableListOf<Job>()
+                        val done = java.util.concurrent.atomic.AtomicInteger(0)
                         providers.forEach { provider ->
                             jobs += launch(Dispatchers.IO) {
+                              try {
                                 val t0 = System.currentTimeMillis()
                                 val lyrics = fetch(provider, RACE_PROVIDER_TIMEOUT_MS)
                                 val spent = (System.currentTimeMillis() - t0) / 1000.0
@@ -275,16 +277,47 @@ constructor(
                                     "${provider.name}: " +
                                         if (WORD_LEVEL_REGEX.containsMatchIn(usable)) "per kata" else "per baris",
                                 )
-                                winner.complete(provider to usable)
+                                results.trySend(provider to usable)
+                              } finally {
+                                // Semua provider selesai (berhasil/gagal) -> jangan
+                                // menunggu batas waktu penuh; langsung lanjut.
+                                if (done.incrementAndGet() == providers.size) results.close()
+                              }
                             }
                         }
-                        val result = withTimeoutOrNull(RACE_PROVIDER_TIMEOUT_MS) { winner.await() }
+
+                        var firstLine: Pair<LyricsProvider, String>? = null
+                        var lineDeadline = 0L
+                        val hardDeadline = System.currentTimeMillis() + RACE_PROVIDER_TIMEOUT_MS
+                        var answer: Pair<LyricsProvider, String>? = null
+
+                        while (true) {
+                            val limit = if (firstLine == null) hardDeadline else minOf(hardDeadline, lineDeadline)
+                            val remaining = limit - System.currentTimeMillis()
+                            if (remaining <= 0) break
+                            val item =
+                                try {
+                                    withTimeoutOrNull(remaining) { results.receive() }
+                                } catch (e: kotlinx.coroutines.channels.ClosedReceiveChannelException) {
+                                    null
+                                } ?: break
+                            if (WORD_LEVEL_REGEX.containsMatchIn(item.second)) {
+                                answer = item
+                                break
+                            }
+                            if (firstLine == null) {
+                                firstLine = item
+                                lineDeadline = System.currentTimeMillis() + graceMs
+                            }
+                        }
+
+                        results.close()
                         jobs.forEach { it.cancel() }
-                        return result
+                        return answer ?: firstLine
                     }
 
                     val found =
-                        race(tierA)
+                        race(tierA, WORD_GRACE_MS)
                             ?: race(tierB)?.also {
                                 Timber.tag("LyricsHelper").i("cadangan: ${it.first.name}")
                             }
