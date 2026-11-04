@@ -81,6 +81,7 @@ import com.metrolist.music.R
 import com.metrolist.music.constants.ListenTogetherAutoApprovalKey
 import com.metrolist.music.constants.ListenTogetherAutoApproveSuggestionsKey
 import com.metrolist.music.constants.ListenTogetherServerUrlKey
+import com.metrolist.music.constants.ListenTogetherGuestDelayKey
 import com.metrolist.music.constants.ListenTogetherSyncVolumeKey
 import com.metrolist.music.constants.ChatRelayUrlKey
 import com.metrolist.music.constants.ChatUseFreeServiceKey
@@ -125,6 +126,7 @@ fun ListenTogetherSettings(navController: NavController) {
     var autoApprovalJoins by rememberPreference(ListenTogetherAutoApprovalKey, false)
     var autoApproveSuggestions by rememberPreference(ListenTogetherAutoApproveSuggestionsKey, false)
     var syncHostVolume by rememberPreference(ListenTogetherSyncVolumeKey, true)
+    var guestDelay by rememberPreference(ListenTogetherGuestDelayKey, 1500)
 
     var showServerUrlDialog by rememberSaveable { mutableStateOf(false) }
     var showUsernameDialog by rememberSaveable { mutableStateOf(false) }
@@ -607,6 +609,31 @@ fun ListenTogetherSettings(navController: NavController) {
                                 )
                             },
                             onClick = { syncHostVolume = !syncHostVolume },
+                        ),
+                        IntegrationCardItem(
+                            icon = painterResource(R.drawable.timer),
+                            title = { Text("Jeda member") },
+                            description = {
+                                Text(
+                                    "Pemutaran member ditunda ${guestDelay} ms supaya tidak jalan lebih dulu dari host. " +
+                                        "Ketuk untuk mengubah.",
+                                )
+                            },
+                            trailingContent = {
+                                Text(
+                                    if (guestDelay == 0) "Off" else "${guestDelay / 1000.0} dtk",
+                                )
+                            },
+                            onClick = {
+                                guestDelay =
+                                    when (guestDelay) {
+                                        0 -> 1000
+                                        1000 -> 1500
+                                        1500 -> 2000
+                                        2000 -> 3000
+                                        else -> 0
+                                    }
+                            },
                         ),
                         IntegrationCardItem(
                             icon = painterResource(R.drawable.bug_report),

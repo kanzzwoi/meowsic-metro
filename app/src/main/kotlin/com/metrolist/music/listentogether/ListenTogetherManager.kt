@@ -132,6 +132,11 @@ class ListenTogetherManager
 
         private var guestStallJob: Job? = null
 
+        /** Kompensasi keterlambatan member (ms). Member ditahan sedikit di belakang
+         *  host supaya tidak pernah memutar lagu lebih dulu. */
+        @Volatile
+        private var guestDelayMs: Long = 1500L
+
         // Track ID being buffered
         private var bufferingTrackId: String? = null
 
@@ -616,6 +621,12 @@ class ListenTogetherManager
                     }
                 },
             )
+
+            scope.launch {
+                context.dataStore.data.collect { prefs ->
+                    guestDelayMs = (prefs[com.metrolist.music.constants.ListenTogetherGuestDelayKey] ?: 1500).toLong()
+                }
+            }
 
             startGuestStallWatchdog()
 
@@ -1344,7 +1355,11 @@ class ListenTogetherManager
                     PlaybackActions.PLAY -> {
                         val basePos = actionPosition ?: 0L
                         val now = SystemClock.elapsedRealtime()
-                        val adjustedPos = client.positionAtServerTime(basePos, actionServerTime, isPlaying = true)
+                        val adjustedPos =
+                            (
+                                client.positionAtServerTime(basePos, actionServerTime, isPlaying = true) -
+                                    if (isHost) 0L else guestDelayMs
+                            ).coerceAtLeast(0L)
 
                         Timber.tag(TAG).d("Guest: PLAY at position $adjustedPos, currently playing=${player.playWhenReady}")
 
@@ -1483,7 +1498,11 @@ class ListenTogetherManager
                         val pos = actionPosition ?: 0L
                         val now = SystemClock.elapsedRealtime()
                         val playing = roomState.value?.isPlaying == true
-                        val adjustedPos = client.positionAtServerTime(pos, actionServerTime, playing)
+                        val adjustedPos =
+                            (
+                                client.positionAtServerTime(pos, actionServerTime, playing) -
+                                    if (isHost) 0L else guestDelayMs
+                            ).coerceAtLeast(0L)
 
                         val seekTarget = actionTrackId
                         if (bufferingTrackId != null && (seekTarget == null || seekTarget == bufferingTrackId)) {

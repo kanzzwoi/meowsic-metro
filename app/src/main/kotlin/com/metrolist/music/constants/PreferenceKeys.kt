@@ -205,6 +205,9 @@ val ListenTogetherAvatarColorKey = stringPreferencesKey("listenTogetherAvatarCol
 val ListenTogetherAutoApprovalKey = booleanPreferencesKey("listenTogetherAutoApproval")
 val ListenTogetherAutoApproveSuggestionsKey = booleanPreferencesKey("listenTogetherAutoApproveSuggestions")
 val ListenTogetherSyncVolumeKey = booleanPreferencesKey("listenTogetherSyncVolume")
+
+/** Jeda pemutaran member (ms) supaya member tidak jalan lebih dulu dari host. */
+val ListenTogetherGuestDelayKey = intPreferencesKey("listenTogetherGuestDelayMs")
 val ListenTogetherBlockedUsersKey = stringPreferencesKey("listenTogetherBlockedUsers")
 val ListenTogetherInTopBarKey = booleanPreferencesKey("listenTogetherInTopBar")
 
