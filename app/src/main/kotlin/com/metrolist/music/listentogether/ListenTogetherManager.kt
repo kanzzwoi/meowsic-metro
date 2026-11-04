@@ -23,6 +23,7 @@ import com.metrolist.music.models.MediaMetadata
 import com.metrolist.music.models.MediaMetadata.Album
 import com.metrolist.music.models.MediaMetadata.Artist
 import com.metrolist.music.models.toMediaMetadata
+import com.metrolist.music.playback.MusicService
 import com.metrolist.music.playback.PlaybackLog
 import com.metrolist.music.playback.PlayerConnection
 import com.metrolist.music.playback.queues.YouTubeQueue
@@ -604,6 +605,16 @@ class ListenTogetherManager
                     }
                 }
 
+            // Kalau promosi sempat ditolak saat app di background, coba lagi
+            // begitu app terlihat. Tanpa ini, sesi bisa "bisu" sampai app dibuka.
+            androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(
+                object : androidx.lifecycle.DefaultLifecycleObserver {
+                    override fun onStart(owner: androidx.lifecycle.LifecycleOwner) {
+                        if (isInRoom) MusicService.promoteForeground(context)
+                    }
+                },
+            )
+
             // Role change listener
             scope.launch {
                 role.collect { newRole ->
@@ -689,6 +700,8 @@ class ListenTogetherManager
                         startQueueSyncObservation()
                         startHeartbeat()
                         startVolumeSyncObservation()
+                        // Jaga service tetap foreground selama sesi (app masih di depan).
+                        MusicService.promoteForeground(context)
                     } catch (e: Exception) {
                         Timber.tag(TAG).e(e, "Error handling RoomCreated event")
                     }
@@ -711,6 +724,9 @@ class ListenTogetherManager
                     )
                     applyHostVolumeIfNeeded(event.state.volume)
                     updateGuestMuteState()
+                    // App masih di depan di titik ini: amankan status foreground
+                    // supaya perintah play dari host nanti tetap boleh jalan.
+                    MusicService.promoteForeground(context)
                 }
 
                 is ListenTogetherEvent.PlaybackSync -> {

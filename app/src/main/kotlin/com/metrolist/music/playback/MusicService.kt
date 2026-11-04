@@ -4427,6 +4427,12 @@ class MusicService :
         flags: Int,
         startId: Int,
     ): Int {
+        if (intent?.action == ACTION_PROMOTE_FOREGROUND) {
+            // App sedang di depan saat intent ini dikirim, jadi promosi sah.
+            PlaybackLog.log("service", "promoteForeground diterima")
+            ensureStartedAsForegroundOrStop()
+            return START_STICKY
+        }
         if (taskCleared) {
             // A media button press (headset, car) is the user resuming; anything else is a stale restart.
             if (intent?.action != Intent.ACTION_MEDIA_BUTTON) {
@@ -5052,6 +5058,28 @@ class MusicService :
     }
 
     companion object {
+        const val ACTION_PROMOTE_FOREGROUND = "com.metrolist.music.action.PROMOTE_FOREGROUND"
+
+        /**
+         * Jadikan service foreground selagi app masih di depan.
+         *
+         * Dipakai fitur Dengar Bersama: kalau promosi baru dicoba saat perintah
+         * "play" datang dari host sementara app sudah di background, Android 12+
+         * menolaknya (ForegroundServiceStartNotAllowedException) sehingga notifikasi
+         * hilang dan tidak ada suara. Dengan promosi awal ini, kondisi itu tidak
+         * pernah terjadi.
+         */
+        fun promoteForeground(context: Context) {
+            runCatching {
+                androidx.core.content.ContextCompat.startForegroundService(
+                    context,
+                    Intent(context, MusicService::class.java).setAction(ACTION_PROMOTE_FOREGROUND),
+                )
+            }.onFailure {
+                PlaybackLog.log("service", "promoteForeground gagal: ${it.message}")
+            }
+        }
+
         const val ACTION_ALARM_TRIGGER = "com.metrolist.music.action.ALARM_TRIGGER"
         const val EXTRA_ALARM_ID = "extra_alarm_id"
         const val EXTRA_ALARM_PLAYLIST_ID = "extra_alarm_playlist_id"
