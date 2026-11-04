@@ -8,6 +8,7 @@ package com.metrolist.music.playback
 import android.content.Context
 import android.net.ConnectivityManager
 import androidx.core.content.getSystemService
+import dagger.hilt.android.EntryPointAccessors
 import androidx.core.net.toUri
 import androidx.media3.database.DatabaseProvider
 import androidx.media3.datasource.HttpDataSource
@@ -31,10 +32,13 @@ import com.metrolist.music.constants.AudioQualityKey
 import com.metrolist.music.db.MusicDatabase
 import com.metrolist.music.db.entities.AlbumEntity
 import com.metrolist.music.db.entities.FormatEntity
+import com.metrolist.music.db.entities.LyricsEntity
 import com.metrolist.music.db.entities.Song
 import com.metrolist.music.db.entities.SongEntity
 import com.metrolist.music.di.DownloadCache
+import com.metrolist.music.di.LyricsHelperEntryPoint
 import com.metrolist.music.di.PlayerCache
+import com.metrolist.music.lyrics.upsertLyricsKeepingTranslation
 import com.metrolist.music.models.MediaMetadata
 import com.metrolist.music.models.toMediaMetadata
 import com.metrolist.music.utils.InnerTubeXPlayer
@@ -48,6 +52,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -265,6 +270,7 @@ constructor(
                                 Download.STATE_COMPLETED -> {
                                     removeFromPlayerCache(download.request.id)
                                     database.updateDownloadedInfo(download.request.id, true, LocalDateTime.now())
+                                    fetchLyricsForDownloadedSong(download.request.id)
                                 }
                                 Download.STATE_FAILED,
                                 Download.STATE_STOPPED,
@@ -393,6 +399,30 @@ constructor(
             database.getSongByIdBlocking(songId)?.let { song ->
                 download(song)
             }
+        }
+    }
+
+    /**
+     * Lirik ikut disimpan saat lagu selesai diunduh, supaya mode offline lengkap.
+     * Sebelumnya lirik hanya ter-cache bila layar lirik pernah dibuka online.
+     */
+    private fun fetchLyricsForDownloadedSong(songId: String) {
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                if (database.lyricsByIdBlocking(songId) != null) return@runCatching
+                val song = database.song(songId).first() ?: return@runCatching
+                val helper =
+                    EntryPointAccessors
+                        .fromApplication(context.applicationContext, LyricsHelperEntryPoint::class.java)
+                        .lyricsHelper()
+                val result = helper.getLyrics(song.toMediaMetadata())
+                if (result.provider.isBlank() || result.lyrics == LyricsEntity.LYRICS_NOT_FOUND) {
+                    return@runCatching
+                }
+                database.upsertLyricsKeepingTranslation(
+                    LyricsEntity(songId, result.lyrics, result.provider),
+                )
+            }.onFailure { Timber.tag(TAG).w(it, "Gagal mengunduh lirik untuk $songId") }
         }
     }
 

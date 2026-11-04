@@ -881,14 +881,19 @@ class MusicService :
                     .first() == null
             ) {
                 val lyricsWithProvider = lyricsHelper.getLyrics(mediaMetadata)
-                database.query {
-                    upsert(
-                        LyricsEntity(
-                            id = mediaMetadata.id,
-                            lyrics = lyricsWithProvider.lyrics,
-                            provider = lyricsWithProvider.provider,
-                        ),
-                    )
+                // Jangan simpan kegagalan; biar dicoba lagi lain waktu.
+                if (lyricsWithProvider.lyrics != LyricsEntity.LYRICS_NOT_FOUND &&
+                    lyricsWithProvider.provider.isNotBlank()
+                ) {
+                    database.query {
+                        upsert(
+                            LyricsEntity(
+                                id = mediaMetadata.id,
+                                lyrics = lyricsWithProvider.lyrics,
+                                provider = lyricsWithProvider.provider,
+                            ),
+                        )
+                    }
                 }
             }
         }

@@ -422,6 +422,17 @@ fun BottomSheetPlayer(
                 (System.currentTimeMillis() - startedAt) / 1000.0,
                 if (WORD_TIMING_REGEX.containsMatchIn(fetched.lyrics)) "per kata" else "per baris",
             ) + (com.metrolist.music.lyrics.LyricsStats.detail?.let { " [$it]" } ?: "")
+        // Kegagalan JANGAN disimpan: dulu LYRICS_NOT_FOUND ditulis permanen
+        // sehingga lagu yang sekali gagal terus "tidak ditemukan" walau nanti
+        // providernya sudah punya. Sekarang hanya ditampilkan sementara.
+        val notFound =
+            fetched.lyrics == LyricsEntity.LYRICS_NOT_FOUND ||
+                fetched.provider.isBlank()
+        if (notFound) {
+            playerConnection.setTransientLyrics(LyricsEntity(currentMeta.id, fetched.lyrics, fetched.provider))
+            return@LaunchedEffect
+        }
+
         if (fetched.provider in nonCachedLyricsProviders) {
             playerConnection.setTransientLyrics(LyricsEntity(currentMeta.id, fetched.lyrics, fetched.provider))
         } else {
