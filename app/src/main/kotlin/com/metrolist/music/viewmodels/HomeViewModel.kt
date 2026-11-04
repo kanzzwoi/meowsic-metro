@@ -259,9 +259,11 @@ class HomeViewModel @Inject constructor(
 	val showWrappedCard: StateFlow<Boolean> = context.dataStore.data.map { prefs ->
         val showWrappedPref = prefs[ShowWrappedCardKey] ?: false
         val seen = prefs[WrappedSeenKey] ?: false
-        val isBeforeDate = LocalDate.now().isBefore(LocalDate.of(2026, 2, 1))
 
-        isBeforeDate && (!seen || showWrappedPref)
+        // Dulu ada pembatas tanggal (sebelum 1 Feb 2026) sehingga kartu hilang
+        // permanen setelah tanggal itu. Sekarang cukup: belum pernah dilihat,
+        // atau user memang menyalakannya di pengaturan.
+        !seen || showWrappedPref
     }.stateIn(viewModelScope, SharingStarted.Lazily, false)
 
     val wrappedSeen: StateFlow<Boolean> = context.dataStore.data.map { prefs ->
