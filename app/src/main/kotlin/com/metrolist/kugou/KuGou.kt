@@ -16,7 +16,18 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.lang.Integer.min
 import kotlin.math.abs
 
@@ -89,14 +100,96 @@ object KuGou {
         }
     }
 
+    private data class SongHit(
+        val hash: String,
+        val songname: String,
+        val singername: String,
+        val duration: Int,
+    )
+
+    /**
+     * Pencarian lagu lewat endpoint web (songsearch.kugou.com). Endpoint lama
+     * (mobileservice) butuh ~5 dtk, sedangkan yang ini ~2 dtk — penting karena
+     * lirik KuGou harus selesai sebelum jeda tunggu lirik per kata habis.
+     */
+    private suspend fun searchSongsFast(keyword: Keyword): List<SongHit> {
+        val root: JsonElement =
+            client.get("https://songsearch.kugou.com/song_search_v2") {
+                parameter("keyword", buildSearchQuery(keyword))
+                parameter("page", 1)
+                parameter("pagesize", PAGE_SIZE)
+                parameter("platform", "WebFilter")
+                parameter("userid", -1)
+                parameter("clientver", 2000)
+                parameter("iscorrection", 1)
+                parameter("privilege_filter", 0)
+            }.body()
+        val lists = root.jsonObject["data"]?.jsonObject?.get("lists")?.jsonArray ?: return emptyList()
+        return lists.mapNotNull { element ->
+            val item = element.jsonObject
+            val hash = item["FileHash"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val name = item["SongName"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            SongHit(
+                hash = hash.lowercase(),
+                songname = name,
+                singername = item["SingerName"]?.jsonPrimitive?.contentOrNull ?: "",
+                duration = item["Duration"]?.jsonPrimitive?.intOrNull ?: -1,
+            )
+        }
+    }
+
+    private fun buildSearchQuery(keyword: Keyword): String =
+        buildString {
+            append(keyword.title)
+            append(" - ")
+            append(keyword.artist)
+            if (!keyword.album.isNullOrBlank()) {
+                append(" ")
+                append(keyword.album)
+            }
+        }
+
+    /** Dua jalur pencarian berjalan bersamaan; yang pertama dapat hasil dipakai. */
+    private suspend fun searchSongHits(keyword: Keyword): List<SongHit> =
+        coroutineScope {
+            val first = CompletableDeferred<List<SongHit>>()
+            fun offer(hits: List<SongHit>) {
+                if (hits.isNotEmpty() && !first.isCompleted) first.complete(hits)
+            }
+
+            val jobs =
+                listOf(
+                    launch(Dispatchers.IO) {
+                        offer(runCatching { searchSongsFast(keyword) }.getOrDefault(emptyList()))
+                    },
+                    launch(Dispatchers.IO) {
+                        offer(
+                            runCatching {
+                                searchSongs(keyword).data.info.mapNotNull { info ->
+                                    val hash = info.hash ?: return@mapNotNull null
+                                    val name = info.songname ?: return@mapNotNull null
+                                    SongHit(hash, name, info.singername ?: "", info.duration)
+                                }
+                            }.getOrDefault(emptyList()),
+                        )
+                    },
+                )
+
+            val hits = withTimeoutOrNull(8_000) { first.await() } ?: emptyList()
+            jobs.forEach { it.cancel() }
+            hits
+        }
+
     suspend fun getLyricsCandidate(
         keyword: Keyword, duration: Int
     ): SearchLyricsResponse.Candidate? {
         // KuGou suka mencocokkan lagu China yang durasinya kebetulan mirip.
         // Jadi judul & artis wajib dicek dulu; kalau tidak yakin, lebih baik
         // tidak ada lirik daripada lirik lagu lain.
-        searchSongs(keyword).data.info.forEach { song ->
-            val durationOk = duration == -1 || abs(song.duration - duration) <= DURATION_TOLERANCE
+        searchSongHits(keyword).forEach { song ->
+            val durationOk =
+                duration == -1 ||
+                    (song.duration != -1 && abs(song.duration - duration) <= DURATION_TOLERANCE)
             if (!durationOk) return@forEach
             if (!looksLikeSameSong(keyword, song.songname, song.singername)) return@forEach
             val candidate = searchLyricsByHash(song.hash).candidates.firstOrNull()

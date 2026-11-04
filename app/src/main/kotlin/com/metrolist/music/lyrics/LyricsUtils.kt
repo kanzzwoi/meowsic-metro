@@ -55,6 +55,19 @@ object LyricsUtils {
                 stripping = textContent.length < prevLength
             }
 
+            // Blok per kata (BetterLyrics/KuGou): "<Kata:1.2:3.4|Kata2:...>".
+            // Tanpa ini, baris kredit seperti "Lyrics by" lolos karena masih
+            // dibungkus markup dan tampil mentah di layar lirik.
+            if (textContent.startsWith("<")) {
+                textContent =
+                    textContent
+                        .removePrefix("<")
+                        .removeSuffix(">")
+                        .split("|")
+                        .joinToString(" ") { it.substringBefore(":").trim() }
+                        .trim()
+            }
+
             val lowerText = textContent.lowercase(Locale.getDefault())
             
             val creditPrefixes =

@@ -45,7 +45,7 @@ private const val RACE_PROVIDER_TIMEOUT_MS = 10_000L
  * Paxsenix paling lambat. Kalau dalam jeda ini tidak ada yang per kata,
  * pakai lirik per baris yang paling awal muncul (tanpa penukaran diam-diam).
  */
-private const val WORD_GRACE_MS = 2_000L
+private const val WORD_GRACE_MS = 2_500L
 private const val PROVIDER_NONE = ""
 
 /** Kubu 1 (berlomba bersamaan): siapa cepat & punya timing per kata, dia menang. */
