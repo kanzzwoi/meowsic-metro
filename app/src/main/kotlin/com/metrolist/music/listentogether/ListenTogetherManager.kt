@@ -130,6 +130,8 @@ class ListenTogetherManager
         // Track last sync action time for debouncing (prevents excessive seeking/pausing)
         private var lastSyncActionTime: Long = 0L
 
+        private var guestStallJob: Job? = null
+
         // Track ID being buffered
         private var bufferingTrackId: String? = null
 
@@ -615,6 +617,8 @@ class ListenTogetherManager
                 },
             )
 
+            startGuestStallWatchdog()
+
             // Role change listener
             scope.launch {
                 role.collect { newRole ->
@@ -652,6 +656,71 @@ class ListenTogetherManager
                     }
                 }
             }
+        }
+
+        /**
+         * Member kadang "nyangkut": playWhenReady=true tapi audio tidak jalan dan
+         * posisi tidak maju, sementara posisi di layar tetap jalan karena dihitung
+         * dari jam server. Di sini dideteksi lalu dipulihkan dengan toggle pause/play
+         * (persis yang biasanya dilakukan manual).
+         */
+        private fun startGuestStallWatchdog() {
+            guestStallJob?.cancel()
+            guestStallJob =
+                scope.launch {
+                    var lastPosition = -1L
+                    var lastProgressAt = SystemClock.elapsedRealtime()
+                    var recoveries = 0
+
+                    while (true) {
+                        delay(2_000L)
+                        if (!isInRoom || isHost) {
+                            lastPosition = -1L
+                            recoveries = 0
+                            continue
+                        }
+                        val connection = playerConnection ?: continue
+                        val player = connection.player
+
+                        if (!player.playWhenReady) {
+                            lastPosition = -1L
+                            continue
+                        }
+                        if (player.playbackState == Player.STATE_BUFFERING) {
+                            // Buffering wajar; jangan dianggap macet.
+                            lastPosition = -1L
+                            lastProgressAt = SystemClock.elapsedRealtime()
+                            continue
+                        }
+
+                        val position = player.currentPosition
+                        if (position != lastPosition) {
+                            lastPosition = position
+                            lastProgressAt = SystemClock.elapsedRealtime()
+                            recoveries = 0
+                            continue
+                        }
+
+                        val stalledMs = SystemClock.elapsedRealtime() - lastProgressAt
+                        val frozen = stalledMs > 6_000L
+                        val silent = !player.isPlaying
+                        if (frozen && silent && recoveries < 3) {
+                            recoveries++
+                            PlaybackLog.log(
+                                "lt",
+                                "guest macet ${stalledMs / 1000} dtk (pos=$position) -> pause/play",
+                            )
+                            runCatching {
+                                connection.pause()
+                                delay(150L)
+                                connection.play()
+                            }.onFailure {
+                                PlaybackLog.log("lt", "recover gagal: ${it.message}")
+                            }
+                            lastProgressAt = SystemClock.elapsedRealtime()
+                        }
+                    }
+                }
         }
 
         private fun handleEvent(event: ListenTogetherEvent) {
@@ -940,6 +1009,8 @@ class ListenTogetherManager
             stopHeartbeat()
             stopVolumeSyncObservation()
             cancelDriftCorrection()
+            guestStallJob?.cancel()
+            guestStallJob = null
             // Note: Don't clear shouldBlockPlaybackChanges callback - it checks isInRoom dynamically
             lastSyncedIsPlaying = null
             lastSyncedTrackId = null
@@ -1321,6 +1392,17 @@ class ListenTogetherManager
 
                         val posDiff = kotlin.math.abs(player.currentPosition - adjustedPos)
                         val alreadyPlaying = player.playWhenReady
+
+                        // Saat masih buffering, seek justru merestart buffer: audio
+                        // tidak pernah keluar sementara heartbeat host terus memajukan
+                        // posisi (detik di notifikasi loncat-loncat). Biarkan buffer
+                        // selesai dulu.
+                        if (player.playbackState == Player.STATE_BUFFERING) {
+                            if (!alreadyPlaying) connection.play()
+                            lastSyncActionTime = now
+                            return
+                        }
+
                         if (alreadyPlaying) {
                             // PLAY is also the host heartbeat, so ordinary drift must not interrupt playback.
                             if (shouldSeekDuringActivePlayback(posDiff, player.playbackState == Player.STATE_READY)) {
