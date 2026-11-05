@@ -15,12 +15,22 @@ import com.metrolist.innertube.models.SongItem
 import com.metrolist.music.db.entities.Song
 import com.metrolist.music.models.MediaMetadata
 import com.metrolist.music.models.toMediaMetadata
+import com.metrolist.music.ui.utils.resize
 import com.metrolist.music.utils.ArtistNameAliases
 
 val MediaItem.metadata: MediaMetadata?
     get() = localConfiguration?.tag as? MediaMetadata
 
 fun Song.toMediaItem() = toMediaMetadata().toMediaItem()
+
+/**
+ * Gambar untuk notifikasi/MediaSession.
+ *
+ * SystemUI mengunduh artwork sendiri dari URI ini setiap metadata berubah, jadi
+ * pakai ukuran kecil: 1080x1080 butuh ratusan KB dan sering gagal tampil
+ * (kotak kosong) di jaringan lambat. 320x320 cukup tajam untuk notifikasi.
+ */
+private fun String.notificationArtwork(): String = resize(320, 320)
 
 fun SongItem.toMediaItem() = toMediaMetadata().toMediaItem()
 
@@ -37,7 +47,7 @@ fun MediaMetadata.toMediaItem(): MediaItem {
                 .setTitle(resolvedMetadata.title)
                 .setSubtitle(artistNames)
                 .setArtist(artistNames)
-                .setArtworkUri(resolvedMetadata.thumbnailUrl?.toUri())
+                .setArtworkUri(resolvedMetadata.thumbnailUrl?.notificationArtwork()?.toUri())
                 .setAlbumTitle(resolvedMetadata.album?.title)
                 .setAlbumArtist(resolvedMetadata.artists.firstOrNull()?.name)
                 .setDisplayTitle(resolvedMetadata.title)
@@ -71,7 +81,7 @@ fun MediaItem.withUpdatedMetadata(updatedMetadata: MediaMetadata): MediaItem {
                 .setDisplayTitle(resolvedMetadata.title)
                 .setSubtitle(artistNames)
                 .setArtist(artistNames)
-                .setArtworkUri(resolvedMetadata.thumbnailUrl?.toUri())
+                .setArtworkUri(resolvedMetadata.thumbnailUrl?.notificationArtwork()?.toUri())
                 .setAlbumTitle(resolvedMetadata.album?.title)
                 .setAlbumArtist(resolvedMetadata.artists.firstOrNull()?.name)
                 .setExtras(Bundle().apply {
