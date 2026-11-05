@@ -266,14 +266,19 @@ fun Queue(
             if (useNewPlayerDesign) {
                 // Pil tembus pandang: Antrian, Timer, Lirik, Lainnya.
                 // Insets ditaruh di luar pil supaya label tidak ketutup nav bar.
-                Box(modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                ) {
                     Row(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically,
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 22.dp, vertical = 5.dp)
+                                .padding(horizontal = 22.dp, vertical = 2.dp)
                                 .clip(RoundedCornerShape(30.dp))
                                 .background(TextBackgroundColor.copy(alpha = 0.09f))
                                 .border(
@@ -1311,7 +1316,7 @@ private fun PlayerPillButton(
                 .background(if (isActive) textBackgroundColor.copy(alpha = 0.16f) else Color.Transparent)
                 .clickable(enabled = enabled, onClick = onClick)
                 .alpha(if (enabled) 1f else 0.4f)
-                .padding(horizontal = 6.dp, vertical = 4.dp),
+                .padding(horizontal = 6.dp, vertical = 3.dp),
     ) {
         if (text != null) {
             Text(
@@ -1325,7 +1330,7 @@ private fun PlayerPillButton(
                 painter = painterResource(id = icon),
                 contentDescription = label,
                 tint = contentColor,
-                modifier = Modifier.size(19.dp),
+                modifier = Modifier.size(18.dp),
             )
         }
         Spacer(modifier = Modifier.height(2.dp))
