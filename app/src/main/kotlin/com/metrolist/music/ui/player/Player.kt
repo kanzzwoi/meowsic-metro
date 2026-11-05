@@ -1595,201 +1595,139 @@ fun BottomSheetPlayer(
                                     .fillMaxWidth()
                                     .padding(horizontal = PlayerHorizontalPadding),
                         ) {
-                            val backInteractionSource = remember { MutableInteractionSource() }
-                            val nextInteractionSource = remember { MutableInteractionSource() }
-                            val playPauseInteractionSource = remember { MutableInteractionSource() }
-
-                            val isPlayPausePressed by playPauseInteractionSource.collectIsPressedAsState()
-                            val isBackPressed by backInteractionSource.collectIsPressedAsState()
-                            val isNextPressed by nextInteractionSource.collectIsPressedAsState()
-
-                            val playPauseWeight by animateFloatAsState(
-                                targetValue =
-                                    if (isPlayPausePressed) {
-                                        1.9f
-                                    } else if (isBackPressed || isNextPressed) {
-                                        1.1f
-                                    } else {
-                                        1.3f
-                                    },
-                                animationSpec =
-                                    spring(
-                                        dampingRatio = 0.6f,
-                                        stiffness = 500f,
-                                    ),
-                                label = "playPauseWeight",
-                            )
-
-                            val backButtonWeight by animateFloatAsState(
-                                targetValue =
-                                    if (isBackPressed) {
-                                        0.6f
-                                    } else if (isPlayPausePressed) {
-                                        0.3f
-                                    } else {
-                                        0.38f
-                                    },
-                                animationSpec =
-                                    spring(
-                                        dampingRatio = 0.6f,
-                                        stiffness = 500f,
-                                    ),
-                                label = "backButtonWeight",
-                            )
-
-                            val nextButtonWeight by animateFloatAsState(
-                                targetValue =
-                                    if (isNextPressed) {
-                                        0.6f
-                                    } else if (isPlayPausePressed) {
-                                        0.3f
-                                    } else {
-                                        0.38f
-                                    },
-                                animationSpec =
-                                    spring(
-                                        dampingRatio = 0.6f,
-                                        stiffness = 500f,
-                                    ),
-                                label = "nextButtonWeight",
-                            )
-
                             val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsStateWithLifecycle()
-                            ResizableIconButton(
-                                icon = R.drawable.shuffle,
-                                color = TextBackgroundColor,
-                                enabled = !isListenTogetherGuest,
+
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier =
                                     Modifier
-                                        .size(21.dp)
-                                        .alpha(if (shuffleModeEnabled) 1f else 0.45f),
-                                onClick = {
-                                    playerConnection.player.shuffleModeEnabled = !shuffleModeEnabled
-                                },
-                            )
-
-                            Spacer(modifier = Modifier.width(6.dp))
-
-                            FilledIconButton(
-                                onClick = playerConnection::seekToPrevious,
-                                enabled = canSkipPrevious && !isListenTogetherGuest,
-                                shape = RoundedCornerShape(50),
-                                interactionSource = backInteractionSource,
-                                colors =
-                                    IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = sideButtonContainerColor,
-                                        contentColor = sideButtonContentColor,
-                                    ),
-                                modifier =
-                                    Modifier
-                                        .height(68.dp)
-                                        .weight(backButtonWeight),
+                                        .fillMaxWidth()
+                                        .padding(horizontal = PlayerHorizontalPadding),
                             ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.skip_previous),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(32.dp),
-                                )
-                            }
-
-                            FilledIconButton(
-                                onClick = {
-                                    if (isListenTogetherGuest) {
-                                        playerConnection.toggleMute()
-                                        return@FilledIconButton
-                                    }
-                                    if (isCasting) {
-                                        if (castIsPlaying) {
-                                            castHandler?.pause()
-                                        } else {
-                                            castHandler?.play()
-                                        }
-                                    } else if (playbackState == STATE_ENDED) {
-                                        playerConnection.player.seekTo(0, 0)
-                                        playerConnection.player.playWhenReady = true
-                                    } else {
-                                        playerConnection.togglePlayPause()
-                                    }
-                                },
-                                shape = RoundedCornerShape(50),
-                                interactionSource = playPauseInteractionSource,
-                                colors =
-                                    IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = textButtonColor,
-                                        contentColor = iconButtonColor,
-                                    ),
-                                modifier =
-                                    Modifier
-                                        .height(68.dp)
-                                        .weight(playPauseWeight)
-                                        .focusRequester(focusRequester),
-                            ) {
-                                Icon(
-                                    painter =
-                                        painterResource(
-                                            if (isListenTogetherGuest) {
-                                                if (isMuted) R.drawable.volume_off else R.drawable.volume_up
-                                            } else {
-                                                if (effectiveIsPlaying) R.drawable.pause else R.drawable.play
-                                            },
-                                        ),
-                                    contentDescription =
-                                        if (isListenTogetherGuest) {
-                                            if (isMuted) stringResource(R.string.unmute) else stringResource(R.string.mute)
-                                        } else {
-                                            if (effectiveIsPlaying) stringResource(R.string.player_pause) else stringResource(R.string.play)
-                                        },
-                                    modifier = Modifier.size(32.dp),
-                                )
-                            }
-
-                            FilledIconButton(
-                                onClick = playerConnection::seekToNext,
-                                enabled = canSkipNext && !isListenTogetherGuest,
-                                shape = RoundedCornerShape(50),
-                                interactionSource = nextInteractionSource,
-                                colors =
-                                    IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = sideButtonContainerColor,
-                                        contentColor = sideButtonContentColor,
-                                    ),
-                                modifier =
-                                    Modifier
-                                        .height(68.dp)
-                                        .weight(nextButtonWeight),
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.skip_next),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(32.dp),
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(6.dp))
-
-                            ResizableIconButton(
-                                icon =
-                                    if (repeatMode == Player.REPEAT_MODE_ONE) {
-                                        R.drawable.repeat_on
-                                    } else {
-                                        R.drawable.repeat
+                                PlayerSideToggle(
+                                    icon = R.drawable.shuffle,
+                                    isActive = shuffleModeEnabled,
+                                    enabled = !isListenTogetherGuest,
+                                    tint = TextBackgroundColor,
+                                    onClick = {
+                                        playerConnection.player.shuffleModeEnabled = !shuffleModeEnabled
                                     },
-                                color = TextBackgroundColor,
-                                enabled = !isListenTogetherGuest,
-                                modifier =
-                                    Modifier
-                                        .size(21.dp)
-                                        .alpha(if (repeatMode != Player.REPEAT_MODE_OFF) 1f else 0.45f),
-                                onClick = {
-                                    val next =
-                                        if (repeatMode == Player.REPEAT_MODE_ONE) {
-                                            Player.REPEAT_MODE_OFF
-                                        } else {
-                                            Player.REPEAT_MODE_ONE
+                                )
+
+                                FilledIconButton(
+                                    onClick = playerConnection::seekToPrevious,
+                                    enabled = canSkipPrevious && !isListenTogetherGuest,
+                                    shape = RoundedCornerShape(50),
+                                    colors =
+                                        IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = sideButtonContainerColor,
+                                            contentColor = sideButtonContentColor,
+                                        ),
+                                    modifier =
+                                        Modifier
+                                            .width(76.dp)
+                                            .height(62.dp),
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.skip_previous),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(30.dp),
+                                    )
+                                }
+
+                                FilledIconButton(
+                                    onClick = {
+                                        if (isListenTogetherGuest) {
+                                            playerConnection.toggleMute()
+                                            return@FilledIconButton
                                         }
-                                    playerConnection.player.setRepeatMode(next)
-                                },
-                            )
+                                        if (isCasting) {
+                                            if (castIsPlaying) {
+                                                castHandler?.pause()
+                                            } else {
+                                                castHandler?.play()
+                                            }
+                                        } else if (playbackState == STATE_ENDED) {
+                                            playerConnection.player.seekTo(0, 0)
+                                            playerConnection.player.playWhenReady = true
+                                        } else {
+                                            playerConnection.togglePlayPause()
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(50),
+                                    colors =
+                                        IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = textButtonColor,
+                                            contentColor = iconButtonColor,
+                                        ),
+                                    modifier =
+                                        Modifier
+                                            .width(112.dp)
+                                            .height(62.dp)
+                                            .focusRequester(focusRequester),
+                                ) {
+                                    Icon(
+                                        painter =
+                                            painterResource(
+                                                if (isListenTogetherGuest) {
+                                                    if (isMuted) R.drawable.volume_off else R.drawable.volume_up
+                                                } else {
+                                                    if (effectiveIsPlaying) R.drawable.pause else R.drawable.play
+                                                },
+                                            ),
+                                        contentDescription =
+                                            if (isListenTogetherGuest) {
+                                                if (isMuted) stringResource(R.string.unmute) else stringResource(R.string.mute)
+                                            } else {
+                                                if (effectiveIsPlaying) stringResource(R.string.player_pause) else stringResource(R.string.play)
+                                            },
+                                        modifier = Modifier.size(30.dp),
+                                    )
+                                }
+
+                                FilledIconButton(
+                                    onClick = playerConnection::seekToNext,
+                                    enabled = canSkipNext && !isListenTogetherGuest,
+                                    shape = RoundedCornerShape(50),
+                                    colors =
+                                        IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = sideButtonContainerColor,
+                                            contentColor = sideButtonContentColor,
+                                        ),
+                                    modifier =
+                                        Modifier
+                                            .width(76.dp)
+                                            .height(62.dp),
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.skip_next),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(30.dp),
+                                    )
+                                }
+
+                                PlayerSideToggle(
+                                    icon =
+                                        if (repeatMode == Player.REPEAT_MODE_ONE) {
+                                            R.drawable.repeat_on
+                                        } else {
+                                            R.drawable.repeat
+                                        },
+                                    isActive = repeatMode != Player.REPEAT_MODE_OFF,
+                                    enabled = !isListenTogetherGuest,
+                                    tint = TextBackgroundColor,
+                                    onClick = {
+                                        val next =
+                                            if (repeatMode == Player.REPEAT_MODE_ONE) {
+                                                Player.REPEAT_MODE_OFF
+                                            } else {
+                                                Player.REPEAT_MODE_ONE
+                                            }
+                                        playerConnection.player.setRepeatMode(next)
+                                    },
+                                )
+                            }
                         }
                     } else {
                         Row(
@@ -2237,3 +2175,28 @@ private fun PlayerMoreMenuButton(
 
 /** LRC dengan timestamp per kata, contoh: <00:12.34>kata. */
 private val WORD_TIMING_REGEX = Regex("(?m)^\\s*(<[^>\\n]+:\\d|<\\d+,\\d+,\\d+>)")
+
+@Composable
+private fun PlayerSideToggle(
+    icon: Int,
+    isActive: Boolean,
+    enabled: Boolean,
+    tint: Color,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(50))
+                .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(id = icon),
+            contentDescription = null,
+            tint = tint.copy(alpha = if (isActive) 1f else 0.45f),
+            modifier = Modifier.size(19.dp),
+        )
+    }
+}

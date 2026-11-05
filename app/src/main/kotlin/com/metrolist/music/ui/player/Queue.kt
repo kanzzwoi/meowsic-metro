@@ -266,23 +266,14 @@ fun Queue(
             if (useNewPlayerDesign) {
                 // Pil tembus pandang: Antrian, Timer, Lirik, Lainnya.
                 // Insets ditaruh di luar pil supaya label tidak ketutup nav bar.
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .windowInsetsPadding(
-                                WindowInsets.systemBars.only(
-                                    WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal,
-                                ),
-                            ),
-                ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically,
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 26.dp, vertical = 10.dp)
+                                .padding(horizontal = 22.dp, vertical = 5.dp)
                                 .clip(RoundedCornerShape(30.dp))
                                 .background(TextBackgroundColor.copy(alpha = 0.09f))
                                 .border(
@@ -290,7 +281,7 @@ fun Queue(
                                     color = TextBackgroundColor.copy(alpha = 0.10f),
                                     shape = RoundedCornerShape(30.dp),
                                 )
-                                .padding(horizontal = 4.dp, vertical = 5.dp),
+                                .padding(horizontal = 4.dp, vertical = 3.dp),
                     ) {
                         PlayerPillButton(
                             icon = R.drawable.queue_music,
@@ -1318,15 +1309,15 @@ private fun PlayerPillButton(
                 .background(if (isActive) textBackgroundColor.copy(alpha = 0.16f) else Color.Transparent)
                 .clickable(enabled = enabled, onClick = onClick)
                 .alpha(if (enabled) 1f else 0.4f)
-                .padding(horizontal = 6.dp, vertical = 6.dp),
+                .padding(horizontal = 6.dp, vertical = 4.dp),
     ) {
         Icon(
             painter = painterResource(id = icon),
             contentDescription = label,
             tint = contentColor,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(19.dp),
         )
-        Spacer(modifier = Modifier.height(3.dp))
+        Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = label,
             color = contentColor,
