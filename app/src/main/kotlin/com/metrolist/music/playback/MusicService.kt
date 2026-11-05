@@ -538,10 +538,6 @@ class MusicService :
 
     private var currentMediaIdRetryCount = mutableMapOf<String, Int>()
     private val MAX_RETRY_PER_SONG = 3
-    /** Posisi terakhir yang benar-benar diputar, dipakai saat ExoPlayer melaporkan posisi 0 setelah error. */
-    private var lastKnownPositionMs = 0L
-    /** Posisi pemulihan untuk retry berikutnya (diisi saat onPlayerError). */
-    private var recoveryPositionMs: Long? = null
     private val RETRY_DELAY_MS = 1000L
 
     // Track failed songs to prevent infinite retry loops
@@ -2797,9 +2793,6 @@ class MusicService :
         player: Player,
         events: Player.Events,
     ) {
-        if (player.isPlaying) {
-            lastKnownPositionMs = player.currentPosition
-        }
         if (events.containsAny(
                 Player.EVENT_PLAYBACK_STATE_CHANGED,
                 Player.EVENT_PLAY_WHEN_READY_CHANGED,
@@ -3062,11 +3055,6 @@ class MusicService :
             error.errorCode == PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED
 
     override fun onPlayerError(error: PlaybackException) {
-        // Ambil posisi sebelum ExoPlayer me-reset-nya ke 0.
-        val positionAtError = player.currentPosition
-        recoveryPositionMs =
-            if (positionAtError > 1_000L) positionAtError else lastKnownPositionMs.takeIf { it > 1_000L }
-
         super.onPlayerError(error)
 
         if (!playerInitialized.value) {
@@ -3074,14 +3062,12 @@ class MusicService :
             return
         }
 
-        val mediaId = player.currentMediaItem?.mediaId
-        val failedStreamClient = mediaId?.let(songUrlCache::clientName)
         PlaybackLog.log(
             "player",
-            "onPlayerError code=${error.errorCode} name=${error.errorCodeName} " +
-                "pos=${player.currentPosition} pulih=${recoveryPositionMs ?: -1} " +
-                "client=${failedStreamClient ?: "-"}",
+            "onPlayerError code=${error.errorCode} name=${error.errorCodeName} msg=${error.message}",
         )
+        val mediaId = player.currentMediaItem?.mediaId
+        val failedStreamClient = mediaId?.let(songUrlCache::clientName)
         Timber
             .tag(TAG)
             .w(error, "Player error occurred for $mediaId: errorCode=${error.errorCode}, message=${error.message}")
@@ -3386,8 +3372,7 @@ class MusicService :
             }
         }
 
-        val retryPosition = recoveryPositionMs ?: player.currentPosition
-        recoveryPositionMs = null
+        val retryPosition = player.currentPosition
         val retryIndex = player.currentMediaItemIndex
         val retryPlayWhenReady = player.playWhenReady
         retryJob?.cancel()
@@ -3395,15 +3380,11 @@ class MusicService :
             scope.launch {
                 delay(RETRY_DELAY_MS)
 
-                // Posisi bisa bergeser sedikit setelah error (ExoPlayer reset ke 0),
-                // jadi jangan pakai perbandingan persis: itu membuat retry selalu
-                // dianggap basi dan pemutaran berhenti tanpa pemulihan.
-                val drift = kotlin.math.abs(player.currentPosition - retryPosition)
                 if (player.currentMediaItem?.mediaId != mediaId ||
-                    (player.currentMediaItemIndex != retryIndex && player.currentMediaItemIndex != C.INDEX_UNSET) ||
-                    drift > 5_000L
+                    player.currentMediaItemIndex != retryIndex ||
+                    player.currentPosition != retryPosition ||
+                    player.playWhenReady != retryPlayWhenReady
                 ) {
-                    PlaybackLog.log("player", "retry dibatalkan (basi) media=$mediaId alasan=$retryReason")
                     Timber.tag(TAG).d("Skipping stale retry for $mediaId after $retryReason")
                     return@launch
                 }
@@ -3474,21 +3455,6 @@ class MusicService :
     private fun handleGenericIOError(mediaId: String?) {
         if (mediaId == null) {
             handleFinalFailure()
-            return
-        }
-
-        val previousAttempts = currentMediaIdRetryCount[mediaId] ?: 0
-
-        // Percobaan kedua dan seterusnya hampir selalu gagal kalau URL-nya yang
-        // sudah mati (403). Jadi minta URL baru dari client lain, bukan prepare ulang.
-        if (previousAttempts >= 1) {
-            PlaybackLog.log("player", "IO gagal berulang, ambil URL baru media=$mediaId")
-            refreshStreamAndRetry(
-                mediaId = mediaId,
-                failedStreamClient = songUrlCache.clientName(mediaId),
-                refreshCipherConfig = true,
-                retryReason = "IO berulang",
-            )
             return
         }
 
@@ -4462,7 +4428,6 @@ class MusicService :
         startId: Int,
     ): Int {
         if (intent?.action == ACTION_PROMOTE_FOREGROUND) {
-            // App sedang di depan saat intent ini dikirim, jadi promosi sah.
             PlaybackLog.log("service", "promoteForeground diterima")
             ensureStartedAsForegroundOrStop()
             return START_STICKY
@@ -5094,15 +5059,7 @@ class MusicService :
     companion object {
         const val ACTION_PROMOTE_FOREGROUND = "com.metrolist.music.action.PROMOTE_FOREGROUND"
 
-        /**
-         * Jadikan service foreground selagi app masih di depan.
-         *
-         * Dipakai fitur Dengar Bersama: kalau promosi baru dicoba saat perintah
-         * "play" datang dari host sementara app sudah di background, Android 12+
-         * menolaknya (ForegroundServiceStartNotAllowedException) sehingga notifikasi
-         * hilang dan tidak ada suara. Dengan promosi awal ini, kondisi itu tidak
-         * pernah terjadi.
-         */
+        /** Jadikan service foreground selagi app masih di depan (fitur Dengar Bersama). */
         fun promoteForeground(context: Context) {
             runCatching {
                 androidx.core.content.ContextCompat.startForegroundService(
