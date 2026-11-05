@@ -264,81 +264,92 @@ fun Queue(
         },
         collapsedContent = {
             if (useNewPlayerDesign) {
-                // New design: satu pil tembus pandang berisi Antrian, Timer, Lirik, dan menu.
-                Row(
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically,
+                // Pil tembus pandang: Antrian, Timer, Lirik, Lainnya.
+                // Insets ditaruh di luar pil supaya label tidak ketutup nav bar.
+                Box(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 28.dp, vertical = 10.dp)
                             .windowInsetsPadding(
                                 WindowInsets.systemBars.only(
                                     WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal,
                                 ),
-                            )
-                            .clip(RoundedCornerShape(28.dp))
-                            .background(TextBackgroundColor.copy(alpha = 0.10f))
-                            .border(
-                                width = 1.dp,
-                                color = TextBackgroundColor.copy(alpha = 0.12f),
-                                shape = RoundedCornerShape(28.dp),
-                            )
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                            ),
                 ) {
-                    PlayerPillButton(
-                        icon = R.drawable.queue_music,
-                        label = "Antrean",
-                        isActive = false,
-                        textBackgroundColor = TextBackgroundColor,
-                        onClick = { state.expandSoft() },
-                    )
-
-                    PlayerPillButton(
-                        icon = R.drawable.bedtime,
-                        label = if (sleepTimerEnabled) makeTimeString(sleepTimerTimeLeft) else "Timer",
-                        isActive = sleepTimerEnabled,
-                        textBackgroundColor = TextBackgroundColor,
-                        enabled = !isListenTogetherGuest,
-                        onClick = {
-                            if (sleepTimerEnabled) {
-                                playerConnection.service.sleepTimer?.clear()
-                            } else {
-                                showSleepTimerDialog = true
-                            }
-                        },
-                    )
-
-                    PlayerPillButton(
-                        icon = R.drawable.lyrics,
-                        label = "Lirik",
-                        isActive = showInlineLyrics,
-                        textBackgroundColor = TextBackgroundColor,
-                        onClick = { onToggleLyrics() },
-                    )
-
-                    PlayerPillButton(
-                        icon = R.drawable.ic_more_grid,
-                        label = "Lainnya",
-                        isActive = false,
-                        textBackgroundColor = TextBackgroundColor,
-                        onClick = {
-                            menuState.show {
-                                PlayerMenu(
-                                    mediaMetadata = mediaMetadata,
-                                    playerBottomSheetState = playerBottomSheetState,
-                                    onShowDetailsDialog = {
-                                        mediaMetadata?.id?.let {
-                                            bottomSheetPageState.show {
-                                                ShowMediaInfo(it)
-                                            }
-                                        }
-                                    },
-                                    onDismiss = menuState::dismiss,
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 26.dp, vertical = 10.dp)
+                                .clip(RoundedCornerShape(30.dp))
+                                .background(TextBackgroundColor.copy(alpha = 0.09f))
+                                .border(
+                                    width = 1.dp,
+                                    color = TextBackgroundColor.copy(alpha = 0.10f),
+                                    shape = RoundedCornerShape(30.dp),
                                 )
-                            }
-                        },
-                    )
+                                .padding(horizontal = 4.dp, vertical = 5.dp),
+                    ) {
+                        PlayerPillButton(
+                            icon = R.drawable.queue_music,
+                            label = "Antrean",
+                            isActive = false,
+                            textBackgroundColor = TextBackgroundColor,
+                            modifier = Modifier.weight(1f),
+                            onClick = { state.expandSoft() },
+                        )
+
+                        PlayerPillButton(
+                            icon = R.drawable.bedtime,
+                            label = if (sleepTimerEnabled) makeTimeString(sleepTimerTimeLeft) else "Timer",
+                            isActive = sleepTimerEnabled,
+                            textBackgroundColor = TextBackgroundColor,
+                            enabled = !isListenTogetherGuest,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                if (sleepTimerEnabled) {
+                                    playerConnection.service.sleepTimer?.clear()
+                                } else {
+                                    showSleepTimerDialog = true
+                                }
+                            },
+                        )
+
+                        PlayerPillButton(
+                            icon = R.drawable.lyrics,
+                            label = "Lirik",
+                            isActive = showInlineLyrics,
+                            textBackgroundColor = TextBackgroundColor,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onToggleLyrics() },
+                        )
+
+                        PlayerPillButton(
+                            icon = R.drawable.ic_more_grid,
+                            label = "Lainnya",
+                            isActive = false,
+                            textBackgroundColor = TextBackgroundColor,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                menuState.show {
+                                    PlayerMenu(
+                                        mediaMetadata = mediaMetadata,
+                                        playerBottomSheetState = playerBottomSheetState,
+                                        onShowDetailsDialog = {
+                                            mediaMetadata?.id?.let {
+                                                bottomSheetPageState.show {
+                                                    ShowMediaInfo(it)
+                                                }
+                                            }
+                                        },
+                                        onDismiss = menuState::dismiss,
+                                    )
+                                }
+                            },
+                        )
+                    }
                 }
             } else {
                 // Old design
@@ -1293,32 +1304,29 @@ private fun PlayerPillButton(
     label: String,
     isActive: Boolean,
     textBackgroundColor: Color,
+    modifier: Modifier = Modifier,
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    val contentColor =
-        if (isActive) {
-            LocalContentColor.current
-        } else {
-            textBackgroundColor.copy(alpha = 0.85f)
-        }
+    val contentColor = if (isActive) textBackgroundColor else textBackgroundColor.copy(alpha = 0.62f)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
         modifier =
-            Modifier
-                .clip(RoundedCornerShape(18.dp))
+            modifier
+                .clip(RoundedCornerShape(22.dp))
+                .background(if (isActive) textBackgroundColor.copy(alpha = 0.16f) else Color.Transparent)
                 .clickable(enabled = enabled, onClick = onClick)
                 .alpha(if (enabled) 1f else 0.4f)
-                .padding(horizontal = 12.dp, vertical = 4.dp),
+                .padding(horizontal = 6.dp, vertical = 6.dp),
     ) {
         Icon(
             painter = painterResource(id = icon),
             contentDescription = label,
             tint = contentColor,
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(20.dp),
         )
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(3.dp))
         Text(
             text = label,
             color = contentColor,

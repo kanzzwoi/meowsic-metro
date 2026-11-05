@@ -1661,7 +1661,7 @@ fun BottomSheetPlayer(
                                 enabled = !isListenTogetherGuest,
                                 modifier =
                                     Modifier
-                                        .size(28.dp)
+                                        .size(21.dp)
                                         .alpha(if (shuffleModeEnabled) 1f else 0.45f),
                                 onClick = {
                                     playerConnection.player.shuffleModeEnabled = !shuffleModeEnabled
@@ -1778,7 +1778,7 @@ fun BottomSheetPlayer(
                                 enabled = !isListenTogetherGuest,
                                 modifier =
                                     Modifier
-                                        .size(28.dp)
+                                        .size(21.dp)
                                         .alpha(if (repeatMode != Player.REPEAT_MODE_OFF) 1f else 0.45f),
                                 onClick = {
                                     val next =
