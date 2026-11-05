@@ -1598,7 +1598,7 @@ fun BottomSheetPlayer(
                             val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsStateWithLifecycle()
 
                             Row(
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier =
                                     Modifier
@@ -1626,7 +1626,7 @@ fun BottomSheetPlayer(
                                         ),
                                     modifier =
                                         Modifier
-                                            .width(76.dp)
+                                            .weight(1f)
                                             .height(62.dp),
                                 ) {
                                     Icon(
@@ -1663,7 +1663,7 @@ fun BottomSheetPlayer(
                                         ),
                                     modifier =
                                         Modifier
-                                            .width(112.dp)
+                                            .weight(1.35f)
                                             .height(62.dp)
                                             .focusRequester(focusRequester),
                                 ) {
@@ -1697,7 +1697,7 @@ fun BottomSheetPlayer(
                                         ),
                                     modifier =
                                         Modifier
-                                            .width(76.dp)
+                                            .weight(1f)
                                             .height(62.dp),
                                 ) {
                                     Icon(
