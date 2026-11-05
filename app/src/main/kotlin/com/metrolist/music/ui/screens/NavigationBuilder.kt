@@ -60,7 +60,6 @@ import com.metrolist.music.ui.screens.settings.integrations.DiscordSettings
 import com.metrolist.music.ui.screens.settings.integrations.LastFMSettings
 import com.metrolist.music.ui.screens.settings.integrations.ListenTogetherSettings
 
-import com.metrolist.music.ui.screens.wrapped.WrappedScreen
 import com.metrolist.music.utils.rememberEnumPreference
 import com.metrolist.music.utils.rememberPreference
 
@@ -414,9 +413,6 @@ fun NavGraphBuilder.navigationBuilder(
         )
     }
 
-    composable("wrapped") {
-        WrappedScreen()
-    }
 
     composable("equalizer") {
         EqScreen()

@@ -274,8 +274,6 @@ val VideoThumbnailMigrationDoneKey = booleanPreferencesKey("videoThumbnailMigrat
 val WavySliderDefaultMigrationKey = booleanPreferencesKey("wavySliderDefaultMigration")
 val LiquidBackgroundDefaultMigrationKey = booleanPreferencesKey("liquidBackgroundDefaultMigration")
 val QueueEditLockKey = booleanPreferencesKey("queueEditLock")
-val ShowWrappedCardKey = booleanPreferencesKey("show_wrapped_card")
-val WrappedSeenKey = booleanPreferencesKey("wrapped_seen")
 val LastSeenVersionKey = stringPreferencesKey("lastSeenVersion")
 val RandomizeHomeOrderKey = booleanPreferencesKey("randomizeHomeOrder")
 
