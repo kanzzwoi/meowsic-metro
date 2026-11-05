@@ -1323,6 +1323,7 @@ private fun PlayerPillButton(
                 text = text,
                 color = textBackgroundColor,
                 fontSize = 13.sp,
+                lineHeight = 14.sp,
                 maxLines = 1,
             )
         } else {
@@ -1338,6 +1339,7 @@ private fun PlayerPillButton(
             text = label,
             color = contentColor,
             fontSize = 10.sp,
+            lineHeight = 11.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
