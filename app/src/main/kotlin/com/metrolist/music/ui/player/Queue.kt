@@ -318,7 +318,7 @@ fun Queue(
                     )
 
                     PlayerPillButton(
-                        icon = R.drawable.more_vert,
+                        icon = R.drawable.ic_more_grid,
                         label = "Lainnya",
                         isActive = false,
                         textBackgroundColor = TextBackgroundColor,
