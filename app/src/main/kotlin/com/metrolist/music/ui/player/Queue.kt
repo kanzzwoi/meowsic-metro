@@ -294,8 +294,9 @@ fun Queue(
 
                         PlayerPillButton(
                             icon = R.drawable.bedtime,
-                            label = if (sleepTimerEnabled) makeTimeString(sleepTimerTimeLeft) else "Timer",
-                            isActive = sleepTimerEnabled,
+                            label = "Timer",
+                            text = if (sleepTimerEnabled) makeTimeString(sleepTimerTimeLeft) else null,
+                            isActive = false,
                             textBackgroundColor = TextBackgroundColor,
                             enabled = !isListenTogetherGuest,
                             modifier = Modifier.weight(1f),
@@ -1294,6 +1295,7 @@ private fun PlayerPillButton(
     icon: Int,
     label: String,
     isActive: Boolean,
+    text: String? = null,
     textBackgroundColor: Color,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
@@ -1311,12 +1313,21 @@ private fun PlayerPillButton(
                 .alpha(if (enabled) 1f else 0.4f)
                 .padding(horizontal = 6.dp, vertical = 4.dp),
     ) {
-        Icon(
-            painter = painterResource(id = icon),
-            contentDescription = label,
-            tint = contentColor,
-            modifier = Modifier.size(19.dp),
-        )
+        if (text != null) {
+            Text(
+                text = text,
+                color = textBackgroundColor,
+                fontSize = 13.sp,
+                maxLines = 1,
+            )
+        } else {
+            Icon(
+                painter = painterResource(id = icon),
+                contentDescription = label,
+                tint = contentColor,
+                modifier = Modifier.size(19.dp),
+            )
+        }
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = label,
