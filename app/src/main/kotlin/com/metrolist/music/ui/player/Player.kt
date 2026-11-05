@@ -32,6 +32,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -1605,12 +1606,12 @@ fun BottomSheetPlayer(
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 22.dp, vertical = 2.dp)
-                                        .height(56.dp),
+                                        .padding(horizontal = 22.dp, vertical = 4.dp)
+                                        .height(72.dp),
                             ) {
                                 PlayerPlainIcon(
                                     icon = R.drawable.shuffle,
-                                    size = 30.dp,
+                                    size = 19.dp,
                                     isActive = shuffleModeEnabled,
                                     enabled = !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -1621,7 +1622,7 @@ fun BottomSheetPlayer(
 
                                 PlayerPlainIcon(
                                     icon = R.drawable.skip_previous,
-                                    size = 40.dp,
+                                    size = 24.dp,
                                     isActive = true,
                                     enabled = canSkipPrevious && !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -1631,7 +1632,7 @@ fun BottomSheetPlayer(
                                 Box(
                                     modifier =
                                         Modifier
-                                            .size(56.dp)
+                                            .size(70.dp)
                                             .clip(CircleShape)
                                             .background(textButtonColor)
                                             .clickable {
@@ -1671,13 +1672,13 @@ fun BottomSheetPlayer(
                                                 if (effectiveIsPlaying) stringResource(R.string.player_pause) else stringResource(R.string.play)
                                             },
                                         tint = iconButtonColor,
-                                        modifier = Modifier.size(48.dp),
+                                        modifier = Modifier.size(30.dp),
                                     )
                                 }
 
                                 PlayerPlainIcon(
                                     icon = R.drawable.skip_next,
-                                    size = 40.dp,
+                                    size = 24.dp,
                                     isActive = true,
                                     enabled = canSkipNext && !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -1691,7 +1692,7 @@ fun BottomSheetPlayer(
                                         } else {
                                             R.drawable.repeat
                                         },
-                                    size = 30.dp,
+                                    size = 19.dp,
                                     isActive = repeatMode != Player.REPEAT_MODE_OFF,
                                     enabled = !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -2191,8 +2192,10 @@ private fun PlayerPlainIcon(
     Box(
         modifier =
             Modifier
-                .size(size + 12.dp)
-                .clip(CircleShape)
+                .size(46.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color.White.copy(alpha = 0.08f))
+                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
                 .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -2204,3 +2207,4 @@ private fun PlayerPlainIcon(
         )
     }
 }
+
