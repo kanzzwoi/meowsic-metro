@@ -58,6 +58,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ContainedLoadingIndicator
@@ -118,6 +119,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
@@ -1598,15 +1600,16 @@ fun BottomSheetPlayer(
                             val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsStateWithLifecycle()
 
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = PlayerHorizontalPadding),
                             ) {
-                                PlayerSideToggle(
+                                PlayerPlainIcon(
                                     icon = R.drawable.shuffle,
+                                    size = 21.dp,
                                     isActive = shuffleModeEnabled,
                                     enabled = !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -1615,57 +1618,41 @@ fun BottomSheetPlayer(
                                     },
                                 )
 
-                                FilledIconButton(
-                                    onClick = playerConnection::seekToPrevious,
+                                PlayerPlainIcon(
+                                    icon = R.drawable.skip_previous,
+                                    size = 30.dp,
+                                    isActive = true,
                                     enabled = canSkipPrevious && !isListenTogetherGuest,
-                                    shape = RoundedCornerShape(50),
-                                    colors =
-                                        IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = sideButtonContainerColor,
-                                            contentColor = sideButtonContentColor,
-                                        ),
-                                    modifier =
-                                        Modifier
-                                            .weight(1f)
-                                            .height(62.dp),
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.skip_previous),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(30.dp),
-                                    )
-                                }
+                                    tint = TextBackgroundColor,
+                                    onClick = playerConnection::seekToPrevious,
+                                )
 
-                                FilledIconButton(
-                                    onClick = {
-                                        if (isListenTogetherGuest) {
-                                            playerConnection.toggleMute()
-                                            return@FilledIconButton
-                                        }
-                                        if (isCasting) {
-                                            if (castIsPlaying) {
-                                                castHandler?.pause()
-                                            } else {
-                                                castHandler?.play()
-                                            }
-                                        } else if (playbackState == STATE_ENDED) {
-                                            playerConnection.player.seekTo(0, 0)
-                                            playerConnection.player.playWhenReady = true
-                                        } else {
-                                            playerConnection.togglePlayPause()
-                                        }
-                                    },
-                                    shape = RoundedCornerShape(50),
-                                    colors =
-                                        IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = textButtonColor,
-                                            contentColor = iconButtonColor,
-                                        ),
+                                Box(
                                     modifier =
                                         Modifier
-                                            .weight(1.35f)
-                                            .height(62.dp)
+                                            .size(64.dp)
+                                            .clip(CircleShape)
+                                            .background(textButtonColor)
+                                            .clickable {
+                                                if (isListenTogetherGuest) {
+                                                    playerConnection.toggleMute()
+                                                    return@clickable
+                                                }
+                                                if (isCasting) {
+                                                    if (castIsPlaying) {
+                                                        castHandler?.pause()
+                                                    } else {
+                                                        castHandler?.play()
+                                                    }
+                                                } else if (playbackState == STATE_ENDED) {
+                                                    playerConnection.player.seekTo(0, 0)
+                                                    playerConnection.player.playWhenReady = true
+                                                } else {
+                                                    playerConnection.togglePlayPause()
+                                                }
+                                            }
                                             .focusRequester(focusRequester),
+                                    contentAlignment = Alignment.Center,
                                 ) {
                                     Icon(
                                         painter =
@@ -1682,38 +1669,28 @@ fun BottomSheetPlayer(
                                             } else {
                                                 if (effectiveIsPlaying) stringResource(R.string.player_pause) else stringResource(R.string.play)
                                             },
-                                        modifier = Modifier.size(30.dp),
+                                        tint = iconButtonColor,
+                                        modifier = Modifier.size(28.dp),
                                     )
                                 }
 
-                                FilledIconButton(
-                                    onClick = playerConnection::seekToNext,
+                                PlayerPlainIcon(
+                                    icon = R.drawable.skip_next,
+                                    size = 30.dp,
+                                    isActive = true,
                                     enabled = canSkipNext && !isListenTogetherGuest,
-                                    shape = RoundedCornerShape(50),
-                                    colors =
-                                        IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = sideButtonContainerColor,
-                                            contentColor = sideButtonContentColor,
-                                        ),
-                                    modifier =
-                                        Modifier
-                                            .weight(1f)
-                                            .height(62.dp),
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.skip_next),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(30.dp),
-                                    )
-                                }
+                                    tint = TextBackgroundColor,
+                                    onClick = playerConnection::seekToNext,
+                                )
 
-                                PlayerSideToggle(
+                                PlayerPlainIcon(
                                     icon =
                                         if (repeatMode == Player.REPEAT_MODE_ONE) {
                                             R.drawable.repeat_on
                                         } else {
                                             R.drawable.repeat
                                         },
+                                    size = 21.dp,
                                     isActive = repeatMode != Player.REPEAT_MODE_OFF,
                                     enabled = !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -2197,6 +2174,32 @@ private fun PlayerSideToggle(
             contentDescription = null,
             tint = tint.copy(alpha = if (isActive) 1f else 0.45f),
             modifier = Modifier.size(19.dp),
+        )
+    }
+}
+
+@Composable
+private fun PlayerPlainIcon(
+    icon: Int,
+    size: Dp,
+    isActive: Boolean,
+    enabled: Boolean,
+    tint: Color,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .size(size + 16.dp)
+                .clip(CircleShape)
+                .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(id = icon),
+            contentDescription = null,
+            tint = tint.copy(alpha = if (isActive) 1f else 0.4f),
+            modifier = Modifier.size(size),
         )
     }
 }
