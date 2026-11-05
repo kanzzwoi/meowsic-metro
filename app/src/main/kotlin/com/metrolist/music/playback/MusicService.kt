@@ -538,6 +538,10 @@ class MusicService :
 
     private var currentMediaIdRetryCount = mutableMapOf<String, Int>()
     private val MAX_RETRY_PER_SONG = 3
+    /** Posisi terakhir yang benar-benar diputar, dipakai saat ExoPlayer melaporkan posisi 0 setelah error. */
+    private var lastKnownPositionMs = 0L
+    /** Posisi pemulihan untuk retry berikutnya (diisi saat onPlayerError). */
+    private var recoveryPositionMs: Long? = null
     private val RETRY_DELAY_MS = 1000L
 
     // Track failed songs to prevent infinite retry loops
@@ -2793,6 +2797,9 @@ class MusicService :
         player: Player,
         events: Player.Events,
     ) {
+        if (player.isPlaying) {
+            lastKnownPositionMs = player.currentPosition
+        }
         if (events.containsAny(
                 Player.EVENT_PLAYBACK_STATE_CHANGED,
                 Player.EVENT_PLAY_WHEN_READY_CHANGED,
@@ -3055,6 +3062,11 @@ class MusicService :
             error.errorCode == PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED
 
     override fun onPlayerError(error: PlaybackException) {
+        // Ambil posisi sebelum ExoPlayer me-reset-nya ke 0.
+        val positionAtError = player.currentPosition
+        recoveryPositionMs =
+            if (positionAtError > 1_000L) positionAtError else lastKnownPositionMs.takeIf { it > 1_000L }
+
         super.onPlayerError(error)
 
         if (!playerInitialized.value) {
@@ -3062,12 +3074,14 @@ class MusicService :
             return
         }
 
-        PlaybackLog.log(
-            "player",
-            "onPlayerError code=${error.errorCode} name=${error.errorCodeName} msg=${error.message}",
-        )
         val mediaId = player.currentMediaItem?.mediaId
         val failedStreamClient = mediaId?.let(songUrlCache::clientName)
+        PlaybackLog.log(
+            "player",
+            "onPlayerError code=${error.errorCode} name=${error.errorCodeName} " +
+                "pos=${player.currentPosition} pulih=${recoveryPositionMs ?: -1} " +
+                "client=${failedStreamClient ?: "-"}",
+        )
         Timber
             .tag(TAG)
             .w(error, "Player error occurred for $mediaId: errorCode=${error.errorCode}, message=${error.message}")
@@ -3372,7 +3386,8 @@ class MusicService :
             }
         }
 
-        val retryPosition = player.currentPosition
+        val retryPosition = recoveryPositionMs ?: player.currentPosition
+        recoveryPositionMs = null
         val retryIndex = player.currentMediaItemIndex
         val retryPlayWhenReady = player.playWhenReady
         retryJob?.cancel()
