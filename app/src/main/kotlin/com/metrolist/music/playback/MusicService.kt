@@ -3380,11 +3380,15 @@ class MusicService :
             scope.launch {
                 delay(RETRY_DELAY_MS)
 
+                // Posisi bisa bergeser sedikit setelah error (ExoPlayer reset ke 0),
+                // jadi jangan pakai perbandingan persis: itu membuat retry selalu
+                // dianggap basi dan pemutaran berhenti tanpa pemulihan.
+                val drift = kotlin.math.abs(player.currentPosition - retryPosition)
                 if (player.currentMediaItem?.mediaId != mediaId ||
-                    player.currentMediaItemIndex != retryIndex ||
-                    player.currentPosition != retryPosition ||
-                    player.playWhenReady != retryPlayWhenReady
+                    (player.currentMediaItemIndex != retryIndex && player.currentMediaItemIndex != C.INDEX_UNSET) ||
+                    drift > 5_000L
                 ) {
+                    PlaybackLog.log("player", "retry dibatalkan (basi) media=$mediaId alasan=$retryReason")
                     Timber.tag(TAG).d("Skipping stale retry for $mediaId after $retryReason")
                     return@launch
                 }
@@ -3455,6 +3459,21 @@ class MusicService :
     private fun handleGenericIOError(mediaId: String?) {
         if (mediaId == null) {
             handleFinalFailure()
+            return
+        }
+
+        val previousAttempts = currentMediaIdRetryCount[mediaId] ?: 0
+
+        // Percobaan kedua dan seterusnya hampir selalu gagal kalau URL-nya yang
+        // sudah mati (403). Jadi minta URL baru dari client lain, bukan prepare ulang.
+        if (previousAttempts >= 1) {
+            PlaybackLog.log("player", "IO gagal berulang, ambil URL baru media=$mediaId")
+            refreshStreamAndRetry(
+                mediaId = mediaId,
+                failedStreamClient = songUrlCache.clientName(mediaId),
+                refreshCipherConfig = true,
+                retryReason = "IO berulang",
+            )
             return
         }
 
