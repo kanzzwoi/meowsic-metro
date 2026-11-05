@@ -1654,6 +1654,22 @@ fun BottomSheetPlayer(
                                 label = "nextButtonWeight",
                             )
 
+                            val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsStateWithLifecycle()
+                            ResizableIconButton(
+                                icon = R.drawable.shuffle,
+                                color = TextBackgroundColor,
+                                enabled = !isListenTogetherGuest,
+                                modifier =
+                                    Modifier
+                                        .size(28.dp)
+                                        .alpha(if (shuffleModeEnabled) 1f else 0.45f),
+                                onClick = {
+                                    playerConnection.player.shuffleModeEnabled = !shuffleModeEnabled
+                                },
+                            )
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
                             FilledIconButton(
                                 onClick = playerConnection::seekToPrevious,
                                 enabled = canSkipPrevious && !isListenTogetherGuest,
@@ -1675,36 +1691,6 @@ fun BottomSheetPlayer(
                                     modifier = Modifier.size(32.dp),
                                 )
                             }
-
-                            Spacer(modifier = Modifier.width(8.dp))
-                            // Skip back 10 detik
-                            FilledIconButton(
-                                onClick = {
-                                    playerConnection.player.seekTo(
-                                        (playerConnection.player.currentPosition - 10_000L).coerceAtLeast(0L),
-                                    )
-                                },
-                                enabled = !isListenTogetherGuest,
-                                shape = RoundedCornerShape(50),
-                                colors =
-                                    IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = sideButtonContainerColor,
-                                        contentColor = sideButtonContentColor,
-                                    ),
-                                modifier =
-                                    Modifier
-                                        .height(68.dp)
-                                        .weight(backButtonWeight),
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.rewind_10),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(28.dp),
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(8.dp))
-
 
                             FilledIconButton(
                                 onClick = {
@@ -1757,36 +1743,6 @@ fun BottomSheetPlayer(
                                 )
                             }
 
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            // Skip +10 detik
-                            FilledIconButton(
-                                onClick = {
-                                    playerConnection.player.seekTo(
-                                        (playerConnection.player.currentPosition + 10_000L).coerceAtMost(playerConnection.player.duration),
-                                    )
-                                },
-                                enabled = !isListenTogetherGuest,
-                                shape = RoundedCornerShape(50),
-                                colors =
-                                    IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = sideButtonContainerColor,
-                                        contentColor = sideButtonContentColor,
-                                    ),
-                                modifier =
-                                    Modifier
-                                        .height(68.dp)
-                                        .weight(nextButtonWeight),
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.fast_forward),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(28.dp),
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(8.dp))
-
                             FilledIconButton(
                                 onClick = playerConnection::seekToNext,
                                 enabled = canSkipNext && !isListenTogetherGuest,
@@ -1808,6 +1764,32 @@ fun BottomSheetPlayer(
                                     modifier = Modifier.size(32.dp),
                                 )
                             }
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
+                            ResizableIconButton(
+                                icon =
+                                    if (repeatMode == Player.REPEAT_MODE_ONE) {
+                                        R.drawable.repeat_on
+                                    } else {
+                                        R.drawable.repeat
+                                    },
+                                color = TextBackgroundColor,
+                                enabled = !isListenTogetherGuest,
+                                modifier =
+                                    Modifier
+                                        .size(28.dp)
+                                        .alpha(if (repeatMode != Player.REPEAT_MODE_OFF) 1f else 0.45f),
+                                onClick = {
+                                    val next =
+                                        if (repeatMode == Player.REPEAT_MODE_ONE) {
+                                            Player.REPEAT_MODE_OFF
+                                        } else {
+                                            Player.REPEAT_MODE_ONE
+                                        }
+                                    playerConnection.player.setRepeatMode(next)
+                                },
+                            )
                         }
                     } else {
                         Row(

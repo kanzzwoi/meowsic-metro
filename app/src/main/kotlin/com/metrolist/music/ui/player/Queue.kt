@@ -264,42 +264,42 @@ fun Queue(
         },
         collapsedContent = {
             if (useNewPlayerDesign) {
-                // New design
+                // New design: satu pil tembus pandang berisi Antrian, Timer, Lirik, dan menu.
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically,
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 30.dp, vertical = 12.dp)
+                            .padding(horizontal = 28.dp, vertical = 10.dp)
                             .windowInsetsPadding(
                                 WindowInsets.systemBars.only(
                                     WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal,
                                 ),
-                            ),
+                            )
+                            .clip(RoundedCornerShape(28.dp))
+                            .background(TextBackgroundColor.copy(alpha = 0.10f))
+                            .border(
+                                width = 1.dp,
+                                color = TextBackgroundColor.copy(alpha = 0.12f),
+                                shape = RoundedCornerShape(28.dp),
+                            )
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
                 ) {
-                    val buttonSize = 42.dp
-                    val iconSize = 24.dp
-                    val queueShape = RoundedCornerShape(2.dp)
-                    val middleShape = RoundedCornerShape(2.dp)
-                    val repeatShape = RoundedCornerShape(2.dp)
-
-                    PlayerQueueButton(
+                    PlayerPillButton(
                         icon = R.drawable.queue_music,
-                        onClick = { state.expandSoft() },
-                        isActive = false,
-                        shape = queueShape,
                         label = "Antrean",
-                        modifier = Modifier.size(buttonSize),
-                        textButtonColor = textButtonColor,
-                        iconButtonColor = iconButtonColor,
-                        iconSize = iconSize,
+                        isActive = false,
                         textBackgroundColor = TextBackgroundColor,
-                        playerBackground = playerBackground,
+                        onClick = { state.expandSoft() },
                     )
 
-                    PlayerQueueButton(
+                    PlayerPillButton(
                         icon = R.drawable.bedtime,
+                        label = if (sleepTimerEnabled) makeTimeString(sleepTimerTimeLeft) else "Timer",
+                        isActive = sleepTimerEnabled,
+                        textBackgroundColor = TextBackgroundColor,
+                        enabled = !isListenTogetherGuest,
                         onClick = {
                             if (sleepTimerEnabled) {
                                 playerConnection.service.sleepTimer?.clear()
@@ -307,107 +307,38 @@ fun Queue(
                                 showSleepTimerDialog = true
                             }
                         },
-                        isActive = sleepTimerEnabled,
-                        enabled = !isListenTogetherGuest,
-                        shape = middleShape,
-                        modifier = Modifier.size(buttonSize),
-                        textButtonColor = textButtonColor,
-                        iconButtonColor = iconButtonColor,
-                        text = if (sleepTimerEnabled) makeTimeString(sleepTimerTimeLeft) else null,
-                        label = if (sleepTimerEnabled) null else "Timer",
-                        iconSize = iconSize,
-                        textBackgroundColor = TextBackgroundColor,
-                        playerBackground = playerBackground,
                     )
 
-                    val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsStateWithLifecycle()
-                    PlayerQueueButton(
-                        icon = R.drawable.shuffle,
-                        onClick = {
-                            playerConnection.player.shuffleModeEnabled = !shuffleModeEnabled
-                        },
-                        label = "Shuffle",
-                        isActive = shuffleModeEnabled,
-                        enabled = !isListenTogetherGuest,
-                        shape = middleShape,
-                        modifier = Modifier.size(buttonSize),
-                        textButtonColor = textButtonColor,
-                        iconButtonColor = iconButtonColor,
-                        iconSize = iconSize,
-                        textBackgroundColor = TextBackgroundColor,
-                        playerBackground = playerBackground,
-                    )
-
-                    PlayerQueueButton(
+                    PlayerPillButton(
                         icon = R.drawable.lyrics,
-                        onClick = { onToggleLyrics() },
                         label = "Lirik",
                         isActive = showInlineLyrics,
-                        shape = middleShape,
-                        modifier = Modifier.size(buttonSize),
-                        textButtonColor = textButtonColor,
-                        iconButtonColor = iconButtonColor,
-                        iconSize = iconSize,
                         textBackgroundColor = TextBackgroundColor,
-                        playerBackground = playerBackground,
+                        onClick = { onToggleLyrics() },
                     )
 
-                    PlayerQueueButton(
-                        icon =
-                            if (repeatMode == Player.REPEAT_MODE_ONE) {
-                                R.drawable.repeat_on
-                            } else {
-                                R.drawable.repeat
-                            },
-                        // Hanya dua keadaan: Ulang (aktif) atau Ulang (mati).
-                        label = "Ulang",
+                    PlayerPillButton(
+                        icon = R.drawable.more_vert,
+                        label = "Lainnya",
+                        isActive = false,
+                        textBackgroundColor = TextBackgroundColor,
                         onClick = {
-                            playerConnection.player.toggleRepeatMode()
+                            menuState.show {
+                                PlayerMenu(
+                                    mediaMetadata = mediaMetadata,
+                                    playerBottomSheetState = playerBottomSheetState,
+                                    onShowDetailsDialog = {
+                                        mediaMetadata?.id?.let {
+                                            bottomSheetPageState.show {
+                                                ShowMediaInfo(it)
+                                            }
+                                        }
+                                    },
+                                    onDismiss = menuState::dismiss,
+                                )
+                            }
                         },
-                        isActive = repeatMode != Player.REPEAT_MODE_OFF,
-                        enabled = !isListenTogetherGuest,
-                        shape = repeatShape,
-                        modifier = Modifier.size(buttonSize),
-                        textButtonColor = textButtonColor,
-                        iconButtonColor = iconButtonColor,
-                        iconSize = iconSize,
-                        textBackgroundColor = TextBackgroundColor,
-                        playerBackground = playerBackground,
                     )
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(buttonSize)
-                                .clip(CircleShape)
-                                .background(textButtonColor)
-                                .clickable {
-                                    menuState.show {
-                                        PlayerMenu(
-                                            mediaMetadata = mediaMetadata,
-                                            playerBottomSheetState = playerBottomSheetState,
-                                            onShowDetailsDialog = {
-                                                mediaMetadata?.id?.let {
-                                                    bottomSheetPageState.show {
-                                                        ShowMediaInfo(it)
-                                                    }
-                                                }
-                                            },
-                                            onDismiss = menuState::dismiss,
-                                        )
-                                    }
-                                },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.more_vert),
-                            contentDescription = null,
-                            modifier = Modifier.size(iconSize),
-                            tint = iconButtonColor,
-                        )
-                    }
                 }
             } else {
                 // Old design
@@ -1353,5 +1284,47 @@ private fun PlayerQueueButton(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PlayerPillButton(
+    icon: Int,
+    label: String,
+    isActive: Boolean,
+    textBackgroundColor: Color,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    val contentColor =
+        if (isActive) {
+            LocalContentColor.current
+        } else {
+            textBackgroundColor.copy(alpha = 0.85f)
+        }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier =
+            Modifier
+                .clip(RoundedCornerShape(18.dp))
+                .clickable(enabled = enabled, onClick = onClick)
+                .alpha(if (enabled) 1f else 0.4f)
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+    ) {
+        Icon(
+            painter = painterResource(id = icon),
+            contentDescription = label,
+            tint = contentColor,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = label,
+            color = contentColor,
+            fontSize = 10.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
