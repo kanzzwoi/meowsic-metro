@@ -1605,11 +1605,11 @@ fun BottomSheetPlayer(
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = PlayerHorizontalPadding),
+                                        .padding(horizontal = 26.dp, vertical = 4.dp),
                             ) {
                                 PlayerPlainIcon(
                                     icon = R.drawable.shuffle,
-                                    size = 21.dp,
+                                    size = 26.dp,
                                     isActive = shuffleModeEnabled,
                                     enabled = !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -1620,7 +1620,7 @@ fun BottomSheetPlayer(
 
                                 PlayerPlainIcon(
                                     icon = R.drawable.skip_previous,
-                                    size = 30.dp,
+                                    size = 38.dp,
                                     isActive = true,
                                     enabled = canSkipPrevious && !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -1630,7 +1630,7 @@ fun BottomSheetPlayer(
                                 Box(
                                     modifier =
                                         Modifier
-                                            .size(64.dp)
+                                            .size(72.dp)
                                             .clip(CircleShape)
                                             .background(textButtonColor)
                                             .clickable {
@@ -1670,13 +1670,13 @@ fun BottomSheetPlayer(
                                                 if (effectiveIsPlaying) stringResource(R.string.player_pause) else stringResource(R.string.play)
                                             },
                                         tint = iconButtonColor,
-                                        modifier = Modifier.size(28.dp),
+                                        modifier = Modifier.size(32.dp),
                                     )
                                 }
 
                                 PlayerPlainIcon(
                                     icon = R.drawable.skip_next,
-                                    size = 30.dp,
+                                    size = 38.dp,
                                     isActive = true,
                                     enabled = canSkipNext && !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -1690,7 +1690,7 @@ fun BottomSheetPlayer(
                                         } else {
                                             R.drawable.repeat
                                         },
-                                    size = 21.dp,
+                                    size = 26.dp,
                                     isActive = repeatMode != Player.REPEAT_MODE_OFF,
                                     enabled = !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -2190,7 +2190,7 @@ private fun PlayerPlainIcon(
     Box(
         modifier =
             Modifier
-                .size(size + 16.dp)
+                .size(size + 12.dp)
                 .clip(CircleShape)
                 .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
