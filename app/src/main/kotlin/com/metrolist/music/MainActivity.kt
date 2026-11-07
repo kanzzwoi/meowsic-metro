@@ -376,8 +376,15 @@ class MainActivity : FragmentActivity() {
         reconnectAttempts = 0
         // Request notification permission on Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1000)
+            val requiredPermissions = mutableListOf(Manifest.permission.POST_NOTIFICATIONS)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                requiredPermissions.add(Manifest.permission.FOREGROUND_SERVICE)
+            }
+            val missingPermissions = requiredPermissions.filter {
+                ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+            }
+            if (missingPermissions.isNotEmpty()) {
+                ActivityCompat.requestPermissions(this, missingPermissions.toTypedArray(), 1000)
             }
         }
 
