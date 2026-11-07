@@ -3375,17 +3375,22 @@ class MusicService :
         val retryPosition = player.currentPosition
         val retryIndex = player.currentMediaItemIndex
         val retryPlayWhenReady = player.playWhenReady
+        val previousAttempts = currentMediaIdRetryCount[mediaId] ?: 0
         retryJob?.cancel()
         retryJob =
             scope.launch {
                 delay(RETRY_DELAY_MS)
 
+                // Posisi bisa bergeser sedikit setelah error (ExoPlayer reset ke 0),
+                // jadi jangan pakai perbandingan persis: itu membuat retry selalu
+                // dianggap basi dan pemutaran berhenti tanpa pemulihan.
+                val drift = kotlin.math.abs(player.currentPosition - retryPosition)
                 if (player.currentMediaItem?.mediaId != mediaId ||
-                    player.currentMediaItemIndex != retryIndex ||
-                    player.currentPosition != retryPosition ||
-                    player.playWhenReady != retryPlayWhenReady
+                    (player.currentMediaItemIndex != retryIndex && player.currentMediaItemIndex != C.INDEX_UNSET) ||
+                    drift > 5_000L
                 ) {
-                    Timber.tag(TAG).d("Skipping stale retry for $mediaId after $retryReason")
+                    PlaybackLog.log("player", "retry dibatalkan (basi) media=$mediaId alasan=$retryReason drift=${drift}ms")
+                    Timber.tag(TAG).d("Skipping stale retry for $mediaId after $retryReason (drift=${drift}ms)")
                     return@launch
                 }
 
@@ -3393,7 +3398,8 @@ class MusicService :
                 player.seekTo(retryIndex, retryPosition)
                 player.prepare()
 
-                Timber.tag(TAG).d("Retrying playback for $mediaId after $retryReason")
+                PlaybackLog.log("player", "retry #$previousAttempts media=$mediaId alasan=$retryReason")
+                Timber.tag(TAG).d("Retrying playback for $mediaId after $retryReason (attempt $previousAttempts)")
             }
     }
 

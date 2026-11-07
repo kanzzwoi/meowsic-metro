@@ -263,30 +263,29 @@ fun Queue(
             Box(Modifier.fillMaxSize().background(Color.Unspecified))
         },
         collapsedContent = {
-            if (useNewPlayerDesign) {
+            if (true) {
                 // Pil tembus pandang: Antrian, Timer, Lirik, Lainnya.
                 // Insets ditaruh di luar pil supaya label tidak ketutup nav bar.
                 Box(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp),
+                            .padding(top = 0.dp, bottom = 20.dp),
                 ) {
                     Row(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 22.dp, vertical = 2.dp)
-                                .clip(RoundedCornerShape(30.dp))
-                                .background(TextBackgroundColor.copy(alpha = 0.09f))
-                                .border(
-                                    width = 1.dp,
-                                    color = TextBackgroundColor.copy(alpha = 0.10f),
-                                    shape = RoundedCornerShape(30.dp),
-                                )
-                                .padding(horizontal = 4.dp, vertical = 3.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .clip(RoundedCornerShape(40.dp))
+                            .background(Color.White.copy(alpha = 0.18f))
+                            .border(
+                                width = 1.dp,
+                                color = Color.White.copy(alpha = 0.35f),
+                                shape = RoundedCornerShape(40.dp),
+                            )
+                            .padding(horizontal = 6.dp, vertical = 7.dp),
                     ) {
                         PlayerPillButton(
                             icon = R.drawable.queue_music,
@@ -296,6 +295,8 @@ fun Queue(
                             modifier = Modifier.weight(1f),
                             onClick = { state.expandSoft() },
                         )
+
+                        PlayerPillDivider()
 
                         PlayerPillButton(
                             icon = R.drawable.bedtime,
@@ -314,6 +315,8 @@ fun Queue(
                             },
                         )
 
+                        PlayerPillDivider()
+
                         PlayerPillButton(
                             icon = R.drawable.lyrics,
                             label = "Lirik",
@@ -322,6 +325,8 @@ fun Queue(
                             modifier = Modifier.weight(1f),
                             onClick = { onToggleLyrics() },
                         )
+
+                        PlayerPillDivider()
 
                         PlayerPillButton(
                             icon = R.drawable.ic_more_grid,
@@ -1296,6 +1301,18 @@ private fun PlayerQueueButton(
 }
 
 @Composable
+private fun PlayerPillDivider() {
+    Box(
+        modifier =
+            Modifier
+                .padding(vertical = 6.dp)
+                .width(1.dp)
+                .height(24.dp)
+                .background(Color.White.copy(alpha = 0.12f)),
+    )
+}
+
+@Composable
 private fun PlayerPillButton(
     icon: Int,
     label: String,
@@ -1312,11 +1329,11 @@ private fun PlayerPillButton(
         verticalArrangement = Arrangement.Center,
         modifier =
             modifier
-                .clip(RoundedCornerShape(22.dp))
-                .background(if (isActive) textBackgroundColor.copy(alpha = 0.16f) else Color.Transparent)
+                .clip(RoundedCornerShape(14.dp))
+                .background(if (isActive) Color.White.copy(alpha = 0.16f) else Color.Transparent)
                 .clickable(enabled = enabled, onClick = onClick)
                 .alpha(if (enabled) 1f else 0.4f)
-                .padding(horizontal = 6.dp, vertical = 3.dp),
+                .padding(horizontal = 6.dp, vertical = 6.dp),
     ) {
         if (text != null) {
             Text(
@@ -1331,15 +1348,15 @@ private fun PlayerPillButton(
                 painter = painterResource(id = icon),
                 contentDescription = label,
                 tint = contentColor,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(20.dp),
             )
         }
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = label,
             color = contentColor,
-            fontSize = 10.sp,
-            lineHeight = 11.sp,
+            fontSize = 11.sp,
+            lineHeight = 12.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

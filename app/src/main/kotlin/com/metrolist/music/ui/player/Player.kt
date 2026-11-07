@@ -1596,22 +1596,21 @@ fun BottomSheetPlayer(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = PlayerHorizontalPadding),
+                                    .padding(horizontal = 10.dp),
                         ) {
                             val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsStateWithLifecycle()
 
                             Row(
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                horizontalArrangement = Arrangement.SpaceEvenly,
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 22.dp, vertical = 4.dp)
-                                        .height(72.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .height(72.dp),
                             ) {
                                 PlayerPlainIcon(
                                     icon = R.drawable.shuffle,
-                                    size = 19.dp,
+                                    size = 22.dp,
                                     isActive = shuffleModeEnabled,
                                     enabled = !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -1692,7 +1691,7 @@ fun BottomSheetPlayer(
                                         } else {
                                             R.drawable.repeat
                                         },
-                                    size = 19.dp,
+                                    size = 22.dp,
                                     isActive = repeatMode != Player.REPEAT_MODE_OFF,
                                     enabled = !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -2188,14 +2187,20 @@ private fun PlayerPlainIcon(
     enabled: Boolean,
     tint: Color,
     onClick: () -> Unit,
+    boxSize: Dp = 56.dp,
+    corner: Dp = 12.dp,
 ) {
     Box(
         modifier =
             Modifier
-                .size(46.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color.White.copy(alpha = 0.08f))
-                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
+                .size(boxSize)
+                .clip(RoundedCornerShape(corner))
+                .background(Color.White.copy(alpha = 0.10f))
+                .border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.28f),
+                    shape = RoundedCornerShape(corner),
+                )
                 .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
