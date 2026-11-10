@@ -1403,7 +1403,7 @@ object LyricsUtils {
         romanizeCyrillicByLine: Boolean
     ): String? {
         val detectionText = if (romanizeCyrillicByLine) line else text
-        return when {
+        val result = when {
             "Japanese" in enabledLanguages && isJapanese(detectionText) && !isChinese(detectionText) -> romanizeJapanese(line)
             "Korean" in enabledLanguages && isKorean(detectionText) -> romanizeKorean(line)
             "Chinese" in enabledLanguages && isChinese(detectionText) -> romanizeChinese(line)
@@ -1417,6 +1417,13 @@ object LyricsUtils {
             "Macedonian" in enabledLanguages && isMacedonian(detectionText) -> romanizeCyrillic(line, "Macedonian")
             else -> null
         }
+        // Deteksi jalan di SELURUH teks lirik, jadi satu token asing di lagu
+        // (mis. nama artis Mandarin "治疗乐队" di data QRC QQMusic) membuat
+        // SEMUA baris ikut "diromanisasi" — padahal baris Inggris kembali
+        // apa adanya dan tampil dobel di bawah teks utama. Kalau hasil
+        // romanisasi sama dengan baris aslinya, tidak ada yang perlu
+        // ditampilkan.
+        return result?.takeIf { it.trim() != line.trim() }
     }
 
     private fun isCyrillicVowel(char: Char): Boolean {

@@ -41,23 +41,21 @@ private const val RACE_PROVIDER_TIMEOUT_MS = 10_000L
 
 /**
  * Jeda tunggu lirik PER KATA sebelum jatuh ke versi per baris.
- * Provider per kata (BetterLyrics/Unison/LyricsPlus/KuGou) biasanya 0,3-1,5 dtk;
- * Paxsenix paling lambat. Kalau dalam jeda ini tidak ada yang per kata,
- * pakai lirik per baris yang paling awal muncul (tanpa penukaran diam-diam).
- */
-/**
- * Jeda seleksi: kalau yang datang duluan masih per baris, tunggu sampai jeda ini
+ * Kalau yang datang duluan masih per baris, tahan dulu sampai jeda ini
  * untuk memberi kesempatan provider mana pun yang punya lirik per kata/huruf.
- * Semua provider setara; tidak ada yang diprioritaskan berdasarkan nama.
+ * Dihitung sejak hasil pertama datang. Kalau dalam jeda ini tidak ada yang
+ * per kata, pakai lirik per baris yang paling awal muncul (tanpa penukaran
+ * diam-diam). Semua provider setara; tidak ada yang diprioritaskan
+ * berdasarkan nama.
  */
-private const val WORD_GRACE_MS = 2_000L
+private const val WORD_GRACE_MS = 3_000L
 private const val PROVIDER_NONE = ""
 
 /** Kubu 1 (berlomba bersamaan): siapa cepat & punya timing per kata, dia menang. */
-private val TIER_1 = setOf("Kugou", "Paxsenix", "BetterLyrics", "Unison", "LyricsPlus")
+private val TIER_1 = setOf("BetterLyrics", "Unison", "LyricsPlus", "KuGou", "QQMusic", "LrcRed", "Paxsenix")
 
 /** Kubu 2: cadangan per baris. */
-private val TIER_2 = setOf("LrcLib", "Kugou")
+private val TIER_2 = setOf("LrcLib")
 
 /** Kubu 3: sisa (YouTube) — paling akhir. */
 private val TIER_3 = setOf<String>()
@@ -208,10 +206,10 @@ constructor(
             val durationSec = mediaMetadata.duration
 
             // Bertingkat bertahap (staggered):
-            //   Kubu 1: Paxsenix, BetterLyrics, Unison (lirik per suku kata)
-            //   Kubu 2: LyricsPlus (cepat, sebagian per kata)
-            //   Kubu 3: LrcLib (per baris)
-            //   Kubu 4: sisanya (KuGou, YouTube) — paling akhir
+            //   Kubu 1: BetterLyrics, Unison, LyricsPlus, KuGou, QQMusic,
+            //           LrcRed, Paxsenix (diadu bersamaan; per kata/huruf menang)
+            //   Kubu 2: LrcLib (cadangan per baris)
+            //   Kubu 3: sisanya (YouTube) — paling akhir
             Timber.tag("LyricsHelper").d("Staggered fetch for: $cleanedTitle by ${mediaMetadata.artists.joinToString { it.name }}")
             Timber.tag("LyricsHelper").d("Enabled providers in order: ${enabledProviders.joinToString { it.name }}")
 
