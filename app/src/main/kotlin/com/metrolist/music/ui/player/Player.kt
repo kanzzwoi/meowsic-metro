@@ -1051,6 +1051,11 @@ fun BottomSheetPlayer(
             )
         },
     ) {
+        // Layar miring itu pendek: konten kontrol harus muat di atas pill
+        // antrean (88dp) supaya tidak kejepit. Jarak vertikal dirapatkan
+        // saat landscape.
+        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
         val controlsContent: @Composable ColumnScope.(MediaMetadata) -> Unit = { mediaMetadata ->
             val playPauseRoundness by animateDpAsState(
                 targetValue = if (isPlaying) 24.dp else 36.dp,
@@ -1431,7 +1436,7 @@ fun BottomSheetPlayer(
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(if (isLandscape) 8.dp else 24.dp))
 
             when (sliderStyle) {
                 SliderStyle.DEFAULT -> {
@@ -1581,7 +1586,7 @@ fun BottomSheetPlayer(
                 )
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(if (isLandscape) 8.dp else 24.dp))
 
             AnimatedVisibility(
                 visible = !isFullScreen,
@@ -1606,7 +1611,7 @@ fun BottomSheetPlayer(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp)
-                                    .height(72.dp),
+                                    .height(if (isLandscape) 64.dp else 72.dp),
                             ) {
                                 PlayerPlainIcon(
                                     icon = R.drawable.shuffle,
