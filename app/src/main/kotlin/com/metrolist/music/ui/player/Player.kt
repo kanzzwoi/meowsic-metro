@@ -1446,7 +1446,7 @@ fun BottomSheetPlayer(
                 }
             }
 
-            Spacer(Modifier.height(if (isLandscape) 4.dp else 24.dp))
+            Spacer(Modifier.height(if (isLandscape) 12.dp else 24.dp))
 
             when (sliderStyle) {
                 SliderStyle.DEFAULT -> {
@@ -1596,7 +1596,7 @@ fun BottomSheetPlayer(
                 )
             }
 
-            Spacer(Modifier.height(if (isLandscape) 4.dp else 24.dp))
+            Spacer(Modifier.height(if (isLandscape) 12.dp else 24.dp))
 
             AnimatedVisibility(
                 visible = !isFullScreen,
@@ -1948,8 +1948,13 @@ fun BottomSheetPlayer(
                                 // Ruang untuk pill antrean (kini di kanan
                                 // bawah, bukan selebar layar) supaya baris
                                 // kontrol tidak ketimpa saat tidak fullscreen.
+                                // Dikurangi inset bawah + padding bawah Row
+                                // karena keduanya sudah mengangkat kolom dari
+                                // tepi bawah layar; tanpa ini ada ruang kosong
+                                // selebar itu di atas pil.
                                 .padding(
-                                    bottom = if (isFullScreen) 0.dp else queueSheetState.collapsedBound + 8.dp,
+                                    bottom = if (isFullScreen) 0.dp
+                                    else queueSheetState.collapsedBound + 8.dp - verticalPaddingDp - 24.dp,
                                 ),
                     ) {
                         Spacer(Modifier.weight(1f))
