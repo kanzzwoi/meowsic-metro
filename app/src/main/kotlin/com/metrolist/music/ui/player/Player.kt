@@ -929,6 +929,14 @@ fun BottomSheetPlayer(
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val queuePeekHeight = if (isLandscape) 56.dp else QueuePeekHeight
 
+    // Lebar kolom kontrol di landscape: bobot 0.65 dari total 1.65
+    // (kolom kiri bobot 1), jadi ~39% lebar layar. Bobotnya dibuat
+    // tetap, tidak tergantung lirik, supaya tombol tidak menyempit
+    // saat Lirik dipencet. Pil antrean memakai fraksi yang sama
+    // supaya selebar kolom kontrol.
+    val controlsWeight = 0.65f
+    val controlsFraction = controlsWeight / (1f + controlsWeight)
+
     val dismissedBound = queuePeekHeight + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
 
     val queueSheetState =
@@ -1618,6 +1626,7 @@ fun BottomSheetPlayer(
                                 PlayerPlainIcon(
                                     icon = R.drawable.shuffle,
                                     size = 24.dp,
+                                    boxSize = if (isLandscape) 48.dp else 56.dp,
                                     isActive = shuffleModeEnabled,
                                     enabled = !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -1629,6 +1638,7 @@ fun BottomSheetPlayer(
                                 PlayerPlainIcon(
                                     icon = R.drawable.skip_previous,
                                     size = 24.dp,
+                                    boxSize = if (isLandscape) 48.dp else 56.dp,
                                     isActive = true,
                                     enabled = canSkipPrevious && !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -1638,7 +1648,7 @@ fun BottomSheetPlayer(
                                 Box(
                                     modifier =
                                         Modifier
-                                            .size(if (isLandscape) 64.dp else 70.dp)
+                                            .size(if (isLandscape) 60.dp else 70.dp)
                                             .clip(CircleShape)
                                             .background(textButtonColor)
                                             .clickable {
@@ -1685,6 +1695,7 @@ fun BottomSheetPlayer(
                                 PlayerPlainIcon(
                                     icon = R.drawable.skip_next,
                                     size = 24.dp,
+                                    boxSize = if (isLandscape) 48.dp else 56.dp,
                                     isActive = true,
                                     enabled = canSkipNext && !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -1698,10 +1709,8 @@ fun BottomSheetPlayer(
                                         } else {
                                             R.drawable.repeat
                                         },
-                                    // Glif repeat tipis dan renggang, jadi
-                                    // ikonnya dibesarkan supaya secara visual
-                                    // sama besar dengan tombol lainnya.
-                                    size = 28.dp,
+                                    size = 24.dp,
+                                    boxSize = if (isLandscape) 48.dp else 56.dp,
                                     isActive = repeatMode != Player.REPEAT_MODE_OFF,
                                     enabled = !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -1928,7 +1937,7 @@ fun BottomSheetPlayer(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier =
                             Modifier
-                                .weight(if (showInlineLyrics) 0.65f else 1f, false)
+                                .weight(controlsWeight)
                                 .animateContentSize()
                                 // Row sudah menangani inset status bar di
                                 // landscape, jadi inset atas ganda dihapus.
@@ -2021,7 +2030,7 @@ fun BottomSheetPlayer(
                     modifier =
                         Modifier
                             .fillMaxHeight()
-                            .fillMaxWidth(if (isLandscape && showInlineLyrics) 0.65f else 1f),
+                            .fillMaxWidth(if (isLandscape) controlsFraction else 1f),
                 ) {
                     Queue(
                         state = queueSheetState,
