@@ -1610,7 +1610,7 @@ fun BottomSheetPlayer(
                             ) {
                                 PlayerPlainIcon(
                                     icon = R.drawable.shuffle,
-                                    size = 22.dp,
+                                    size = 24.dp,
                                     isActive = shuffleModeEnabled,
                                     enabled = !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -1691,7 +1691,7 @@ fun BottomSheetPlayer(
                                         } else {
                                             R.drawable.repeat
                                         },
-                                    size = 22.dp,
+                                    size = 24.dp,
                                     isActive = repeatMode != Player.REPEAT_MODE_OFF,
                                     enabled = !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -1876,7 +1876,10 @@ fun BottomSheetPlayer(
                         Modifier
                             .windowInsetsPadding(
                                 WindowInsets.systemBars.only(WindowInsetsSides.Horizontal).add(verticalWindowInsets),
-                            ).padding(bottom = 24.dp)
+                            )
+                            // Ruang untuk pill antrean (QueuePeekHeight) supaya
+                            // baris kontrol tidak ketimpa saat tidak fullscreen.
+                            .padding(bottom = if (isFullScreen) 24.dp else QueuePeekHeight + 24.dp)
                             .fillMaxSize(),
                 ) {
                     Box(
