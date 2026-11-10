@@ -6,6 +6,7 @@
 package com.metrolist.music.ui.player
 
 import android.annotation.SuppressLint
+import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -86,6 +87,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -173,6 +175,9 @@ fun Queue(
     val isListenTogetherGuest = listenTogetherRoleState?.value == RoomRole.GUEST
 
     val playerConnection = LocalPlayerConnection.current ?: return
+
+    // Mode miring: pill antrean lebih ramping (peek 56dp, bukan 88dp).
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val isPlaying by playerConnection.isEffectivelyPlaying.collectAsStateWithLifecycle()
     val repeatMode by playerConnection.repeatMode.collectAsStateWithLifecycle()
 
@@ -270,7 +275,7 @@ fun Queue(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(top = 0.dp, bottom = 20.dp),
+                            .padding(top = 0.dp, bottom = if (isLandscape) 8.dp else 20.dp),
                 ) {
                     Row(
                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -285,7 +290,7 @@ fun Queue(
                                 color = Color.White.copy(alpha = 0.35f),
                                 shape = RoundedCornerShape(40.dp),
                             )
-                            .padding(horizontal = 6.dp, vertical = 7.dp),
+                            .padding(horizontal = 6.dp, vertical = if (isLandscape) 4.dp else 7.dp),
                     ) {
                         PlayerPillButton(
                             icon = R.drawable.queue_music,

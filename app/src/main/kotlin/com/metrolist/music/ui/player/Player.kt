@@ -50,6 +50,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -922,7 +923,13 @@ fun BottomSheetPlayer(
         }
     }
 
-    val dismissedBound = QueuePeekHeight + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
+    // Mode miring: pill antrean dikecilkan (56dp, bukan 88dp) dan pindah
+    // ke kolom kanan, jadi tinggi layar yang pendek tidak perlu lagi
+    // dikorbankan untuk pill selebar layar.
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val queuePeekHeight = if (isLandscape) 56.dp else QueuePeekHeight
+
+    val dismissedBound = queuePeekHeight + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
 
     val queueSheetState =
         rememberBottomSheetState(
@@ -1051,11 +1058,6 @@ fun BottomSheetPlayer(
             )
         },
     ) {
-        // Layar miring itu pendek: konten kontrol harus muat di atas pill
-        // antrean (88dp) supaya tidak kejepit. Jarak vertikal dirapatkan
-        // saat landscape.
-        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-
         val controlsContent: @Composable ColumnScope.(MediaMetadata) -> Unit = { mediaMetadata ->
             val playPauseRoundness by animateDpAsState(
                 targetValue = if (isPlaying) 24.dp else 36.dp,
@@ -1081,7 +1083,7 @@ fun BottomSheetPlayer(
                                 Box(
                                     modifier =
                                         Modifier
-                                            .size(56.dp)
+                                            .size(if (isLandscape) 48.dp else 56.dp)
                                             .clip(RoundedCornerShape(ThumbnailCornerRadius))
                                             .background(MaterialTheme.colorScheme.surfaceVariant),
                                     contentAlignment = Alignment.Center,
@@ -1102,7 +1104,7 @@ fun BottomSheetPlayer(
                                     contentScale = if (cropAlbumArt) ContentScale.Crop else ContentScale.Fit,
                                     modifier =
                                         Modifier
-                                            .size(56.dp)
+                                            .size(if (isLandscape) 48.dp else 56.dp)
                                             .clip(RoundedCornerShape(ThumbnailCornerRadius)),
                                 )
                             }
@@ -1436,7 +1438,7 @@ fun BottomSheetPlayer(
                 }
             }
 
-            Spacer(Modifier.height(if (isLandscape) 8.dp else 24.dp))
+            Spacer(Modifier.height(if (isLandscape) 4.dp else 24.dp))
 
             when (sliderStyle) {
                 SliderStyle.DEFAULT -> {
@@ -1586,7 +1588,7 @@ fun BottomSheetPlayer(
                 )
             }
 
-            Spacer(Modifier.height(if (isLandscape) 8.dp else 24.dp))
+            Spacer(Modifier.height(if (isLandscape) 4.dp else 24.dp))
 
             AnimatedVisibility(
                 visible = !isFullScreen,
@@ -1610,7 +1612,7 @@ fun BottomSheetPlayer(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
+                                    .padding(vertical = if (isLandscape) 0.dp else 4.dp)
                                     .height(if (isLandscape) 64.dp else 72.dp),
                             ) {
                                 PlayerPlainIcon(
@@ -1636,7 +1638,7 @@ fun BottomSheetPlayer(
                                 Box(
                                     modifier =
                                         Modifier
-                                            .size(70.dp)
+                                            .size(if (isLandscape) 64.dp else 70.dp)
                                             .clip(CircleShape)
                                             .background(textButtonColor)
                                             .clickable {
@@ -1696,7 +1698,10 @@ fun BottomSheetPlayer(
                                         } else {
                                             R.drawable.repeat
                                         },
-                                    size = 24.dp,
+                                    // Glif repeat tipis dan renggang, jadi
+                                    // ikonnya dibesarkan supaya secara visual
+                                    // sama besar dengan tombol lainnya.
+                                    size = 28.dp,
                                     isActive = repeatMode != Player.REPEAT_MODE_OFF,
                                     enabled = !isListenTogetherGuest,
                                     tint = TextBackgroundColor,
@@ -1882,9 +1887,7 @@ fun BottomSheetPlayer(
                             .windowInsetsPadding(
                                 WindowInsets.systemBars.only(WindowInsetsSides.Horizontal).add(verticalWindowInsets),
                             )
-                            // Ruang untuk pill antrean (QueuePeekHeight) supaya
-                            // baris kontrol tidak ketimpa saat tidak fullscreen.
-                            .padding(bottom = if (isFullScreen) 24.dp else QueuePeekHeight + 24.dp)
+                            .padding(bottom = 24.dp)
                             .fillMaxSize(),
                 ) {
                     Box(
@@ -1927,7 +1930,18 @@ fun BottomSheetPlayer(
                             Modifier
                                 .weight(if (showInlineLyrics) 0.65f else 1f, false)
                                 .animateContentSize()
-                                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top)),
+                                // Row sudah menangani inset status bar di
+                                // landscape, jadi inset atas ganda dihapus.
+                                .windowInsetsPadding(
+                                    if (isLandscape) WindowInsets(0.dp, 0.dp, 0.dp, 0.dp)
+                                    else WindowInsets.systemBars.only(WindowInsetsSides.Top),
+                                )
+                                // Ruang untuk pill antrean (kini di kanan
+                                // bawah, bukan selebar layar) supaya baris
+                                // kontrol tidak ketimpa saat tidak fullscreen.
+                                .padding(
+                                    bottom = if (isFullScreen) 0.dp else queueSheetState.collapsedBound + 8.dp,
+                                ),
                     ) {
                         Spacer(Modifier.weight(1f))
 
@@ -1997,26 +2011,40 @@ fun BottomSheetPlayer(
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
             exit = shrinkVertically(shrinkTowards = Alignment.Top) + slideOutVertically(targetOffsetY = { it }) + fadeOut(),
         ) {
-            Queue(
-                state = queueSheetState,
-                playerBottomSheetState = state,
-                background =
-                    if (useBlackBackground) {
-                        Color.Black
-                    } else {
-                        MaterialTheme.colorScheme.surfaceContainer
-                    },
-                onBackgroundColor = onBackgroundColor,
-                TextBackgroundColor = TextBackgroundColor,
-                textButtonColor = textButtonColor,
-                iconButtonColor = iconButtonColor,
-                pureBlack = pureBlack,
-                showInlineLyrics = showInlineLyrics,
-                playerBackground = playerBackground,
-                onToggleLyrics = {
-                    showInlineLyrics = !showInlineLyrics
-                },
-            )
+            // Landscape: pill antrean jadi panel kanan selebar kolom
+            // kontrol (0.65x saat lirik tampil), bukan selebar layar.
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.BottomEnd,
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(if (isLandscape && showInlineLyrics) 0.65f else 1f),
+                ) {
+                    Queue(
+                        state = queueSheetState,
+                        playerBottomSheetState = state,
+                        background =
+                            if (useBlackBackground) {
+                                Color.Black
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainer
+                            },
+                        onBackgroundColor = onBackgroundColor,
+                        TextBackgroundColor = TextBackgroundColor,
+                        textButtonColor = textButtonColor,
+                        iconButtonColor = iconButtonColor,
+                        pureBlack = pureBlack,
+                        showInlineLyrics = showInlineLyrics,
+                        playerBackground = playerBackground,
+                        onToggleLyrics = {
+                            showInlineLyrics = !showInlineLyrics
+                        },
+                    )
+                }
+            }
         }
     }
 }
