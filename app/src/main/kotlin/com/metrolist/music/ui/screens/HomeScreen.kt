@@ -708,7 +708,7 @@ fun HomeScreen(
     val accountName by viewModel.accountName.collectAsStateWithLifecycle()
     val accountImageUrl by viewModel.accountImageUrl.collectAsStateWithLifecycle()
     val innerTubeCookie by rememberPreference(InnerTubeCookieKey, "")
-    val (randomizeHomeOrder) = rememberPreference(RandomizeHomeOrderKey, true)
+    val (randomizeHomeOrder) = rememberPreference(RandomizeHomeOrderKey, false)
     val autoRadioQueue by rememberPreference(AutoRadioQueueKey, defaultValue = true)
 
     LaunchedEffect(Unit) { viewModel.loadHomeData() }
@@ -1055,6 +1055,13 @@ fun HomeScreen(
             }
 
             homePage?.sections?.indices?.forEach { i ->
+                // Rak "Quick picks" dari YouTube menduplikasi bagian
+                // QuickPicks milik aplikasi sendiri, jadi lewati di sini.
+                if (homePage?.sections?.getOrNull(i)?.title?.trim()
+                        .equals("Quick picks", ignoreCase = true)
+                ) {
+                    return@forEach
+                }
                 list.add(HomeSection.HomePageSection(i))
             }
 
@@ -1117,23 +1124,36 @@ fun HomeScreen(
                     base + modifier
                 }
             } else {
+                // Urutan tetap beranda (diatur pengguna, 2026-11-11):
+                // Banner, Quick Picks, Lanjut Dengarkan, Pilihan Cepat,
+                // Trending songs for you, Mood dan Genre, Daily Discover,
+                // Favorit yang Terlupakan, Playlist Akun, Saran dari
+                // Komunitas, Mirip dengan..., lalu rak YouTube lainnya.
                 val defaultOrder =
                     mapOf(
-                        HomeSection.Banner to 105,
-                        HomeSection.SpeedDial to 100,
-                        HomeSection.QuickPicks to 90,
-                        HomeSection.FromTheCommunity to 80,
-                        HomeSection.DailyDiscover to 70,
-                        HomeSection.KeepListening to 60,
-                        HomeSection.AccountPlaylists to 50,
+                        HomeSection.Banner to 110,
+                        HomeSection.QuickPicks to 100,
+                        HomeSection.KeepListening to 90,
+                        HomeSection.SpeedDial to 80,
+                        HomeSection.MoodAndGenres to 60,
+                        HomeSection.DailyDiscover to 50,
                         HomeSection.ForgottenFavorites to 40,
-                        HomeSection.MoodAndGenres to 10,
+                        HomeSection.AccountPlaylists to 30,
+                        HomeSection.FromTheCommunity to 20,
                     )
 
                 list.sortedByDescending { section ->
                     when (section) {
-                        is HomeSection.SimilarRecommendation -> 30 - section.index
-                        is HomeSection.HomePageSection -> 20 - section.index
+                        is HomeSection.SimilarRecommendation -> 15 - section.index
+                        is HomeSection.HomePageSection -> {
+                            // "Trending songs for you" dipindah ke posisi 4
+                            // (di bawah Pilihan Cepat); rak YouTube lain
+                            // tetap paling bawah, mengikuti urutan API.
+                            val title = homePage?.sections?.getOrNull(section.index)?.title
+                            if (title?.trim().equals("Trending songs for you", ignoreCase = true)) 70
+                            else 10 - section.index
+                        }
+
                         else -> defaultOrder[section] ?: 0
                     }
                 }
