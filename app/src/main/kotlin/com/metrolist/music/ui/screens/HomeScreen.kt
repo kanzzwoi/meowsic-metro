@@ -1055,10 +1055,13 @@ fun HomeScreen(
             }
 
             homePage?.sections?.indices?.forEach { i ->
-                // Rak "Quick picks" dari YouTube menduplikasi bagian
-                // QuickPicks milik aplikasi sendiri, jadi lewati di sini.
+                // Rak "Quick picks" dari YouTube hanya disembunyikan
+                // kalau bagian QuickPicks milik aplikasi sudah tampil.
+                // Kalau aplikasi tidak punya data lokal (misalnya riwayat
+                // baru dihapus), rak YouTube ini yang menampilkan Quick Picks.
                 if (homePage?.sections?.getOrNull(i)?.title?.trim()
-                        .equals("Quick picks", ignoreCase = true)
+                        .equals("Quick picks", ignoreCase = true) &&
+                    quickPicks?.isNotEmpty() == true
                 ) {
                     return@forEach
                 }
@@ -1147,10 +1150,13 @@ fun HomeScreen(
                         is HomeSection.SimilarRecommendation -> 15 - section.index
                         is HomeSection.HomePageSection -> {
                             // "Trending songs for you" dipindah ke posisi 4
-                            // (di bawah Pilihan Cepat); rak YouTube lain
-                            // tetap paling bawah, mengikuti urutan API.
+                            // (di bawah Pilihan Cepat); rak "Quick picks"
+                            // dari YouTube jadi pengganti Quick Picks di
+                            // posisi 1 kalau aplikasi tidak punya data
+                            // lokal; rak YouTube lain tetap paling bawah.
                             val title = homePage?.sections?.getOrNull(section.index)?.title
                             if (title?.trim().equals("Trending songs for you", ignoreCase = true)) 70
+                            else if (title?.trim().equals("Quick picks", ignoreCase = true)) 100
                             else 10 - section.index
                         }
 
