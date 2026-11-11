@@ -301,44 +301,62 @@ class HomeViewModel @Inject constructor(
     private suspend fun getQuickPicks() {
         val hideVideoSongs = context.dataStore.get(HideVideoSongsKey, false)
         when (quickPicksEnum.first()) {
-            QuickPicks.QUICK_PICKS -> {
-                val relatedSongs = database.quickPicks().first().filterVideoSongs(hideVideoSongs)
-                val forgotten = database.forgottenFavorites().first().filterVideoSongs(hideVideoSongs).take(8)
-
-                // Get similar songs from YouTube based on recent listening
-                val recentSong = database.latestEvent().first()?.song
-                val ytSimilarSongs = mutableListOf<Song>()
-
-                if (recentSong != null) {
-                    val endpoint = YouTube.next(WatchEndpoint(videoId = recentSong.id)).getOrNull()?.relatedEndpoint
-                    if (endpoint != null) {
-                        YouTube.related(endpoint).onSuccess { page ->
-                            // Convert YouTube songs to local Song format if they exist in database
-                            page.songs.take(10).forEach { ytSong ->
-                                database.song(ytSong.id).first()?.let { localSong ->
-                                    if (!hideVideoSongs || !localSong.song.isVideo) {
-                                        ytSimilarSongs.add(localSong)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Combine all sources and remove duplicates
-                val combined = (relatedSongs + forgotten + ytSimilarSongs)
-                    .distinctBy { it.id }
-                    .shuffled()
-                    .take(20)
-
-                quickPicks.value = combined.ifEmpty { relatedSongs.shuffled().take(20) }
-            }
+            QuickPicks.QUICK_PICKS -> loadDefaultQuickPicks(hideVideoSongs)
             QuickPicks.LAST_LISTEN -> {
                 val song = database.latestEvent().first()?.song
                 if (song != null && database.hasRelatedSongs(song.id)) {
                     quickPicks.value = database.getRelatedSongs(song.id).first().filterVideoSongs(hideVideoSongs).shuffled().take(20)
+                } else {
+                    // Lagu terakhir tidak punya lagu terkait: jangan biarkan
+                    // Quick Picks kosong, pakai daftar default saja.
+                    loadDefaultQuickPicks(hideVideoSongs)
                 }
             }
+        }
+    }
+
+    private suspend fun loadDefaultQuickPicks(hideVideoSongs: Boolean) {
+        val relatedSongs = database.quickPicks().first().filterVideoSongs(hideVideoSongs)
+        val forgotten = database.forgottenFavorites().first().filterVideoSongs(hideVideoSongs).take(8)
+
+        // Isi dulu dari data lokal supaya bagiannya langsung muncul,
+        // jangan tunggu panggilan YouTube.
+        val local = (relatedSongs + forgotten).distinctBy { it.id }.shuffled().take(20)
+        quickPicks.value = local.ifEmpty {
+            // Cadangan terakhir: lagu yang paling sering diputar (sumber
+            // yang sama dengan "Lanjut dengarkan", jadi hampir pasti ada).
+            database.mostPlayedSongs(
+                fromTimeStamp = LocalDateTime.now().minusWeeks(2),
+                limit = 20,
+            ).first().filterVideoSongs(hideVideoSongs).shuffled()
+        }
+
+        // Perkaya dengan lagu serupa dari YouTube berdasarkan yang terakhir didengar
+        val recentSong = database.latestEvent().first()?.song
+        val ytSimilarSongs = mutableListOf<Song>()
+
+        if (recentSong != null) {
+            val endpoint = YouTube.next(WatchEndpoint(videoId = recentSong.id)).getOrNull()?.relatedEndpoint
+            if (endpoint != null) {
+                YouTube.related(endpoint).onSuccess { page ->
+                    // Convert YouTube songs to local Song format if they exist in database
+                    page.songs.take(10).forEach { ytSong ->
+                        database.song(ytSong.id).first()?.let { localSong ->
+                            if (!hideVideoSongs || !localSong.song.isVideo) {
+                                ytSimilarSongs.add(localSong)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (ytSimilarSongs.isNotEmpty()) {
+            val combined = (quickPicks.value.orEmpty() + ytSimilarSongs)
+                .distinctBy { it.id }
+                .shuffled()
+                .take(20)
+            if (combined.isNotEmpty()) quickPicks.value = combined
         }
     }
 
