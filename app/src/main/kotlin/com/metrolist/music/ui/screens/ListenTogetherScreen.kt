@@ -315,7 +315,10 @@ fun ListenTogetherScreen(
         modifier =
             Modifier
                 .fillMaxSize()
-                // Transparan: pakai wallpaper global supaya sama dengan Home.
+                // Latar solid: layar ini penuh teks, wallpaper global yang
+                // tembus bikin teks bertabrakan dengan judul bar dan susah
+                // dibaca — jadi pakai surface, bukan transparan.
+                .background(MaterialTheme.colorScheme.surface)
                 .imePadding(),
         contentPadding =
             PaddingValues(
