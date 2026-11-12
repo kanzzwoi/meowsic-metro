@@ -7,7 +7,6 @@ package com.metrolist.music.ui.screens.settings
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -46,7 +45,6 @@ import com.metrolist.music.utils.reportException
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -84,9 +82,6 @@ import com.metrolist.music.viewmodels.HomeViewModel
  * Kartu aksi besar: ikon di atas, label di bawah. Dipakai untuk baris atas
  * (Login / Masuk dengan token) dan baris bawah (Pengaturan / Join saluran).
  */
-// Teks/ikon gelap: panel dialog sekarang putih terang, jadi onSurface (putih) tidak kebaca.
-private val FrostedOnSurface = Color(0xFF1C1B1F)
-
 @Composable
 private fun ProfileActionTile(
     icon: Painter,
@@ -100,8 +95,7 @@ private fun ProfileActionTile(
             .clip(RoundedCornerShape(20.dp))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
-        color = Color.White.copy(alpha = 0.25f),
-        border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.18f)),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp,
     ) {
         Column(
@@ -113,13 +107,13 @@ private fun ProfileActionTile(
                 painter = icon,
                 contentDescription = null,
                 modifier = Modifier.size(24.dp),
-                tint = FrostedOnSurface,
+                tint = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 text = label.uppercase(),
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = FrostedOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -143,8 +137,7 @@ private fun ProfileToggleRow(
             .height(56.dp)
             .clip(RoundedCornerShape(28.dp)),
         shape = RoundedCornerShape(28.dp),
-        color = Color.White.copy(alpha = 0.25f),
-        border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.18f)),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp,
     ) {
         Row(
@@ -155,15 +148,15 @@ private fun ProfileToggleRow(
                 painter = icon,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
-                tint = if (enabled) FrostedOnSurface
-                else FrostedOnSurface.copy(alpha = 0.38f),
+                tint = if (enabled) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
             )
             Spacer(Modifier.width(12.dp))
             Text(
                 text = label.uppercase(),
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = if (enabled) FrostedOnSurface
-                else FrostedOnSurface.copy(alpha = 0.38f),
+                color = if (enabled) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -221,7 +214,7 @@ fun AccountSettings(
 
     Column(
         modifier = Modifier
-            .background(Color.Transparent)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
@@ -234,16 +227,11 @@ fun AccountSettings(
             Text(
                 text = stringResource(id = R.string.app_name),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = FrostedOnSurface,
                 modifier = Modifier.padding(start = 4.dp)
             )
             Spacer(modifier = Modifier.weight(1f))
             IconButton(onClick = onClose) {
-                Icon(
-                    painterResource(R.drawable.close),
-                    contentDescription = null,
-                    tint = FrostedOnSurface,
-                )
+                Icon(painterResource(R.drawable.close), contentDescription = null)
             }
         }
 
@@ -496,7 +484,6 @@ fun AccountSettings(
                 }
             },
             shape = RoundedCornerShape(28.dp),
-            border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.25f)),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
@@ -517,9 +504,8 @@ fun AccountSettings(
                     showLogoutDialog = true
                 },
                 shape = RoundedCornerShape(28.dp),
-                border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.25f)),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = Color.White.copy(alpha = 0.25f),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
                     contentColor = MaterialTheme.colorScheme.error,
                 ),
                 modifier = Modifier.fillMaxWidth(),
