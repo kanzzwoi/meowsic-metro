@@ -5,6 +5,8 @@
 
 package com.metrolist.music.ui.component
 
+import android.os.Build
+import android.view.WindowManager
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -40,11 +42,15 @@ import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.pointer.pointerInput
@@ -150,6 +156,10 @@ fun AccountSettingsDialog(
                 dismissOnClickOutside = true,
             ),
     ) {
+        // Blur asli di balik dialog (Android 12+): wallpaper di belakang
+        // jadi buram, panelnya cukup putih transparan tipis. Di bawah
+        // Android 12 efek ini dilewati, panel transparan tetap jalan.
+        DialogBlurBehind()
         Box(
             modifier =
                 Modifier
@@ -168,14 +178,30 @@ fun AccountSettingsDialog(
                         .padding(top = 72.dp, start = 16.dp, end = 16.dp)
                         .clip(RoundedCornerShape(28.dp)),
                 shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp,
+                color = Color.White.copy(alpha = 0.20f),
+                tonalElevation = 0.dp,
             ) {
                 AccountSettings(
                     navController = navController,
                     onClose = onDismiss,
                     latestVersionName = latestVersionName,
                 )
+            }
+        }
+    }
+}
+
+/** Nyalakan blur di balik jendela dialog + redupkan dim supaya wallpaper buramnya kelihatan. */
+@Composable
+private fun DialogBlurBehind() {
+    val view = LocalView.current
+    SideEffect {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val window = (view.parent as? DialogWindowProvider)?.window
+            window?.let {
+                it.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                it.attributes = it.attributes.apply { blurBehindRadius = 60 }
+                it.setDimAmount(0.35f)
             }
         }
     }

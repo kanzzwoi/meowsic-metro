@@ -7,6 +7,7 @@ package com.metrolist.music.ui.screens.settings
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -45,6 +46,7 @@ import com.metrolist.music.utils.reportException
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -95,7 +97,8 @@ private fun ProfileActionTile(
             .clip(RoundedCornerShape(20.dp))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = Color.White.copy(alpha = 0.10f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
         tonalElevation = 0.dp,
     ) {
         Column(
@@ -137,7 +140,8 @@ private fun ProfileToggleRow(
             .height(56.dp)
             .clip(RoundedCornerShape(28.dp)),
         shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = Color.White.copy(alpha = 0.10f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
         tonalElevation = 0.dp,
     ) {
         Row(
@@ -214,7 +218,7 @@ fun AccountSettings(
 
     Column(
         modifier = Modifier
-            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .background(Color.Transparent)
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
@@ -484,6 +488,7 @@ fun AccountSettings(
                 }
             },
             shape = RoundedCornerShape(28.dp),
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
@@ -505,7 +510,7 @@ fun AccountSettings(
                 },
                 shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    containerColor = Color.White.copy(alpha = 0.10f),
                     contentColor = MaterialTheme.colorScheme.error,
                 ),
                 modifier = Modifier.fillMaxWidth(),
