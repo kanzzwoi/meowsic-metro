@@ -84,6 +84,9 @@ import com.metrolist.music.viewmodels.HomeViewModel
  * Kartu aksi besar: ikon di atas, label di bawah. Dipakai untuk baris atas
  * (Login / Masuk dengan token) dan baris bawah (Pengaturan / Join saluran).
  */
+// Teks/ikon gelap: panel dialog sekarang putih terang, jadi onSurface (putih) tidak kebaca.
+private val FrostedOnSurface = Color(0xFF1C1B1F)
+
 @Composable
 private fun ProfileActionTile(
     icon: Painter,
@@ -97,8 +100,8 @@ private fun ProfileActionTile(
             .clip(RoundedCornerShape(20.dp))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
-        color = Color.White.copy(alpha = 0.10f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+        color = Color.White.copy(alpha = 0.25f),
+        border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.18f)),
         tonalElevation = 0.dp,
     ) {
         Column(
@@ -110,13 +113,13 @@ private fun ProfileActionTile(
                 painter = icon,
                 contentDescription = null,
                 modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.onSurface,
+                tint = FrostedOnSurface,
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 text = label.uppercase(),
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = FrostedOnSurface,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -140,8 +143,8 @@ private fun ProfileToggleRow(
             .height(56.dp)
             .clip(RoundedCornerShape(28.dp)),
         shape = RoundedCornerShape(28.dp),
-        color = Color.White.copy(alpha = 0.10f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+        color = Color.White.copy(alpha = 0.25f),
+        border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.18f)),
         tonalElevation = 0.dp,
     ) {
         Row(
@@ -152,15 +155,15 @@ private fun ProfileToggleRow(
                 painter = icon,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
-                tint = if (enabled) MaterialTheme.colorScheme.onSurface
-                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                tint = if (enabled) FrostedOnSurface
+                else FrostedOnSurface.copy(alpha = 0.38f),
             )
             Spacer(Modifier.width(12.dp))
             Text(
                 text = label.uppercase(),
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = if (enabled) MaterialTheme.colorScheme.onSurface
-                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                color = if (enabled) FrostedOnSurface
+                else FrostedOnSurface.copy(alpha = 0.38f),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -231,11 +234,16 @@ fun AccountSettings(
             Text(
                 text = stringResource(id = R.string.app_name),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = FrostedOnSurface,
                 modifier = Modifier.padding(start = 4.dp)
             )
             Spacer(modifier = Modifier.weight(1f))
             IconButton(onClick = onClose) {
-                Icon(painterResource(R.drawable.close), contentDescription = null)
+                Icon(
+                    painterResource(R.drawable.close),
+                    contentDescription = null,
+                    tint = FrostedOnSurface,
+                )
             }
         }
 
@@ -488,7 +496,7 @@ fun AccountSettings(
                 }
             },
             shape = RoundedCornerShape(28.dp),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
+            border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.25f)),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
@@ -509,8 +517,9 @@ fun AccountSettings(
                     showLogoutDialog = true
                 },
                 shape = RoundedCornerShape(28.dp),
+                border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.25f)),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = Color.White.copy(alpha = 0.10f),
+                    containerColor = Color.White.copy(alpha = 0.25f),
                     contentColor = MaterialTheme.colorScheme.error,
                 ),
                 modifier = Modifier.fillMaxWidth(),

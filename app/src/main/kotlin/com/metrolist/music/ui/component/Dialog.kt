@@ -157,8 +157,9 @@ fun AccountSettingsDialog(
             ),
     ) {
         // Blur asli di balik dialog (Android 12+): wallpaper di belakang
-        // jadi buram, panelnya cukup putih transparan tipis. Di bawah
-        // Android 12 efek ini dilewati, panel transparan tetap jalan.
+        // jadi buram. Di Android 10/11 efek blur tidak ada (API 31+),
+        // jadi panel dibuat cukup tebal (putih 0.60) + dim 0.5 supaya
+        // isi di baliknya tidak tembus.
         DialogBlurBehind()
         Box(
             modifier =
@@ -178,7 +179,7 @@ fun AccountSettingsDialog(
                         .padding(top = 72.dp, start = 16.dp, end = 16.dp)
                         .clip(RoundedCornerShape(28.dp)),
                 shape = MaterialTheme.shapes.large,
-                color = Color.White.copy(alpha = 0.20f),
+                color = Color.White.copy(alpha = 0.60f),
                 tonalElevation = 0.dp,
             ) {
                 AccountSettings(
@@ -191,17 +192,17 @@ fun AccountSettingsDialog(
     }
 }
 
-/** Nyalakan blur di balik jendela dialog + redupkan dim supaya wallpaper buramnya kelihatan. */
+/** Redupkan latar di semua versi Android; nyalakan blur di balik jendela dialog kalau Android 12+. */
 @Composable
 private fun DialogBlurBehind() {
     val view = LocalView.current
     SideEffect {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val window = (view.parent as? DialogWindowProvider)?.window
-            window?.let {
+        val window = (view.parent as? DialogWindowProvider)?.window
+        window?.let {
+            it.setDimAmount(0.5f)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 it.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
                 it.attributes = it.attributes.apply { blurBehindRadius = 60 }
-                it.setDimAmount(0.35f)
             }
         }
     }
