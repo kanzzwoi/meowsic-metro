@@ -173,6 +173,7 @@ class ListenTogetherManager
         val events = client.events
         val blockedUsernames = client.blockedUsernames
         val pendingSuggestions = client.pendingSuggestions
+        val acceptedSuggestions = client.acceptedSuggestions
 
         // Room chat (ntfy-backed, since the Listen Together server has no chat support)
         private val chatClient = RoomChatClient()

@@ -99,6 +99,7 @@ import java.util.Locale
 import com.metrolist.music.constants.AppBarHeight
 import com.metrolist.music.constants.ListenTogetherInTopBarKey
 import com.metrolist.music.constants.ListenTogetherUsernameKey
+import com.metrolist.music.listentogether.AcceptedSuggestion
 import com.metrolist.music.listentogether.ConnectionState
 import com.metrolist.music.listentogether.JoinRequestPayload
 import com.metrolist.music.listentogether.ListenTogetherEvent
@@ -142,6 +143,7 @@ fun ListenTogetherScreen(
     val userId by listenTogetherManager.userId.collectAsStateWithLifecycle()
     val pendingJoinRequests by listenTogetherManager.pendingJoinRequests.collectAsStateWithLifecycle()
     val pendingSuggestions by listenTogetherManager.pendingSuggestions.collectAsStateWithLifecycle()
+    val acceptedSuggestions by listenTogetherManager.acceptedSuggestions.collectAsStateWithLifecycle()
 
     // Default HARUS sama dengan MainActivity (false). Kalau beda, saat
     // preference belum pernah disimpan layar ini menggambar TopAppBar sendiri
@@ -253,6 +255,9 @@ fun ListenTogetherScreen(
                         album = meta.album?.title,
                         duration = meta.duration.toLong(),
                         thumbnail = meta.thumbnailUrl,
+                        // Nama pengusul ikut terkirim supaya semua member bisa
+                        // lihat siapa yang request di "List Request".
+                        suggestedBy = savedUsername.ifBlank { usernameInput.ifBlank { "Teman" } },
                     ),
                 )
                 showSuggestDialog = false
@@ -407,6 +412,14 @@ fun ListenTogetherScreen(
                             onApprove = { listenTogetherManager.approveSuggestion(it) },
                             onReject = { listenTogetherManager.rejectSuggestion(it, "Rejected by host") },
                         )
+                    }
+                }
+
+                // List Request: usulan yang sudah disetujui host. Kelihatan
+                // host dan semua member, jadi pengusul tahu lagunya masuk.
+                if (acceptedSuggestions.isNotEmpty()) {
+                    item {
+                        AcceptedSuggestionsSection(suggestions = acceptedSuggestions)
                     }
                 }
 
@@ -1124,6 +1137,66 @@ private fun PendingSuggestionsSection(
                         )
                         Spacer(Modifier.width(4.dp))
                         Text("Setujui")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AcceptedSuggestionsSection(suggestions: List<AcceptedSuggestion>) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = "List Request",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+
+        suggestions.forEachIndexed { index, suggestion ->
+            if (index > 0) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 10.dp),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.check),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = suggestion.track.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    val byline =
+                        if (suggestion.fromUsername.isNotBlank()) {
+                            "${suggestion.track.artist} • Dari ${suggestion.fromUsername}"
+                        } else {
+                            suggestion.track.artist
+                        }
+                    if (byline.isNotBlank()) {
+                        Text(
+                            text = byline,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }

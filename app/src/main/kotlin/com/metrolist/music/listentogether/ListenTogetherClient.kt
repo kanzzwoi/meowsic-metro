@@ -96,6 +96,18 @@ data class LogEntry(
     val details: String? = null,
 )
 
+/**
+ * A member suggestion the host accepted. Shown in the "List Request"
+ * section so host and members can see which requests made it in.
+ * fromUsername is empty when the server broadcast doesn't carry it
+ * (older servers strip it); the UI then shows just the track.
+ */
+data class AcceptedSuggestion(
+    val suggestionId: String,
+    val track: TrackInfo,
+    val fromUsername: String,
+)
+
 enum class LogLevel {
     INFO,
     WARNING,
@@ -287,6 +299,22 @@ class ListenTogetherClient
         // Suggestions: pending items visible to host
         private val _pendingSuggestions = MutableStateFlow<List<SuggestionReceivedPayload>>(emptyList())
         val pendingSuggestions: StateFlow<List<SuggestionReceivedPayload>> = _pendingSuggestions.asStateFlow()
+
+        // Accepted suggestions: visible to host and all members ("List Request").
+        // The host records it when approving; everyone records it from the
+        // server's SUGGESTION_APPROVED broadcast. Deduplicated by suggestion id
+        // so the host's own record and the broadcast don't double up.
+        private val _acceptedSuggestions = MutableStateFlow<List<AcceptedSuggestion>>(emptyList())
+        val acceptedSuggestions: StateFlow<List<AcceptedSuggestion>> = _acceptedSuggestions.asStateFlow()
+
+        private fun recordAcceptedSuggestion(
+            suggestionId: String,
+            track: TrackInfo,
+            fromUsername: String,
+        ) {
+            if (_acceptedSuggestions.value.any { it.suggestionId == suggestionId }) return
+            _acceptedSuggestions.value += AcceptedSuggestion(suggestionId, track, fromUsername)
+        }
 
         /**
          * Dipanggil saat host menyetujui usulan lagu. Tanpa ini, tombol "setujui"
@@ -821,6 +849,7 @@ class ListenTogetherClient
             _role.value = RoomRole.NONE
             _userId.value = null
             _pendingJoinRequests.value = emptyList()
+            _acceptedSuggestions.value = emptyList()
             _bufferingUsers.value = emptyList()
 
             // Clear from persistent storage
@@ -1478,8 +1507,9 @@ class ListenTogetherClient
                                 // Automatically approve the suggestion
                                 log(LogLevel.INFO, "Auto-approving suggestion", "${payload.fromUsername}: ${payload.trackInfo.title}")
                                 approveSuggestion(payload.suggestionId)
-                                // Auto-approve tidak lewat daftar pending, jadi track-nya
-                                // harus diteruskan langsung ke antrian.
+                                // Auto-approve tidak lewat daftar pending, jadi
+                                // catat langsung di List Request dan ke antrian.
+                                recordAcceptedSuggestion(payload.suggestionId, payload.trackInfo, payload.fromUsername)
                                 onSuggestionApproved?.invoke(payload.trackInfo)
                             } else {
                                 // Add to pending list and show notification
@@ -1503,7 +1533,15 @@ class ListenTogetherClient
                             NotificationManagerCompat.from(context).cancel(notifId)
                         }
 
-                        // For guests, optionally notify via events; UI can react if needed
+                        // Everyone in the room records it so the accepted request
+                        // shows up in the "List Request" section. The suggester
+                        // name rides along in track.suggestedBy (set by the
+                        // suggesting client); blank on older servers.
+                        recordAcceptedSuggestion(
+                            payload.suggestionId,
+                            payload.trackInfo,
+                            payload.trackInfo.suggestedBy,
+                        )
                     }
 
                     MessageTypes.CHAT -> {
@@ -1544,6 +1582,7 @@ class ListenTogetherClient
                                 _roomState.value = null
                                 _role.value = RoomRole.NONE
                                 _pendingJoinRequests.value = emptyList()
+                                _acceptedSuggestions.value = emptyList()
                                 _bufferingUsers.value = emptyList()
 
                                 // Session expired on server, try to rejoin the room
@@ -1756,6 +1795,7 @@ class ListenTogetherClient
             _role.value = RoomRole.NONE
             _userId.value = null
             _pendingJoinRequests.value = emptyList()
+            _acceptedSuggestions.value = emptyList()
             _bufferingUsers.value = emptyList()
             lastPlaybackRevision.set(0L)
 
@@ -1906,7 +1946,10 @@ class ListenTogetherClient
             sendMessage(MessageTypes.APPROVE_SUGGESTION, ApproveSuggestionPayload(suggestionId))
             // Remove locally from pending list
             _pendingSuggestions.value = _pendingSuggestions.value.filter { it.suggestionId != suggestionId }
-            approved?.trackInfo?.let { track -> onSuggestionApproved?.invoke(track) }
+            approved?.trackInfo?.let { track ->
+                recordAcceptedSuggestion(suggestionId, track, approved.fromUsername)
+                onSuggestionApproved?.invoke(track)
+            }
 
             // Dismiss notification immediately when approved from UI
             suggestionNotifications.remove(suggestionId)?.let { notifId ->
