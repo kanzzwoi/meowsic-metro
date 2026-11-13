@@ -6,6 +6,7 @@
 package com.metrolist.music.ui.component
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.dp
 
@@ -84,6 +86,11 @@ fun Material3SettingsGroup(
                             MaterialTheme.colorScheme.surfaceContainerLow
                         }
                     ),
+                    // Stroke putih: bikin tiap blok kebaca kayak kaca frosted
+                    // di atas wallpaper yang tembus lewat isiannya yang transparan.
+                    // (Blur-behind sistem nggak jalan di Android 10, jadi efek
+                    // frosted-nya dari isi transparan + stroke ini.)
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Material3SettingsItemRow(item = item)
