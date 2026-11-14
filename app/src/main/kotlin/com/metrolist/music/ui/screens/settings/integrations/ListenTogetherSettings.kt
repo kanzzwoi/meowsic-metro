@@ -126,7 +126,7 @@ fun ListenTogetherSettings(navController: NavController) {
     var autoApprovalJoins by rememberPreference(ListenTogetherAutoApprovalKey, false)
     var autoApproveSuggestions by rememberPreference(ListenTogetherAutoApproveSuggestionsKey, false)
     var syncHostVolume by rememberPreference(ListenTogetherSyncVolumeKey, true)
-    var guestDelay by rememberPreference(ListenTogetherGuestDelayKey, 1500)
+    var guestDelay by rememberPreference(ListenTogetherGuestDelayKey, 1000)
 
     var showServerUrlDialog by rememberSaveable { mutableStateOf(false) }
     var showUsernameDialog by rememberSaveable { mutableStateOf(false) }

@@ -135,7 +135,7 @@ class ListenTogetherManager
         /** Kompensasi keterlambatan member (ms). Member ditahan sedikit di belakang
          *  host supaya tidak pernah memutar lagu lebih dulu. */
         @Volatile
-        private var guestDelayMs: Long = 1500L
+        private var guestDelayMs: Long = 1000L
 
         // Track ID being buffered
         private var bufferingTrackId: String? = null
@@ -625,7 +625,7 @@ class ListenTogetherManager
 
             scope.launch {
                 context.dataStore.data.collect { prefs ->
-                    guestDelayMs = (prefs[com.metrolist.music.constants.ListenTogetherGuestDelayKey] ?: 1500).toLong()
+                    guestDelayMs = (prefs[com.metrolist.music.constants.ListenTogetherGuestDelayKey] ?: 1000).toLong()
                 }
             }
 
