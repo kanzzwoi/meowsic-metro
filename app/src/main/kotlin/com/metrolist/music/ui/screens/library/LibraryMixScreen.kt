@@ -65,6 +65,7 @@ import com.metrolist.music.constants.CONTENT_TYPE_PLAYLIST
 import com.metrolist.music.constants.GridItemSize
 import com.metrolist.music.constants.GridItemsSizeKey
 import com.metrolist.music.constants.GridThumbnailHeight
+import com.metrolist.music.constants.LevelTotalExpKey
 import com.metrolist.music.constants.LibraryViewType
 import com.metrolist.music.constants.MixSortDescendingKey
 import com.metrolist.music.constants.MixSortType
@@ -90,6 +91,8 @@ import com.metrolist.music.ui.component.AlbumListItem
 import com.metrolist.music.ui.component.ArtistGridItem
 import com.metrolist.music.ui.component.ArtistListItem
 import com.metrolist.music.ui.component.CreatePlaylistDialog
+import com.metrolist.music.ui.component.LevelBanner
+import com.metrolist.music.ui.component.LevelTiersDialog
 import com.metrolist.music.ui.component.LibrarySearchEmptyPlaceholder
 import com.metrolist.music.ui.component.LibrarySearchHeader
 import com.metrolist.music.ui.component.LocalMenuState
@@ -142,6 +145,10 @@ fun LibraryMixScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val debouncedSearchQuery by viewModel.debouncedSearchQuery.collectAsStateWithLifecycle()
     var showCreatePlaylistDialog by rememberSaveable { mutableStateOf(false) }
+
+    // Level & EXP: total EXP tersimpan di DataStore, diakumulasi service saat lagu diputar.
+    val totalExp by rememberPreference(LevelTotalExpKey, 0L)
+    var showTiersDialog by rememberSaveable { mutableStateOf(false) }
     
     if (showCreatePlaylistDialog) {
         CreatePlaylistDialog(
@@ -467,6 +474,19 @@ fun LibraryMixScreen(
                         contentType = CONTENT_TYPE_HEADER,
                     ) {
                         headerContent()
+                    }
+
+                    if (!isSearchActive) {
+                        item(
+                            key = "levelBanner",
+                            contentType = CONTENT_TYPE_HEADER,
+                        ) {
+                            LevelBanner(
+                                totalExp = totalExp,
+                                onClick = { showTiersDialog = true },
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            )
+                        }
                     }
 
                     if (showLikedPlaylist) {
@@ -797,6 +817,20 @@ fun LibraryMixScreen(
                         headerContent()
                     }
 
+                    if (!isSearchActive) {
+                        item(
+                            key = "levelBanner",
+                            span = { GridItemSpan(maxLineSpan) },
+                            contentType = CONTENT_TYPE_HEADER,
+                        ) {
+                            LevelBanner(
+                                totalExp = totalExp,
+                                onClick = { showTiersDialog = true },
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            )
+                        }
+                    }
+
                     if (showLikedPlaylist) {
                         item(
                             key = "likedPlaylist",
@@ -1077,5 +1111,12 @@ fun LibraryMixScreen(
                     .align(Alignment.TopCenter)
                     .padding(LocalPlayerAwareWindowInsets.current.asPaddingValues()),
         )
+
+        if (showTiersDialog) {
+            LevelTiersDialog(
+                totalExp = totalExp,
+                onDismiss = { showTiersDialog = false },
+            )
+        }
     }
 }

@@ -211,6 +211,11 @@ val ListenTogetherGuestDelayKey = intPreferencesKey("listenTogetherGuestDelayMs"
 val ListenTogetherBlockedUsersKey = stringPreferencesKey("listenTogetherBlockedUsers")
 val ListenTogetherInTopBarKey = booleanPreferencesKey("listenTogetherInTopBar")
 
+// Level & EXP — 1 menit putar = 5 EXP (10 EXP tiap 2 menit kumulatif),
+// naik level tiap 100 EXP.
+val LevelTotalExpKey = longPreferencesKey("levelTotalExp")
+val LevelExpRemainderMsKey = longPreferencesKey("levelExpRemainderMs")
+
 // Session persistence for reconnection
 val ListenTogetherSessionTokenKey = stringPreferencesKey("listenTogetherSessionToken")
 val ListenTogetherRoomCodeKey = stringPreferencesKey("listenTogetherRoomCode")

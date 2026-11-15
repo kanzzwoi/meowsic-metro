@@ -615,6 +615,15 @@
     <string name="listen_together_auto_approval_suggestions_desc">Automatically approve and queue song suggestions from guests</string>
     <string name="listen_together_sync_volume">Sync host volume</string>
     <string name="listen_together_sync_volume_desc">Guests will match the host\'s volume level</string>
+
+    <!-- Level & EXP -->
+    <string name="level_banner_level">LEVEL %1$d</string>
+    <string name="level_banner_exp_to_next">%1$d EXP to Level %2$d</string>
+    <string name="level_banner_total_exp">Total %1$d EXP</string>
+    <string name="level_tiers_title">All Tiers</string>
+    <string name="level_tier_current">Current</string>
+    <string name="level_tier_range">Level %1$d–%2$d</string>
+    <string name="level_tier_range_open">Level %1$d+</string>
     <string name="listen_together_in_top_bar">Listen Together in top bar</string>
     <string name="listen_together_in_top_bar_desc">Show Listen Together in the top app bar instead of the navigation bar</string>
     <string name="listen_together_description">Listen to music with your friends in real time. Create a room to host, or join an existing room with a code</string>

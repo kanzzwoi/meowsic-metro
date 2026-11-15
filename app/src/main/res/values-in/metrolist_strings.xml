@@ -409,6 +409,15 @@
     <string name="listen_together_auto_approval_joins_desc">Setujui permintaan bergabung secara otomatis tanpa meninjaunya secara manual</string>
     <string name="listen_together_sync_volume">Sinkronkan volume host</string>
     <string name="listen_together_sync_volume_desc">Tamu akan menyesuaikan tingkat volume host</string>
+
+    <!-- Level & EXP -->
+    <string name="level_banner_level">LEVEL %1$d</string>
+    <string name="level_banner_exp_to_next">%1$d EXP lagi ke Level %2$d</string>
+    <string name="level_banner_total_exp">Total %1$d EXP</string>
+    <string name="level_tiers_title">Semua Tier</string>
+    <string name="level_tier_current">Saat ini</string>
+    <string name="level_tier_range">Level %1$d–%2$d</string>
+    <string name="level_tier_range_open">Level %1$d+</string>
     <string name="enter_room_code">Masukkan kode ruangan</string>
     <string name="listen_together_settings_desc">Konfigurasikan server, nama pengguna, dan lainnya</string>
     <string name="copy_code">Salin kode</string>

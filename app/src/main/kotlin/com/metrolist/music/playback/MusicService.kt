@@ -207,6 +207,10 @@ import com.metrolist.music.playback.queues.filterExplicit
 import com.metrolist.music.playback.queues.filterVideoSongs
 import com.metrolist.music.constants.LoudnessLevel
 import com.metrolist.music.constants.LoudnessLevelKey
+import com.metrolist.music.constants.LevelExpRemainderMsKey
+import com.metrolist.music.constants.LevelTotalExpKey
+import com.metrolist.music.level.EXP_CHUNK_MS
+import com.metrolist.music.level.EXP_PER_CHUNK
 import com.metrolist.music.utils.CoilBitmapLoader
 import com.metrolist.music.utils.NetworkConnectivityObserver
 import com.metrolist.music.utils.ScrobbleManager
@@ -4112,6 +4116,37 @@ class MusicService :
                     )
                 } catch (_: SQLException) {
                 }
+            }
+        }
+
+        // EXP level: 5 EXP per menit putar (kumulatif, 10 EXP tiap 2 menit).
+        // totalPlayTimeMs hanya bertambah selama audio beneran bunyi, jadi
+        // seek/pause tidak dihitung. Berlaku sama di play biasa dan Together.
+        creditListeningExp(mediaItem.mediaId, playbackStats.totalPlayTimeMs)
+    }
+
+    // EXP per menit: lacak playTime terakhir per lagu supaya callback yang
+    // datang berkali-kali untuk lagu yang sama tidak kehitung ganda.
+    private val expLastPlayTimeMs = mutableMapOf<String, Long>()
+
+    private fun creditListeningExp(mediaId: String, totalPlayTimeMs: Long) {
+        val last = expLastPlayTimeMs[mediaId] ?: 0L
+        val delta = (totalPlayTimeMs - last).coerceAtLeast(0L)
+        if (delta <= 0L) return
+        expLastPlayTimeMs[mediaId] = totalPlayTimeMs
+        // Jangan biarkan map tumbuh tanpa batas: simpan hanya lagu terakhir.
+        if (expLastPlayTimeMs.size > 4) {
+            expLastPlayTimeMs.keys.filter { it != mediaId }.forEach(expLastPlayTimeMs::remove)
+        }
+        scope.launch(Dispatchers.IO + SilentHandler) {
+            // Satu edit atomik: sisa menit + EXP baru, tanpa race antar callback.
+            safeDataStoreEdit { prefs ->
+                val remainder = (prefs[LevelExpRemainderMsKey] ?: 0L) + delta
+                val chunks = remainder / EXP_CHUNK_MS
+                if (chunks > 0L) {
+                    prefs[LevelTotalExpKey] = (prefs[LevelTotalExpKey] ?: 0L) + chunks * EXP_PER_CHUNK
+                }
+                prefs[LevelExpRemainderMsKey] = remainder % EXP_CHUNK_MS
             }
         }
     }
