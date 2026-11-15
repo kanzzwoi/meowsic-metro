@@ -275,7 +275,7 @@ fun Queue(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(top = 0.dp, bottom = if (isLandscape) 8.dp else 20.dp),
+                            .padding(top = 0.dp, bottom = if (isLandscape) 8.dp else 8.dp),
                 ) {
                     Row(
                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -290,7 +290,7 @@ fun Queue(
                                 color = Color.White.copy(alpha = 0.35f),
                                 shape = RoundedCornerShape(40.dp),
                             )
-                            .padding(horizontal = 6.dp, vertical = if (isLandscape) 4.dp else 7.dp),
+                            .padding(horizontal = 6.dp, vertical = if (isLandscape) 4.dp else 4.dp),
                     ) {
                         PlayerPillButton(
                             icon = R.drawable.queue_music,
