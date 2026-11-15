@@ -39,7 +39,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.metrolist.music.LocalPlayerConnection
-import com.metrolist.music.lyrics.LyricsEntity
+import com.metrolist.music.db.entities.LyricsEntity
 import com.metrolist.music.lyrics.LyricsUtils
 import kotlinx.coroutines.isActive
 
