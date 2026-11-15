@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -64,7 +63,7 @@ fun LevelBanner(
         modifier =
             modifier
                 .fillMaxWidth()
-                .aspectRatio(16f / 9f)
+                .height(128.dp)
                 .clip(RoundedCornerShape(24.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainer)
                 .border(
@@ -73,7 +72,7 @@ fun LevelBanner(
                     shape = RoundedCornerShape(24.dp),
                 )
                 .clickable(onClick = onClick)
-                .padding(20.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
         // Watermark: badge tier diperbesar dan dibuat samar di kanan.
@@ -83,7 +82,7 @@ fun LevelBanner(
             modifier =
                 Modifier
                     .align(Alignment.CenterEnd)
-                    .size(220.dp),
+                    .size(160.dp),
             alpha = 0.14f,
         )
 
@@ -96,17 +95,17 @@ fun LevelBanner(
                 contentAlignment = Alignment.Center,
                 modifier =
                     Modifier
-                        .size(112.dp)
+                        .size(96.dp)
                         .background(tier.accent.copy(alpha = 0.16f), CircleShape),
             ) {
                 Image(
                     painter = painterResource(tier.badgeRes),
                     contentDescription = tier.name,
-                    modifier = Modifier.size(104.dp),
+                    modifier = Modifier.size(88.dp),
                 )
             }
 
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(14.dp))
 
             Column(
                 verticalArrangement = Arrangement.Center,
@@ -120,20 +119,20 @@ fun LevelBanner(
                 )
                 Text(
                     text = tier.name,
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
                 LinearProgressIndicator(
                     progress = { intoLevel / 100f },
                     color = tier.accent,
-                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp)),
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(

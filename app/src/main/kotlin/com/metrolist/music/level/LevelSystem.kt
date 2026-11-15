@@ -17,10 +17,6 @@ const val EXP_PER_LEVEL = 100L
 /** Level tertinggi yang ditampilkan. */
 const val MAX_LEVEL = 99_999
 
-/** Satu chunk EXP = 2 menit putar. */
-const val EXP_CHUNK_MS = 120_000L
-const val EXP_PER_CHUNK = 10L
-
 data class LevelTier(
     val name: String,
     val minLevel: Int,
