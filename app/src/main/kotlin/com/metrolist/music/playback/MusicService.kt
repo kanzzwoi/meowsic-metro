@@ -4123,26 +4123,35 @@ class MusicService :
     }
 
     // EXP level live: ticker 1 detik di onCreate, +5 EXP tiap 60 detik audio
-    // beneran bunyi. Pause/buffering tidak dihitung, jadi angka di banner
-    // bergerak real-time. Berlaku sama di play biasa dan Together.
+    // beneran bunyi. HARUS jalan di Main: ExoPlayer cuma boleh diakses dari
+    // thread tempat player dibuat; di thread lain player.isPlaying melempar
+    // dan SilentHandler mematikan ticker diam-diam tanpa jejak.
+    // Pause/buffering tidak dihitung, jadi angka di banner bergerak
+    // real-time. Berlaku sama di play biasa dan Together.
     private var expTickerJob: Job? = null
 
     private fun startExpTicker() {
         if (expTickerJob?.isActive == true) return
         expTickerJob =
-            scope.launch(Dispatchers.Default + SilentHandler) {
+            scope.launch(SilentHandler) {
                 var playedSeconds = 0
+                PlaybackLog.log("level", "EXP ticker started")
                 while (isActive) {
                     delay(1000L)
-                    if (::player.isInitialized && player.isPlaying) {
-                        playedSeconds++
-                        if (playedSeconds >= 60) {
-                            playedSeconds -= 60
-                            safeDataStoreEdit { prefs ->
-                                prefs[LevelTotalExpKey] =
-                                    (prefs[LevelTotalExpKey] ?: 0L) + EXP_PER_MINUTE
+                    try {
+                        if (::player.isInitialized && player.isPlaying) {
+                            playedSeconds++
+                            if (playedSeconds >= 60) {
+                                playedSeconds -= 60
+                                safeDataStoreEdit { prefs ->
+                                    prefs[LevelTotalExpKey] =
+                                        (prefs[LevelTotalExpKey] ?: 0L) + EXP_PER_MINUTE
+                                }
+                                PlaybackLog.log("level", "+5 EXP (60 dtk putar)")
                             }
                         }
+                    } catch (e: Exception) {
+                        Timber.tag(TAG).e(e, "EXP ticker tick failed")
                     }
                 }
             }
