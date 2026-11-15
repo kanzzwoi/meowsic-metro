@@ -801,6 +801,14 @@
     <string name="mixes">Mix</string>
     <string name="show_most_stats_playlists">Tampilkan playlist Terpopuler Mingguan dan Bulanan</string>
     <string name="show_most_stats_playlists_desc">Buat dan tampilkan playlist berdasarkan statistik Paling Sering Diputar di bagian Statistik dan Pustaka</string>
+    <string name="stats_share_summary">Lagu dan album yang paling sering kamu dengarkan.</string>
+    <string name="stats_share_plays">Pemutaran</string>
+    <string name="stats_share_time">Waktu mendengarkan</string>
+    <string name="stats_share_top_songs">Lagu teratas</string>
+    <string name="stats_share_top_albums">Album teratas</string>
+    <string name="stats_share_empty">Belum ada statistik untuk dibagikan</string>
+    <string name="stats_share_failed">Gagal membagikan statistik</string>
+    <string name="stats_share_times_played">%1$d kali diputar</string>
     <string name="pin">Pin</string>
     <string name="unpin">Lepas pin</string>
     <string name="widget_playlists">Daftar putar</string>
