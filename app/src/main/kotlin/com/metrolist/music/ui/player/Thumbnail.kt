@@ -10,6 +10,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -202,6 +204,7 @@ fun Thumbnail(
     isPlayerExpanded: () -> Boolean = { true },
     isLandscape: Boolean = false,
     isListenTogetherGuest: Boolean = false,
+    onCollapse: () -> Unit = {},
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val context = LocalContext.current
@@ -337,7 +340,8 @@ fun Thumbnail(
                     ThumbnailHeader(
                         queueTitle = queueTitle,
                         albumTitle = mediaMetadata?.album?.title,
-                        textColor = textBackgroundColor
+                        textColor = textBackgroundColor,
+                        onCollapse = onCollapse,
                     )
                 }
                 
@@ -444,7 +448,8 @@ private fun ThumbnailHeader(
     queueTitle: String?,
     albumTitle: String?,
     textColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCollapse: () -> Unit = {},
 ) {
     val listenTogetherManager = LocalListenTogetherManager.current
     val listenTogetherRoleState = listenTogetherManager?.role?.collectAsStateWithLifecycle(initialValue = RoomRole.NONE)
@@ -454,6 +459,23 @@ private fun ThumbnailHeader(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
+        // Tombol panah bawah ala Metrolist v14 (kiri atas): tutup player.
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(textColor.copy(alpha = 0.15f))
+                .clickable { onCollapse() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.expand_more),
+                contentDescription = null,
+                tint = textColor,
+                modifier = Modifier.size(24.dp),
+            )
+        }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
@@ -467,16 +489,13 @@ private fun ThumbnailHeader(
                     style = MaterialTheme.typography.titleMedium,
                     color = textColor
                 )
-            } else {
-                Text(
-                    text = stringResource(R.string.now_playing),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = textColor
-                )
             }
+            // Hanya judul antrean/album; "Sedang Diputar" dihapus.
             val playingFrom = queueTitle ?: albumTitle
             if (!playingFrom.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                if (listenTogetherRoleState?.value != RoomRole.NONE) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
                 Text(
                     text = playingFrom,
                     style = MaterialTheme.typography.titleMedium,

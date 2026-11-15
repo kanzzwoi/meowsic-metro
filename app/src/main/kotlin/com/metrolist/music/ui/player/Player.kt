@@ -1931,6 +1931,7 @@ fun BottomSheetPlayer(
                                     isPlayerExpanded = isExpandedProvider,
                                     isLandscape = true,
                                     isListenTogetherGuest = isListenTogetherGuest,
+                                    onCollapse = { state.collapseSoft() },
                                 )
                             }
                         }
@@ -2009,6 +2010,7 @@ fun BottomSheetPlayer(
                                     modifier = Modifier.nestedScroll(state.preUpPostDownNestedScrollConnection),
                                     isPlayerExpanded = isExpandedProvider,
                                     isListenTogetherGuest = isListenTogetherGuest,
+                                    onCollapse = { state.collapseSoft() },
                                 )
                             }
                         }
