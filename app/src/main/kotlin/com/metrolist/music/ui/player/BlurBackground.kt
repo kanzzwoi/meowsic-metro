@@ -6,11 +6,8 @@
 package com.metrolist.music.ui.player
 
 import android.graphics.Bitmap
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -18,33 +15,28 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.ColorMatrix
-import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
 import com.metrolist.music.utils.stackBlur
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
-import kotlin.math.max
-import kotlin.math.roundToInt
 
 /**
  * Latar buram dari sampul lagu sebagai COMPOSABLE, bukan state di pemanggil.
@@ -65,15 +57,19 @@ fun BlurBackground(
     modifier: Modifier = Modifier,
     fadeIn: Boolean = false,
     fadeDurationMillis: Int = 400,
-    // True = sampul yang sudah di-blur digambar 3 lapis yang berputar pelan
-    // (ala Metrolist v14, jalur fallback CPU tanpa shader). Dipakai full player.
+    // True = background animasi ala Metrolist v14 (LiquidBackgroundRenderer,
+    // salinan jalur fallback CPU v14). Dipakai full player.
     animated: Boolean = false,
+    // Rotasi v14 hanya jalan saat lagu diputar; diam saat pause.
+    isPlaying: Boolean = true,
 ) {
     val context = LocalContext.current
     var bitmap by remember(songId, thumbnailUrl) { mutableStateOf<Bitmap?>(null) }
 
-    // Muat + blur setiap kali lagu berganti.
-    androidx.compose.runtime.LaunchedEffect(songId, thumbnailUrl) {
+    // Muat bitmap MENTAH setiap kali lagu berganti. Jalur statis yang
+    // mem-blur-nya sendiri; jalur animasi butuh yang mentah karena
+    // LiquidBackgroundRenderer me-render + mem-blur kompositnya sendiri.
+    LaunchedEffect(songId, thumbnailUrl) {
         if (thumbnailUrl.isNullOrBlank()) {
             bitmap = null
             return@LaunchedEffect
@@ -90,10 +86,41 @@ fun BlurBackground(
                     context.imageLoader.execute(request)
                         .image
                         ?.toBitmap()
-                        ?.stackBlur(radius)
                 }.getOrNull()
             }
         bitmap = bmp
+    }
+
+    // Jalur statis (mini player): blur sekali per lagu.
+    val blurredBitmap = remember(bitmap) { bitmap?.stackBlur(radius) }
+
+    // Crossfade antar lagu ala v14 (tween 1000ms): artwork lama digambar
+    // di bawah artwork baru selama transisi.
+    var currentBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var previousBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    val crossfadeAlpha = remember { Animatable(1f) }
+    LaunchedEffect(bitmap) {
+        val newBitmap = bitmap ?: return@LaunchedEffect
+        if (newBitmap !== currentBitmap) {
+            previousBitmap = currentBitmap
+            currentBitmap = newBitmap
+            crossfadeAlpha.snapTo(0f)
+            crossfadeAlpha.animateTo(1f, tween(1000))
+            previousBitmap = null
+        }
+    }
+
+    // Penggerak rotasi ala v14: maju ~20 fps dan hanya saat diputar.
+    var rotationTimeMs by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(isPlaying) {
+        if (!isPlaying) return@LaunchedEffect
+        var last = withFrameMillis { it }
+        while (true) {
+            val now = withFrameMillis { it }
+            rotationTimeMs += (now - last).coerceIn(0L, 100L)
+            last = now
+            delay(50)
+        }
     }
 
     val alpha by
@@ -106,15 +133,26 @@ fun BlurBackground(
             label = "blurAlpha",
         )
 
+    val liquidRenderer = remember { LiquidBackgroundRenderer() }
+
     Box(modifier = modifier.clipToBounds()) {
-        bitmap?.let { bmp ->
-            val contentAlpha = if (fadeIn) alpha else 1f
-            if (animated) {
-                AnimatedArtworkLayers(
-                    bitmap = bmp,
-                    modifier = Modifier.fillMaxSize().alpha(contentAlpha),
-                )
-            } else {
+        if (animated) {
+            currentBitmap?.let { bmp ->
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    liquidRenderer.draw(
+                        scope = this,
+                        activeBitmap = bmp,
+                        previousBitmap = previousBitmap,
+                        crossfadeAlpha = crossfadeAlpha.value,
+                        rotationTimeMs = rotationTimeMs,
+                    )
+                }
+                // Scrim sudah di dalam render (v14: hitam 50% + putih 5%),
+                // jadi tidak ada lagi lapisan scrim luar di jalur animasi.
+            }
+        } else {
+            blurredBitmap?.let { bmp ->
+                val contentAlpha = if (fadeIn) alpha else 1f
                 Image(
                     bitmap = bmp.asImageBitmap(),
                     contentDescription = null,
@@ -122,75 +160,10 @@ fun BlurBackground(
                     alpha = contentAlpha,
                     modifier = Modifier.fillMaxSize(),
                 )
-            }
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = scrimAlpha)),
-            )
-        }
-    }
-}
-
-/**
- * Lapisan sampul beranimasi ala Metrolist v14 (jalur fallback CPU, tanpa shader):
- * sampul yang sudah di-blur digambar 3 lapis, masing-masing diputar pelan dengan
- * kecepatan berbeda (putaran penuh 130/90/70 detik) dari posisi berbeda, lalu
- * saturasi dinaikkan 2.5x. Hasilnya warna sampul mengalir pelan seperti Apple Music.
- * Murah: bitmap sumber cuma 100px, jadi 3 drawImage per frame tidak berat.
- */
-@Composable
-private fun AnimatedArtworkLayers(
-    bitmap: Bitmap,
-    modifier: Modifier = Modifier,
-) {
-    val image = remember(bitmap) { bitmap.asImageBitmap() }
-    val liquidTransition = rememberInfiniteTransition(label = "liquidDrift")
-    val frac by liquidTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(durationMillis = 130_000, easing = LinearEasing),
-            ),
-        label = "liquidFrac",
-    )
-    val saturationMatrix =
-        remember {
-            ColorMatrix().apply { setToSaturation(2.5f) }
-        }
-
-    Canvas(modifier = modifier) {
-        val maxDim = max(size.width, size.height) * 1.3f
-        val scale = maxDim / image.width.toFloat()
-        val dstW = (image.width * scale).roundToInt()
-        val dstH = (image.height * scale).roundToInt()
-        val dstOffset =
-            IntOffset(
-                x = -((dstW - size.width.roundToInt()) / 2),
-                y = -((dstH - size.height.roundToInt()) / 2),
-            )
-        val pivot = Offset(size.width / 2f, size.height / 2f)
-        // v14: -360 derajat per 130 detik, +360 per 90 detik, +360 per 70 detik.
-        val layers =
-            listOf(
-                Triple(-360f * frac, 0f, 0f),
-                Triple(360f * frac * (130f / 90f), -0.95f * size.width, -0.7f * size.height),
-                Triple(360f * frac * (130f / 70f), -0.5f * size.width, 0.7f * size.height),
-            )
-        for ((rotation, offsetX, offsetY) in layers) {
-            withTransform({
-                translate(left = offsetX, top = offsetY)
-                rotate(degrees = rotation, pivot = pivot)
-            }) {
-                drawImage(
-                    image = image,
-                    srcOffset = IntOffset.Zero,
-                    srcSize = IntSize(image.width, image.height),
-                    dstOffset = dstOffset,
-                    dstSize = IntSize(dstW, dstH),
-                    filterQuality = FilterQuality.Low,
-                    colorFilter = ColorFilter.colorMatrix(saturationMatrix),
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = scrimAlpha)),
                 )
             }
         }

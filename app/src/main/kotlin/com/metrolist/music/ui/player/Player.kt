@@ -1004,6 +1004,7 @@ fun BottomSheetPlayer(
                                         fadeIn = true,
                                         // Background animasi ala Metrolist v14.
                                         animated = true,
+                                        isPlaying = isPlaying,
                                     )
                                 }
                             }
