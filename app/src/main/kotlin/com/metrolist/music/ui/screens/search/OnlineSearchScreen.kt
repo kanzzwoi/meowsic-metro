@@ -6,6 +6,10 @@
 package com.metrolist.music.ui.screens.search
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.runtime.remember
 import android.os.Build
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -46,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.draw.blur
@@ -53,6 +58,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -68,6 +74,7 @@ import com.metrolist.music.LocalDatabase
 import com.metrolist.music.LocalPlayerConnection
 import com.metrolist.music.R
 import com.metrolist.music.constants.AutoRadioQueueKey
+import com.metrolist.music.constants.RecentPlayedSearchSongsKey
 import com.metrolist.music.constants.WallpaperStyleKey
 import com.metrolist.music.constants.SuggestionItemHeight
 import com.metrolist.music.extensions.toMediaItem
@@ -82,6 +89,7 @@ import com.metrolist.music.ui.menu.YouTubePlaylistMenu
 import com.metrolist.music.ui.menu.YouTubeSongMenu
 import com.metrolist.music.utils.rememberPreference
 import com.metrolist.music.viewmodels.OnlineSearchSuggestionViewModel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
@@ -99,6 +107,7 @@ fun OnlineSearchScreen(
 ) {
     val navController = LocalNavController.current
     val database = LocalDatabase.current
+    val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val menuState = LocalMenuState.current
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -113,6 +122,10 @@ fun OnlineSearchScreen(
     val lazyListState = rememberLazyListState()
 
     val autoRadioQueue by rememberPreference(AutoRadioQueueKey, defaultValue = true)
+
+    // Lagu yang terakhir diputar dari pencarian, ala Metrolist v14.
+    val recentSongsJson by rememberPreference(RecentPlayedSearchSongsKey, "")
+    val recentSongs = remember(recentSongsJson) { parseRecentSearchSongs(recentSongsJson) }
 
     LaunchedEffect(Unit) {
         snapshotFlow { lazyListState.firstVisibleItemScrollOffset }
@@ -421,6 +434,73 @@ fun OnlineSearchScreen(
                 }
             }
 
+            // Lagu yang terakhir diputar dari pencarian (kartu sampul, ala v14).
+            // Cuma tampil di keadaan awal, sebelum ada kata kunci.
+            if (query.isEmpty() && recentSongs.isNotEmpty()) {
+                item(key = "recent_search_songs") {
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                        ) {
+                            Text(
+                                text = "Dari pencarian terbaru",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(
+                                onClick = {
+                                    coroutineScope.launch { clearRecentSearchSongs(context) }
+                                },
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.close),
+                                    contentDescription = null,
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            items(recentSongs.take(10), key = { it.id }) { song ->
+                                val playCount by database.getLifetimePlayCount(song.id)
+                                    .collectAsStateWithLifecycle(initialValue = 0)
+                                RecentSearchSongCard(
+                                    song = song,
+                                    playCount = playCount,
+                                    onClick = {
+                                        playerConnection.playQueue(
+                                            ListQueue(
+                                                title = song.title,
+                                                items = listOf(song.toMediaMetadata().toMediaItem()),
+                                            ),
+                                        )
+                                        onDismiss()
+                                    },
+                                    onLongClick = {
+                                        coroutineScope.launch {
+                                            removeRecentSearchSong(context, song.id)
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+            }
+
             items(viewState.history, key = { "history_${it.query}" }) { history ->
                 SuggestionItem(
                     query = history.query,
@@ -575,6 +655,9 @@ fun OnlineSearchScreen(
                                                         )
                                                     }
                                                 )
+                                                coroutineScope.launch {
+                                                    recordRecentSearchSong(context, item)
+                                                }
                                                 onDismiss()
                                             }
                                         }

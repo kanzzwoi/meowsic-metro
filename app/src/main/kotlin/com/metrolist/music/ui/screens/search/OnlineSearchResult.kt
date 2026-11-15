@@ -54,6 +54,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -125,6 +126,7 @@ fun OnlineSearchResult(
 ) {
     val navController = LocalNavController.current
     val database = LocalDatabase.current
+    val context = LocalContext.current
     val menuState = LocalMenuState.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val haptic = LocalHapticFeedback.current
@@ -323,6 +325,9 @@ fun OnlineSearchResult(
                                                 )
                                             }
                                         )
+                                        coroutineScope.launch {
+                                            recordRecentSearchSong(context, item)
+                                        }
                                     }
                                 }
 
