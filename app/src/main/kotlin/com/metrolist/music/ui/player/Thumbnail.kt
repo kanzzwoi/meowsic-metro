@@ -463,7 +463,7 @@ private fun ThumbnailHeader(
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .size(48.dp)
+                .size(40.dp)
                 .clip(CircleShape)
                 .background(textColor.copy(alpha = 0.15f))
                 .clickable { onCollapse() },
@@ -473,7 +473,7 @@ private fun ThumbnailHeader(
                 painter = painterResource(R.drawable.expand_more),
                 contentDescription = null,
                 tint = textColor,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(20.dp),
             )
         }
         Column(
