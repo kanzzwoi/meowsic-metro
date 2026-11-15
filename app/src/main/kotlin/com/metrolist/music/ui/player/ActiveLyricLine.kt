@@ -10,6 +10,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.togetherWith
@@ -45,10 +47,20 @@ import kotlinx.coroutines.isActive
 
 /**
  * Baris lirik aktif di full player, ala Metrolist v14: satu baris lirik yang sedang
- * dinyanyikan tampil di bawah artwork, di atas judul. Kata yang sudah lewat tampil
- * terang, kata berikutnya redup; ganti baris pakai fade. Baris sembunyi sendiri saat
- * jeda antar-baris, sebelum baris pertama, dan sesudah baris terakhir — supaya judul
- * tidak loncat, tinggi 2 baris dicadangkan dan visibilitas dianimasikan.
+ * dinyanyikan tampil di bawah artwork, di atas judul.
+ *
+ * Cara v14 menyalakan kata: bukan pop perkata, tapi sapuan — batas terang/redup
+ * berjalan mengikuti posisi putar dan menembus kata yang sedang dinyanyikan,
+ * dengan tepi yang lembut selebar ~1,25x ukuran font (SimpleWordAnimation v14).
+ * Di sini disederhanakan jadi alpha per karakter (smoothstep di sekitar batas
+ * yang sedang dinyanyikan), tanpa mesin syllable/cluster v14 yang ribuan baris.
+ * Ganti baris: fade + scale kecil ala LineLook v14 (baris baru masuk redup dan
+ * sedikit mengecil dulu, lalu tajam) — efek "burem dulu" yang diminta.
+ * Ukuran teks 0.8x dari titleMedium.
+ *
+ * Baris sembunyi sendiri saat jeda antar-baris, sebelum baris pertama, dan
+ * sesudah baris terakhir — supaya judul tidak loncat, tinggi 2 baris
+ * dicadangkan dan visibilitas dianimasikan.
  */
 @Composable
 fun ActiveLyricLine(
@@ -111,10 +123,13 @@ fun ActiveLyricLine(
             }
         }
 
+    val baseStyle = MaterialTheme.typography.titleMedium
     val style =
-        MaterialTheme.typography.titleMedium.copy(
+        baseStyle.copy(
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
+            fontSize = baseStyle.fontSize * 0.8f,
+            lineHeight = baseStyle.lineHeight * 0.8f,
         )
     val reservedLineHeight =
         with(LocalDensity.current) { style.lineHeight.toDp() * 2 }
@@ -135,7 +150,9 @@ fun ActiveLyricLine(
             AnimatedContent(
                 targetState = currentLine to lineEndTime,
                 transitionSpec = {
-                    (fadeIn(animationSpec = tween(400)) togetherWith fadeOut(animationSpec = tween(400)))
+                    // Baris baru masuk redup + sedikit mengecil, lalu tajam.
+                    (fadeIn(animationSpec = tween(400)) + scaleIn(initialScale = 0.96f, animationSpec = tween(400))) togetherWith
+                        (fadeOut(animationSpec = tween(400)) + scaleOut(targetScale = 0.96f, animationSpec = tween(400)))
                 },
                 contentAlignment = Alignment.Center,
                 label = "activeLyricLineSwitch",
@@ -145,36 +162,96 @@ fun ActiveLyricLine(
                         .wrapContentHeight(Alignment.CenterVertically),
             ) { (line, _) ->
                 if (line != null) {
-                    val annotated =
-                        buildAnnotatedString {
-                            val words = line.words
-                            if (words.isNullOrEmpty()) {
-                                withStyle(SpanStyle(color = textColor)) {
-                                    append(line.text)
-                                }
-                            } else {
-                                for (word in words) {
-                                    val sung = position >= (word.startTime * 1000).toLong()
-                                    withStyle(
-                                        SpanStyle(
-                                            color =
-                                                if (sung) textColor
-                                                else textColor.copy(alpha = 0.4f),
-                                        ),
-                                    ) {
-                                        append(word.text)
-                                    }
-                                    if (word.hasTrailingSpace) append(" ")
-                                }
-                            }
-                        }
                     Text(
-                        text = annotated,
+                        text = rememberSweptLyrics(line, position, textColor),
                         style = style,
                         maxLines = 2,
                     )
                 }
             }
         }
+    }
+}
+
+/**
+ * Teks baris lirik dengan sapuan terang mengikuti posisi putar.
+ *
+ * Batas terang dihitung sebagai posisi karakter (bisa pecahan) di dalam kata
+ * yang sedang dinyanyikan; tiap karakter diberi alpha lewat smoothstep di
+ * sekitar batas itu (jendela ~3 karakter, meniru tepi lembut gradient v14
+ * yang selebar 1,25x ukuran font). Kata yang sudah lewat terang penuh,
+ * kata berikutnya redup (alpha 0.4).
+ */
+@Composable
+private fun rememberSweptLyrics(
+    line: com.metrolist.music.lyrics.LyricsEntry,
+    position: Long,
+    textColor: Color,
+) = remember(line, position, textColor) {
+    buildAnnotatedString {
+        val words = line.words
+        if (words.isNullOrEmpty()) {
+            withStyle(SpanStyle(color = textColor)) {
+                append(line.text)
+            }
+            return@buildAnnotatedString
+        }
+
+        // Teks utuh + posisi awal tiap kata (termasuk spasi sesudah kata).
+        val fullText = StringBuilder()
+        val wordStartChars = IntArray(words.size)
+        for ((index, word) in words.withIndex()) {
+            wordStartChars[index] = fullText.length
+            fullText.append(word.text)
+            if (word.hasTrailingSpace) fullText.append(" ")
+        }
+        val text = fullText.toString()
+
+        // Batas terang (posisi karakter, bisa pecahan) dari kata yang dinyanyikan.
+        var boundary = 0f
+        for ((index, word) in words.withIndex()) {
+            val startMs = (word.startTime * 1000).toLong()
+            val endMs = (word.endTime * 1000).toLong()
+            val wordEndChar = wordStartChars[index] + word.text.length
+            if (position < startMs) {
+                boundary = wordStartChars[index].toFloat()
+                break
+            }
+            if (position >= endMs || endMs <= startMs) {
+                boundary = wordEndChar.toFloat()
+                continue
+            }
+            val fraction = (position - startMs).toFloat() / (endMs - startMs).toFloat()
+            boundary = wordStartChars[index] + fraction * word.text.length
+            break
+        }
+        if (words.isNotEmpty() && position >= ((words.last().endTime) * 1000).toLong()) {
+            boundary = text.length.toFloat()
+        }
+
+        // Alpha per karakter; karakter berurutan dengan alpha sama digabung.
+        var runStart = 0
+        var runAlpha = charAlpha(0, boundary)
+        for (i in 1..text.length) {
+            val alpha = if (i < text.length) charAlpha(i, boundary) else -1f
+            if (alpha != runAlpha || i == text.length) {
+                withStyle(SpanStyle(color = textColor.copy(alpha = runAlpha))) {
+                    append(text.substring(runStart, i))
+                }
+                runStart = i
+                runAlpha = alpha
+            }
+        }
+    }
+}
+
+/** Alpha karakter ke-[index] terhadap batas terang [boundary]. */
+private fun charAlpha(index: Int, boundary: Float): Float {
+    val d = boundary - (index + 0.5f)
+    val t = ((d + 1.5f) / 3f).coerceIn(0f, 1f)
+    val smooth = t * t * (3f - 2f * t)
+    return (0.4f + 0.6f * smooth).let {
+        // Kuantisasi supaya karakter berurutan gampang digabung jadi satu span.
+        (it * 20f).toInt() / 20f
     }
 }
