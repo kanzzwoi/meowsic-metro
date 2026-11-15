@@ -1002,6 +1002,8 @@ fun BottomSheetPlayer(
                                         scrimAlpha = 0.3f,
                                         modifier = Modifier.fillMaxSize(),
                                         fadeIn = true,
+                                        // Background animasi ala Metrolist v14.
+                                        animated = true,
                                     )
                                 }
                             }
@@ -2009,6 +2011,18 @@ fun BottomSheetPlayer(
                                 )
                             }
                         }
+                    }
+
+                    // Baris lirik aktif ala Metrolist v14, di antara artwork dan
+                    // judul. Judul ikut turun karena baris ini mengambil ruang
+                    // sendiri; saat tidak ada lirik aktif barisnya menutup dan
+                    // judul kembali ke posisi semula. Sembunyikan saat tampilan
+                    // lirik penuh sedang dibuka supaya tidak ganda.
+                    if (!showInlineLyrics) {
+                        ActiveLyricLine(
+                            positionProvider = { effectivePosition },
+                            textColor = TextBackgroundColor,
+                        )
                     }
 
                     mediaMetadata?.let {
