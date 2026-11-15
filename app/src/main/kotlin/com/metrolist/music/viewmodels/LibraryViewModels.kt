@@ -364,8 +364,13 @@ constructor(
     fun refresh() {
         viewModelScope.launch(Dispatchers.IO) {
             _isRefreshing.value = true
-            syncUtils.performFullSyncSuspend()
-            _isRefreshing.value = false
+            try {
+                syncUtils.performFullSyncSuspend()
+            } finally {
+                // Tanpa finally, sekali sync gagal (misal error jaringan) indikator
+                // refresh nyangkut selamanya dan tarik-ke-bawah jadi kelihatan rusak.
+                _isRefreshing.value = false
+            }
         }
     }
 

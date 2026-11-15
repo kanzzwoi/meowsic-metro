@@ -692,6 +692,9 @@ class MusicService :
         playerInitialized.value = true
         Timber.tag(TAG).d("Player successfully initialized")
 
+        // EXP level live: ticker 1 detik, +5 EXP tiap 60 detik audio beneran bunyi.
+        startExpTicker()
+
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         setupAudioFocusRequest()
 
