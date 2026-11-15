@@ -1449,7 +1449,7 @@ fun BottomSheetPlayer(
                 }
             }
 
-            Spacer(Modifier.height(if (isLandscape) 12.dp else 24.dp))
+            Spacer(Modifier.height(12.dp))
 
             when (sliderStyle) {
                 SliderStyle.DEFAULT -> {
@@ -1599,7 +1599,7 @@ fun BottomSheetPlayer(
                 )
             }
 
-            Spacer(Modifier.height(if (isLandscape) 12.dp else 24.dp))
+            Spacer(Modifier.height(12.dp))
 
             AnimatedVisibility(
                 visible = !isFullScreen,
@@ -2030,7 +2030,7 @@ fun BottomSheetPlayer(
                         controlsContent(it)
                     }
 
-                    Spacer(Modifier.height(30.dp))
+                    Spacer(Modifier.height(12.dp))
                 }
             }
         }

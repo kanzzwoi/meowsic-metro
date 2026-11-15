@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -73,7 +74,6 @@ import coil3.request.ImageRequest
 import com.metrolist.music.LocalListenTogetherManager
 import com.metrolist.music.LocalPlayerConnection
 import com.metrolist.music.R
-import com.metrolist.music.constants.CropAlbumArtKey
 import com.metrolist.music.constants.HidePlayerThumbnailKey
 import com.metrolist.music.constants.PlayerBackgroundStyle
 import com.metrolist.music.constants.PlayerBackgroundStyleKey
@@ -219,7 +219,6 @@ fun Thumbnail(
     val swipeThumbnailPref by rememberPreference(SwipeThumbnailKey, true)
     val swipeThumbnail = swipeThumbnailPref && !isListenTogetherGuest
     val hidePlayerThumbnail by rememberPreference(HidePlayerThumbnailKey, false)
-    val cropAlbumArt by rememberPreference(CropAlbumArtKey, false)
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
         defaultValue = PlayerBackgroundStyle.default
@@ -342,13 +341,16 @@ fun Thumbnail(
                     )
                 }
                 
-                // Thumbnail content
+                // Kotak artwork 1:1 ala v14: ukuran ikut lebar layar,
+                // bukan sisa tinggi. Sebelumnya fillMaxSize membuat kotak
+                // artwork terpotong jadi persegi panjang saat sisa tinggi
+                // < lebar (bar hitam di kiri-kanan artwork).
                 BoxWithConstraints(
                     contentAlignment = Alignment.Center,
                     modifier = if (isLandscape) {
                         Modifier.weight(1f, false)
                     } else {
-                        Modifier.fillMaxSize()
+                        Modifier.fillMaxWidth().aspectRatio(1f)
                     }
                 ) {
                     // Calculate dimensions once per size change, considering landscape mode
@@ -394,7 +396,11 @@ fun Thumbnail(
                                 item = item,
                                 dimensions = dimensions,
                                 hidePlayerThumbnail = hidePlayerThumbnail,
-                                cropAlbumArt = cropAlbumArt,
+                                // Full player selalu Crop ala v14 (artwork
+                                // nge-fill kotak 1:1, tanpa bar hitam).
+                                // Setting CropAlbumArtKey tetap berlaku untuk
+                                // artwork di daftar (Items.kt).
+                                cropAlbumArt = true,
                                 textBackgroundColor = textBackgroundColor,
                                 layoutDirection = layoutDirection,
                                 onSeek = onSeekCallback,
