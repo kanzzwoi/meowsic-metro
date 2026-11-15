@@ -1221,6 +1221,9 @@ private fun JoinCreateRoomSection(
 ) {
     val hasUsername = usernameInput.trim().isNotBlank() || savedUsername.isNotBlank()
     val hasRoomCode = roomCodeInput.length == 8
+    // Saklar Host/Gabung ala Metrolist v14: gabung langsung dipilih kalau sudah
+    // ada kode room (misalnya dari tautan), sisanya mulai sebagai host.
+    var joinMode by remember(roomCodeInput) { mutableStateOf(roomCodeInput.isNotBlank()) }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1228,17 +1231,25 @@ private fun JoinCreateRoomSection(
     ) {
         Column {
             Text(
-                text = "Mulai atau gabung",
+                text = if (joinMode) "Gabung ke room" else "Host ruangan",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "Bikin room baru, atau masuk pakai kode dari teman.",
+                text =
+                    if (joinMode) "Masukkan kode 8 huruf dari host."
+                    else "Bikin room baru dan undang temanmu.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
+        HostJoinTabs(
+            joinSelected = joinMode,
+            onSelectHost = { joinMode = false },
+            onSelectJoin = { joinMode = true },
+        )
 
             OutlinedTextField(
                 value = usernameInput,
@@ -1275,41 +1286,45 @@ private fun JoinCreateRoomSection(
                         .onFocusChanged { if (it.isFocused) onFieldFocused() },
             )
 
-            OutlinedTextField(
-                value = roomCodeInput,
-                onValueChange = { if (it.length <= 8) onRoomCodeChange(it.uppercase()) },
-                label = { Text("Kode room") },
-                placeholder = { Text("8 huruf dari host") },
-                leadingIcon = {
-                    Icon(
-                        painterResource(R.drawable.group),
-                        null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp),
-                    )
-                },
-                trailingIcon = {
-                    if (roomCodeInput.isNotBlank()) {
-                        MaterialIconButton(onClick = { onRoomCodeChange("") }) {
-                            Icon(painterResource(R.drawable.close), null)
+            // Kode room cuma perlu di mode gabung; di mode host disembunyikan
+            // supaya form tidak numpuk.
+            if (joinMode) {
+                OutlinedTextField(
+                    value = roomCodeInput,
+                    onValueChange = { if (it.length <= 8) onRoomCodeChange(it.uppercase()) },
+                    label = { Text("Kode room") },
+                    placeholder = { Text("8 huruf dari host") },
+                    leadingIcon = {
+                        Icon(
+                            painterResource(R.drawable.group),
+                            null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    },
+                    trailingIcon = {
+                        if (roomCodeInput.isNotBlank()) {
+                            MaterialIconButton(onClick = { onRoomCodeChange("") }) {
+                                Icon(painterResource(R.drawable.close), null)
+                            }
                         }
-                    }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    ),
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .bringIntoViewRequester(bringIntoViewRequester)
-                        .onFocusChanged { if (it.isFocused) onFieldFocused() },
-            )
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        ),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .bringIntoViewRequester(bringIntoViewRequester)
+                            .onFocusChanged { if (it.isFocused) onFieldFocused() },
+                )
+            }
 
             AnimatedVisibility(
                 visible = isJoiningRoom,
@@ -1360,53 +1375,105 @@ private fun JoinCreateRoomSection(
                 }
             }
 
-            Button(
-                onClick = onCreateRoom,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                enabled = hasUsername,
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.add),
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text("Buat room baru", fontWeight = FontWeight.SemiBold)
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                HorizontalDivider(modifier = Modifier.weight(1f))
-                Text(
-                    text = "atau",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 10.dp),
-                )
-                HorizontalDivider(modifier = Modifier.weight(1f))
-            }
-
-            OutlinedButton(
-                onClick = onJoinRoom,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                enabled = hasUsername && hasRoomCode,
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.login),
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = if (hasRoomCode) "Gabung ke room" else "Gabung (isi kode dulu)",
-                    fontWeight = FontWeight.SemiBold,
-                )
+            // Tombol aksi mengikuti saklar: host bikin room, gabung masuk pakai kode.
+            if (joinMode) {
+                OutlinedButton(
+                    onClick = onJoinRoom,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    enabled = hasUsername && hasRoomCode,
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.login),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (hasRoomCode) "Gabung ke room" else "Gabung (isi kode dulu)",
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            } else {
+                Button(
+                    onClick = onCreateRoom,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    enabled = hasUsername,
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.add),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Buat room baru", fontWeight = FontWeight.SemiBold)
+                }
             }
         }
+}
+
+/** Saklar pil Host/Gabung ala Metrolist v14: sisi terpilih pakai warna primary. */
+@Composable
+private fun HostJoinTabs(
+    joinSelected: Boolean,
+    onSelectHost: () -> Unit,
+    onSelectJoin: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(32.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        HostJoinTab(
+            text = "Host",
+            selected = !joinSelected,
+            onClick = onSelectHost,
+            modifier = Modifier.weight(1f),
+        )
+        HostJoinTab(
+            text = "Gabung",
+            selected = joinSelected,
+            onClick = onSelectJoin,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun HostJoinTab(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            modifier
+                .height(48.dp)
+                .clip(RoundedCornerShape(32.dp))
+                .background(
+                    if (selected) MaterialTheme.colorScheme.primary
+                    else Color.Transparent,
+                )
+                .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold,
+            color =
+                if (selected) MaterialTheme.colorScheme.onPrimary
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+        )
+    }
 }
 @Composable
 private fun SettingsLinkCard(onClick: () -> Unit) {
