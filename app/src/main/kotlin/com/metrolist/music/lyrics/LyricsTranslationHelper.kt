@@ -100,7 +100,14 @@ object LyricsTranslationHelper {
 
     fun cancelTranslation() {
         translationJob?.cancel()
-        if (_status.value is TranslationStatus.Translating) {
+        // View lirik sudah tidak ada: reset juga status Success supaya
+        // chip "Lirik diterjemahkan" tidak beku. Sebelumnya hanya
+        // Translating yang di-reset, jadi kalau job ke-cancel di dalam
+        // jendela delay(3000) auto-hide, status tertahan di Success
+        // dan chip nyangkut selamanya saat lirik dibuka lagi.
+        if (_status.value is TranslationStatus.Translating ||
+            _status.value is TranslationStatus.Success
+        ) {
             _status.value = TranslationStatus.Idle
         }
     }
@@ -255,7 +262,7 @@ object LyricsTranslationHelper {
                         }
 
                         delay(3000)
-                        if (_status.value is TranslationStatus.Success && isCompositionActive) {
+                        if (_status.value is TranslationStatus.Success) {
                             _status.value = TranslationStatus.Idle
                         }
                         return@launch
@@ -430,9 +437,12 @@ object LyricsTranslationHelper {
                                 }
                             }
 
-                            // Auto-hide success message after 3 seconds
+                            // Auto-hide success message after 3 seconds.
+                            // Tanpa guard isCompositionActive: flag itu milik
+                            // bersama dua lyrics view, jadi bisa false saat
+                            // delay berakhir padahal chip masih tampil.
                             delay(3000)
-                            if (_status.value is TranslationStatus.Success && isCompositionActive) {
+                            if (_status.value is TranslationStatus.Success) {
                                 _status.value = TranslationStatus.Idle
                             }
                         }
