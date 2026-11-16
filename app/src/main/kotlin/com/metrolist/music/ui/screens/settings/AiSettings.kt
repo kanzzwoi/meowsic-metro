@@ -64,7 +64,7 @@ import com.metrolist.music.utils.rememberPreference
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AiSettings(navController: NavController) {
-    var aiProvider by rememberPreference(AiProviderKey, "OpenRouter")
+    var aiProvider by rememberPreference(AiProviderKey, "Google")
     var openRouterApiKey by rememberPreference(OpenRouterApiKey, "")
     var openRouterBaseUrl by rememberPreference(OpenRouterBaseUrlKey, "https://openrouter.ai/api/v1/chat/completions")
     var openRouterModel by rememberPreference(OpenRouterModelKey, "google/gemini-2.5-flash-lite")
@@ -76,6 +76,7 @@ fun AiSettings(navController: NavController) {
 
     val aiProviders =
         mapOf(
+            "Google" to "",
             "OpenRouter" to "https://openrouter.ai/api/v1/chat/completions",
             "OpenAI" to "https://api.openai.com/v1/chat/completions",
             "Perplexity" to "https://api.perplexity.ai/chat/completions",
@@ -90,6 +91,7 @@ fun AiSettings(navController: NavController) {
 
     val providerHelpText =
         mapOf(
+            "Google" to stringResource(R.string.ai_provider_google_help),
             "OpenRouter" to stringResource(R.string.ai_provider_openrouter_help),
             "OpenAI" to stringResource(R.string.ai_provider_openai_help),
             "Perplexity" to stringResource(R.string.ai_provider_perplexity_help),
@@ -104,6 +106,7 @@ fun AiSettings(navController: NavController) {
 
     val modelsByProvider =
         mapOf(
+            "Google" to listOf(),
             "OpenRouter" to
                 listOf(
                     "inception/mercury-2.5-preview", // really fucking fast
@@ -563,7 +566,9 @@ fun AiSettings(navController: NavController) {
                                 onClick = { showDeeplFormalityDialog = true },
                             ),
                         )
-                    } else {
+                    } else if (aiProvider != "Google") {
+                        // Google gratis tanpa API key dan tanpa model, jadi
+                        // tidak ada yang perlu diisi di sini.
                         add(
                             Material3SettingsItem(
                                 icon = painterResource(R.drawable.key),
@@ -598,7 +603,7 @@ fun AiSettings(navController: NavController) {
             title = stringResource(R.string.ai_translation_mode),
             items =
                 buildList {
-                    if (aiProvider != "DeepL") {
+                    if (aiProvider != "DeepL" && aiProvider != "Google") {
                         add(
                             Material3SettingsItem(
                                 icon = painterResource(R.drawable.translate),

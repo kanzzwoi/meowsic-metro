@@ -768,6 +768,7 @@
     <string name="ai_error_unknown">An unknown error occurred</string>
     <string name="ai_error_translation_failed">Translation failed</string>
     <string name="ai_provider_help">Get API keys</string>
+    <string name="ai_provider_google_help">Free, no API key needed</string>
     <string name="ai_provider_openrouter_help">Visit https://openrouter.ai for free and paid models</string>
     <string name="ai_provider_openai_help">Visit https://platform.openai.com/api-keys</string>
     <string name="ai_provider_claude_help">Visit https://console.anthropic.com/settings/keys</string>
