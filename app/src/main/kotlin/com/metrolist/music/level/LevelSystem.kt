@@ -38,7 +38,8 @@ val LEVEL_TIERS =
         LevelTier("Galaxy", 70, 79, R.drawable.tier_galaxy, Color(0xFF5B6CFF)),
         LevelTier("Inferno", 80, 89, R.drawable.tier_inferno, Color(0xFFFF5252)),
         LevelTier("Sovereign", 90, 99, R.drawable.tier_sovereign, Color(0xFFFFB300)),
-        LevelTier("Infinity", 100, null, R.drawable.tier_infinity, Color(0xFFEDEFF7)),
+        LevelTier("Infinity", 100, 998, R.drawable.tier_infinity, Color(0xFFEDEFF7)),
+        LevelTier("Omniverse", 999, null, R.drawable.tier_omniverse, Color(0xFFC084FC)),
     )
 
 /** Level 1 di 0 EXP; level 2 di 100 EXP; level N di (N-1)*100 EXP. */

@@ -10,14 +10,16 @@ import com.metrolist.music.R
 /**
  * Border profil Listen Together. Satu border per tier level, unlock di level
  * minimal tiernya; nama file PNG kiriman user (1.png, 10.png, ... 100.png)
- * adalah level unlock-nya. Aset sudah dikompres ke WebP 512px (total ~700 KB)
+ * adalah level unlock-nya. Aset sudah dikompres ke WebP 512px
  * di res/drawable-nodpi sebagai border_level_<level>.webp.
+ *
+ * Infinity (100) berlaku sampai level 998; Omniverse (999) untuk level 999+.
  *
  * Border disimpan/dikirim sebagai String level unlock-nya ("10"), "" = tanpa border.
  */
 
-/** Level minimal tiap border, urut dari Rookie sampai Infinity. */
-val TOGETHER_BORDER_LEVELS = listOf(1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100)
+/** Level minimal tiap border, urut dari Rookie sampai Omniverse. */
+val TOGETHER_BORDER_LEVELS = listOf(1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 999)
 
 /** Border yang sudah keunlock di level ini. */
 fun unlockedBorders(level: Int): List<Int> = TOGETHER_BORDER_LEVELS.filter { it <= level }
@@ -36,6 +38,7 @@ fun borderDrawableRes(borderLevel: Int): Int? =
         80 -> R.drawable.border_level_80
         90 -> R.drawable.border_level_90
         100 -> R.drawable.border_level_100
+        999 -> R.drawable.border_level_999
         else -> null
     }
 
