@@ -1013,12 +1013,18 @@ fun BottomSheetPlayer(
                         .background(bottomSheetBackgroundColor),
             ) {
                 val fullThumbnailUrl = mediaMetadata?.thumbnailUrl
-                if (isFullThumbnail && !hidePlayerThumbnail && fullThumbnailUrl != null) {
+                if (isFullThumbnail && !hidePlayerThumbnail && fullThumbnailUrl != null && !showInlineLyrics) {
                     // Thumbnail penuh ala v14 (FullscreenArtworkBleed):
                     // cover di atas, di-zoom sampai 60% tinggi player
                     // (sisi terpotong, maks 1.6x), lalu ke bawah berlanjut
                     // jadi bleed dari baris bawah cover dengan blur
                     // progresif + tone gelap. Semua CPU, jalan di Android 10.
+                    // Bleed HANYA saat lirik penuh tertutup, ala v14
+                    // (PlayerScreen: FullscreenThumbnailBackground cuma
+                    // digambar kalau !isLyricsVisible; kalau lirik dibuka,
+                    // background balik ke background normal — blur/granit).
+                    // Sebelumnya bleed tampil terus, jadi pas buka lirik
+                    // backgroundnya tetap thumbnail, bukan yang biasa.
                     BoxWithConstraints(
                         modifier = Modifier.fillMaxSize().alpha(backgroundAlpha),
                     ) {
