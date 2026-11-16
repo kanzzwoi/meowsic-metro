@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,7 +40,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.scale
@@ -147,10 +145,6 @@ internal fun LyricsLine(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
-    // Pil gelap ketat di belakang teks saat lirik tampil di atas artwork
-    // penuh (thumbnail fullscreen). Tanpa ini teks di atas foto terang
-    // tidak terbaca. Pil mengikuti lebar teks (bukan panel selebar baris).
-    hasBackground: Boolean = false,
 ) {
     val density = LocalDensity.current
     
@@ -215,7 +209,7 @@ internal fun LyricsLine(
         @Composable
         fun LyricContent() {
             Column(
-                modifier = if (hasBackground) Modifier.wrapContentWidth() else Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = agentAlignment,
             ) {
                 val inactiveAlpha = if (item.isBackground) 0.08f else 0.2f
@@ -288,13 +282,13 @@ internal fun LyricsLine(
                         isBackground = item.isBackground,
                         focusedAlpha = focusedAlpha,
                         alignment = agentTextAlign,
-                        wrapContentWidth = hasBackground
+                        wrapContentWidth = false
                     )
                 } else {
                     Text(
                         text = mainText ?: "",
                         style = lyricStyle.copy(color = if (isActiveLine) expressiveAccent else lineColor),
-                        modifier = if (hasBackground) Modifier.wrapContentWidth() else Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
                 
@@ -325,35 +319,16 @@ internal fun LyricsLine(
             }
         }
 
-        // Pil ketat (ala ActiveLyricLine v14, padding dalam lebih kecil
-        // karena teks daftar besar): warna & sudut sama, lebar mengikuti
-        // teks. Tanpa pil, teks di atas artwork penuh tidak terbaca.
-        @Composable
-        fun PillWrappedLyricContent() {
-            if (hasBackground) {
-                Surface(
-                    color = lerp(MaterialTheme.colorScheme.secondaryContainer, Color.Black, 0.25f).copy(alpha = 0.88f),
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Box(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                        LyricContent()
-                    }
-                }
-            } else {
-                LyricContent()
-            }
-        }
-
         if (item.isBackground) {
             AnimatedVisibility(
                 visible = bgVisible,
                 enter = fadeIn(tween(durationMillis = 250, delayMillis = 100)),
                 exit = fadeOut(tween(250))
             ) {
-                PillWrappedLyricContent()
+                LyricContent()
             }
         } else {
-            PillWrappedLyricContent()
+            LyricContent()
         }
     }
 }

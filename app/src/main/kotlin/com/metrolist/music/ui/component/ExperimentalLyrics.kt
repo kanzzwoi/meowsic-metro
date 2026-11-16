@@ -150,7 +150,6 @@ fun ExperimentalLyrics(
     sliderPositionProvider: () -> Long?,
     modifier: Modifier = Modifier,
     showLyrics: Boolean,
-    hasLyricsBackground: Boolean = false,
     lyricsViewModel: LyricsViewModel = hiltViewModel()
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -828,7 +827,6 @@ fun ExperimentalLyrics(
                                         displayedCurrentLineIndex = deferredCurrentLineIndex, romanizeAsMain = romanizeAsMain,
                                         enabledLanguages = enabledLanguages, romanizeLyrics = currentSong?.romanizeLyrics == true,
                                         onSizeChanged = { itemHeights[listIndex] = it },
-                                        hasBackground = hasLyricsBackground,
                                         onClick = {
                                             if (isSelectionModeActive) {
                                                 if (selectedIndices.contains(index)) {
