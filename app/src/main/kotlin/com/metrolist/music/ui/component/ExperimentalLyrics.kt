@@ -131,7 +131,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-private const val LYRICS_ANCHOR_RATIO = 0.35f
+private const val LYRICS_ANCHOR_RATIO = 0.5f
 private val LYRICS_ITEM_FALLBACK_HEIGHT_DP = 68.dp
 private val LYRICS_ITEM_GAP_DP = 16.dp
 private val LYRICS_FADE_TOP_DP = 130.dp
@@ -513,10 +513,21 @@ fun ExperimentalLyrics(
         modifier = modifier.fillMaxSize().padding(bottom = 12.dp)
     ) {
         val maxHeightPx = constraints.maxHeight.toFloat()
-        val anchorY = maxHeightPx * LYRICS_ANCHOR_RATIO
         val lineHeightPx = with(density) { LYRICS_ITEM_FALLBACK_HEIGHT_DP.toPx() }
         val indicatorHeightPx = with(density) { 72.dp.toPx() }
-        
+        // Jangkar ala v14: TENGAH blok lirik aktif tepat di tengah
+        // viewport. Dulu yang dijangkar ATAS blok di 35% tinggi layar —
+        // baris panjang (3 baris) + terjemahan di bawahnya membuat tengah
+        // blok jatuh jauh di bawah tengah layar, jadi lirik kelihatan
+        // terlalu kebawah. v14 menengahkan blok aktif ((top+bottom)/2 di
+        // rasio 0.5); di sini sama: 50% dikurangi setengah tinggi blok
+        // aktif (terukur, atau fallback kalau belum terukur).
+        val activeItem = mergedLyricsList.getOrNull(activeListIndex)
+        val activeHeightPx =
+            itemHeights[activeListIndex]?.toFloat()
+                ?: (if (activeItem is LyricsListItem.Indicator) indicatorHeightPx else lineHeightPx)
+        val anchorY = maxHeightPx * LYRICS_ANCHOR_RATIO - activeHeightPx / 2f
+
         // Use a more permissive fallback for constraints to prevent "locks" if items are not measured yet
         val constraintLineHeightPx = with(density) { 120.dp.toPx() }
 

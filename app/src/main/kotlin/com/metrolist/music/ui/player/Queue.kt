@@ -275,7 +275,12 @@ fun Queue(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(top = 0.dp, bottom = if (isLandscape) 8.dp else 8.dp),
+                            .padding(
+                                start = if (isLandscape) 24.dp else 20.dp,
+                                end = if (isLandscape) 32.dp else 20.dp,
+                                top = 0.dp,
+                                bottom = 8.dp,
+                            ),
                 ) {
                     Row(
                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -290,7 +295,7 @@ fun Queue(
                                 color = Color.White.copy(alpha = 0.35f),
                                 shape = RoundedCornerShape(40.dp),
                             )
-                            .padding(horizontal = 6.dp, vertical = if (isLandscape) 4.dp else 4.dp),
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
                     ) {
                         PlayerPillButton(
                             icon = R.drawable.queue_music,
@@ -1310,9 +1315,9 @@ private fun PlayerPillDivider() {
     Box(
         modifier =
             Modifier
-                .padding(vertical = 6.dp)
+                .padding(vertical = 4.dp)
                 .width(1.dp)
-                .height(24.dp)
+                .height(20.dp)
                 .background(Color.White.copy(alpha = 0.12f)),
     )
 }
@@ -1338,7 +1343,7 @@ private fun PlayerPillButton(
                 .background(if (isActive) Color.White.copy(alpha = 0.16f) else Color.Transparent)
                 .clickable(enabled = enabled, onClick = onClick)
                 .alpha(if (enabled) 1f else 0.4f)
-                .padding(horizontal = 6.dp, vertical = 6.dp),
+                .padding(horizontal = 6.dp, vertical = 4.dp),
     ) {
         if (text != null) {
             Text(
@@ -1353,15 +1358,15 @@ private fun PlayerPillButton(
                 painter = painterResource(id = icon),
                 contentDescription = label,
                 tint = contentColor,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(18.dp),
             )
         }
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = label,
             color = contentColor,
-            fontSize = 11.sp,
-            lineHeight = 12.sp,
+            fontSize = 10.sp,
+            lineHeight = 11.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
