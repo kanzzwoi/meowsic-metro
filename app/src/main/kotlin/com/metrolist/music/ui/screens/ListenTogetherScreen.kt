@@ -241,6 +241,7 @@ fun ListenTogetherScreen(
             currentColor = myAvatarColor,
             currentBorder = myAvatarBorder,
             userLevel = myLevel,
+            username = savedUsername.ifBlank { usernameInput.ifBlank { "Teman" } },
             onDismiss = { showProfileEditor = false },
             onSave = { emoji, color, border ->
                 myAvatarEmoji = emoji
@@ -1655,11 +1656,14 @@ private fun ProfileEditorDialog(
     currentColor: String,
     currentBorder: Int,
     userLevel: Int,
+    username: String,
     onDismiss: () -> Unit,
     onSave: (String, String, Int) -> Unit,
 ) {
-    val emojis = listOf("🎧", "😎", "🐱", "🐺", "🦊", "🐼", "🦄", "🌙", "⭐", "🔥", "🌊", "🍿", "🪩", "🚀", "👾", "🌸")
+    val emojis = listOf("🎧", "😎", "🐱", "🐺", "🦊", "🐼", "🦄", "🌙", "⭐", "🔥", "🌊", "🍿", "🪩", "🚀", "👾", "🌸", "🐸")
     val colors = listOf("#7C4DFF", "#FF5252", "#FF6E40", "#FFC400", "#69F0AE", "#18FFFF", "#40C4FF", "#448AFF", "#B388FF", "#F06292", "#AED581", "#FFAB40")
+    /** Huruf default: huruf awal nama, dipakai kalau emoji dikosongkan. */
+    val initial = username.take(1).uppercase()
 
     var emoji by remember { mutableStateOf(currentEmoji) }
     var color by remember { mutableStateOf(currentColor) }
@@ -1680,7 +1684,7 @@ private fun ProfileEditorDialog(
                             .background(runCatching { Color(android.graphics.Color.parseColor(color)) }.getOrDefault(MaterialTheme.colorScheme.primary)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(emoji, style = MaterialTheme.typography.headlineMedium)
+                    Text(emoji.ifBlank { initial }, style = MaterialTheme.typography.headlineMedium)
                 }
                 borderDrawableRes(border)?.let { borderRes ->
                     Image(
@@ -1748,10 +1752,22 @@ private fun ProfileEditorDialog(
             Text("Pilih emoji", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             LazyVerticalGrid(
                 columns = GridCells.Fixed(8),
-                modifier = Modifier.height(96.dp),
+                modifier = Modifier.height(128.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+                // Pilihan default: huruf awal nama (emoji kosong) — avatar menampilkan hurufnya.
+                item {
+                    Surface(
+                        modifier = Modifier.size(40.dp).clickable { emoji = "" },
+                        shape = CircleShape,
+                        color = if (emoji.isBlank()) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(initial, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
                 items(emojis) { item ->
                     Surface(
                         modifier = Modifier.size(40.dp).clickable { emoji = item },
