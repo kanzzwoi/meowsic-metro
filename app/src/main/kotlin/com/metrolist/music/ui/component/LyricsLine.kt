@@ -306,7 +306,7 @@ internal fun LyricsLine(
                 }
                 
                 val transText by item.translatedTextFlow.collectAsStateWithLifecycle()
-                transText?.let { 
+                transText?.takeIf { it.isNotBlank() }?.let { 
                     Text(
                         text = "($it)",
                         fontSize = 16.sp,

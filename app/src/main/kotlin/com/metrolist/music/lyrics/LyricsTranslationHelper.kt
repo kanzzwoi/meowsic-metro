@@ -159,18 +159,25 @@ object LyricsTranslationHelper {
         
         if (translatedLines.size >= nonEmptyEntries.size) {
             var transIndex = 0
+            var applied = false
             lyrics.forEach { entry ->
                 if (entry.text.isNotBlank() && transIndex < translatedLines.size) {
-                    entry.translatedTextFlow.value = translatedLines[transIndex]
+                    // Terjemahan kosong ("") jangan dipasang: UI menampilkannya
+                    // sebagai "()" — baris tanpa terjemahan harus tetap null.
+                    val translation = translatedLines[transIndex]
+                    if (translation.isNotBlank()) {
+                        entry.translatedTextFlow.value = translation
+                        applied = true
+                    }
                     transIndex++
                 }
             }
-            
+
             // Also cache them
             val fullText = nonEmptyEntries.joinToString("\n") { it.text }
             val cacheKey = getCacheKey(fullText, mode, targetLanguage)
             translationCache[cacheKey] = translatedLines
-            _hasActiveTranslations.value = true
+            _hasActiveTranslations.value = applied
         }
     }
 
@@ -232,12 +239,17 @@ object LyricsTranslationHelper {
                     val cachedTranslations = translationCache[cacheKey]
                     if (cachedTranslations != null && cachedTranslations.size >= nonEmptyEntries.size) {
                         // Use cached translations
+                        var applied = false
                         nonEmptyEntries.forEachIndexed { idx, (originalIndex, _) ->
                             if (idx < cachedTranslations.size) {
-                                lyrics[originalIndex].translatedTextFlow.value = cachedTranslations[idx]
+                                val translation = cachedTranslations[idx]
+                                if (translation.isNotBlank()) {
+                                    lyrics[originalIndex].translatedTextFlow.value = translation
+                                    applied = true
+                                }
                             }
                         }
-                        _hasActiveTranslations.value = true
+                        _hasActiveTranslations.value = applied
                         _status.value = TranslationStatus.Success
 
                         // Persist cached translations to DB so loadTranslationsFromDatabase can't
@@ -417,22 +429,29 @@ object LyricsTranslationHelper {
                             when {
                                 translatedLines.size >= expectedCount -> {
                                     // Perfect match or more - map to non-empty entries
+                                    var applied = false
                                     nonEmptyEntries.forEachIndexed { idx, (originalIndex, _) ->
-                                        lyrics[originalIndex].translatedTextFlow.value = translatedLines[idx]
+                                        val translation = translatedLines[idx]
+                                        if (translation.isNotBlank()) {
+                                            lyrics[originalIndex].translatedTextFlow.value = translation
+                                            applied = true
+                                        }
                                     }
-                                    _hasActiveTranslations.value = true
+                                    _hasActiveTranslations.value = applied
                                     _status.value = TranslationStatus.Success
                                 }
 
                                 translatedLines.size < expectedCount -> {
                                     // Fewer translations than expected - map what we have
+                                    var applied = false
                                     translatedLines.forEachIndexed { idx, translation ->
-                                        if (idx < nonEmptyEntries.size) {
+                                        if (idx < nonEmptyEntries.size && translation.isNotBlank()) {
                                             val originalIndex = nonEmptyEntries[idx].first
                                             lyrics[originalIndex].translatedTextFlow.value = translation
+                                            applied = true
                                         }
                                     }
-                                    _hasActiveTranslations.value = true
+                                    _hasActiveTranslations.value = applied
                                     _status.value = TranslationStatus.Success
                                 }
                             }

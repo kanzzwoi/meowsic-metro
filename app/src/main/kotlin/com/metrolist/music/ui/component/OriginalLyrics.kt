@@ -1671,7 +1671,7 @@ fun OriginalLyrics(
 
                             // Show translated text if available
                             val translatedText by item.translatedTextFlow.collectAsStateWithLifecycle()
-                            translatedText?.let { translated ->
+                            translatedText?.takeIf { it.isNotBlank() }?.let { translated ->
                                 Text(
                                     text = "($translated)",
                                     fontSize = 16.sp,
