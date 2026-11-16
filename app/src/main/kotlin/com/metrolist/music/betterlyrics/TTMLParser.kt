@@ -244,7 +244,14 @@ object TTMLParser {
         
         val words = mergeSpansIntoWords(spanInfos)
         val text = if (words.isEmpty()) getDirectText(span).trim() else buildLineText(words)
-        return ParsedLine(text, start, words, isBackground = true)
+        // Span background sering tidak punya begin sendiri: waktu yang dipakai
+        // tadinya start baris induknya, sehingga vokal latar (mis. "(Hooo)")
+        // dianggap mulai bersama baris induk dan menimpa baris itu sebagai
+        // baris aktif. Kalau kata-katanya punya timing, pakai waktu kata
+        // pertama — itulah saat vokal latar itu benar-benar mulai.
+        val resolvedStart =
+            if (begin.isEmpty()) words.minOfOrNull { it.startTime }?.takeIf { it > 0 } ?: start else start
+        return ParsedLine(text, resolvedStart, words, isBackground = true)
     }
 
     private fun getDirectText(el: Element): String {

@@ -586,7 +586,18 @@ object LyricsUtils {
                 if (!isBackground && !agent.isNullOrBlank()) {
                     lastNonBgAgent = agent
                 }
-                result.add(LyricsEntry(lineTimeMs, plainText, wordTimings, agent = if (isBackground) lastNonBgAgent ?: "bg" else agent, isBackground = isBackground))
+                // Baris background ({bg}) sering membawa waktu tag induknya,
+                // bukan waktu vokalnya sendiri — pakai waktu kata pertama kalau
+                // ada, seperti cabang [bg:] di atas. Kalau tidak ada timing
+                // kata, tetap pakai waktu tag.
+                val entryTimeMs =
+                    if (isBackground) {
+                        wordTimings?.firstOrNull()?.startTime?.takeIf { it > 0 }?.let { (it * 1000).toLong() }
+                            ?: lineTimeMs
+                    } else {
+                        lineTimeMs
+                    }
+                result.add(LyricsEntry(entryTimeMs, plainText, wordTimings, agent = if (isBackground) lastNonBgAgent ?: "bg" else agent, isBackground = isBackground))
             }
         }
 
