@@ -21,6 +21,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -32,12 +34,14 @@ import androidx.navigation.NavController
 import com.metrolist.music.BuildConfig
 import com.metrolist.music.LocalPlayerAwareWindowInsets
 import com.metrolist.music.R
+import com.metrolist.music.constants.SecretPfpUnlockedKey
 import com.metrolist.music.ui.component.IconButton
 import com.metrolist.music.ui.component.Material3SettingsGroup
 import com.metrolist.music.ui.component.Material3SettingsItem
 import com.metrolist.music.ui.component.ReleaseNotesCard
 import com.metrolist.music.ui.utils.backToMain
 import com.metrolist.music.utils.Updater
+import com.metrolist.music.utils.rememberPreference
 import androidx.compose.runtime.remember
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,6 +53,9 @@ fun SettingsScreen(
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
     val isAndroid12OrLater = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    // Menu Cheat rahasia muncul di paling bawah (di bawah Tentang) setelah
+    // easter egg 10x ketuk di Tentang kebuka.
+    val secretPfpUnlocked by rememberPreference(SecretPfpUnlockedKey, false)
     val hasAndroidAuto = remember {
         try {
             context.packageManager.getPackageInfo(
@@ -251,6 +258,15 @@ fun SettingsScreen(
                         onClick = { navController.navigate("settings/about") }
                     )
                 )
+                if (secretPfpUnlocked) {
+                    add(
+                        Material3SettingsItem(
+                            icon = painterResource(R.drawable.key),
+                            title = { Text("Menu Cheat") },
+                            onClick = { navController.navigate("settings/cheat") }
+                        )
+                    )
+                }
             }
         )
 
