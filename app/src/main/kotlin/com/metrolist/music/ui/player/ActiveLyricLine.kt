@@ -6,13 +6,11 @@
 package com.metrolist.music.ui.player
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
@@ -21,6 +19,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.ui.draw.alpha
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -166,11 +165,24 @@ fun ActiveLyricLine(
     val reservedLineHeight =
         with(LocalDensity.current) { style.lineHeight.toDp() * 2 }
 
-    AnimatedVisibility(
-        visible = isVisible,
-        enter = expandVertically() + fadeIn(),
-        exit = shrinkVertically() + fadeOut(),
-        modifier = modifier,
+    // Slot lirik SELALU setinggi penuh (2 baris + padding), supaya artwork
+    // di atas tidak naik-turun saat baris muncul/hilang di jeda antar-baris,
+    // sebelum baris pertama, atau sesudah baris terakhir. Sebelumnya
+    // AnimatedVisibility + expand/shrinkVertically mengecilkan slot sampai
+    // 0 saat baris sembunyi, jadi Column di atasnya mengembang dan artwork
+    // loncat — padahal tinggi 2 baris sudah dicadangkan di dalam. Sekarang
+    // yang dianimasikan hanya opacity isinya, bukan ukuran layout.
+    val contentAlpha by animateFloatAsState(
+        targetValue = if (isVisible) 1f else 0f,
+        animationSpec = tween(400),
+        label = "activeLyricLineAlpha",
+    )
+    Box(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .alpha(contentAlpha),
+        contentAlignment = Alignment.Center,
     ) {
         Box(
             modifier =
