@@ -49,6 +49,17 @@ import kotlinx.coroutines.isActive
  * Baris lirik aktif di full player, ala Metrolist v14: satu baris lirik yang sedang
  * dinyanyikan tampil di bawah artwork, di atas judul.
  *
+ * Posisi liriknya SAMA dengan tampilan lirik penuh dan v14: posisi putar +
+ * offset lirik per lagu (song.lyricsOffset, yang bisa diubah dari menu lirik).
+ * Dulu baris ini memakai posisi mentah tanpa offset, jadi kalau offset lagu
+ * itu negatif, baris ini mendahului yang sedang dinyanyikan — mis. menampilkan
+ * "(Hooo)" padahal yang dinyanyikan masih "Ada cinta seperti cintamu kepadaku".
+ * v14 memakai satu state posisi yang sama (lyricsPositionState, sudah termasuk
+ * timingOffsetMs) untuk baris ini dan tampilan lirik penuh; di sini disamakan.
+ *
+ * Akhir baris juga mengikuti v14 (LyricsUtils.getLineEndTime): akhir kata
+ * terlambat, lalu awal baris berikut, lalu +5 detik untuk baris terakhir.
+ *
  * Cara v14 menyalakan kata: bukan pop perkata, tapi sapuan — batas terang/redup
  * berjalan mengikuti posisi putar dan menembus kata yang sedang dinyanyikan,
  * dengan tepi yang lembut selebar ~1,25x ukuran font (SimpleWordAnimation v14).
@@ -70,6 +81,8 @@ fun ActiveLyricLine(
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val currentLyrics by playerConnection.currentLyrics.collectAsStateWithLifecycle(initialValue = null)
+    val currentSong by playerConnection.currentSong.collectAsStateWithLifecycle(initialValue = null)
+    val lyricsOffset = (currentSong?.song?.lyricsOffset ?: 0).toLong()
     val lines =
         remember(currentLyrics) {
             currentLyrics
@@ -88,38 +101,47 @@ fun ActiveLyricLine(
             withFrameMillis { }
         }
     }
+    // Posisi lirik = posisi putar + offset lirik lagu ini (sama seperti
+    // tampilan lirik penuh dan v14). Semua logika baris di bawah memakai
+    // ini, bukan posisi mentah.
+    val lyricsPosition = position + lyricsOffset
 
-    val currentIndex = remember(lines, position) { LyricsUtils.findCurrentLineIndex(lines, position) }
+    val currentIndex = remember(lines, lyricsPosition) { LyricsUtils.findCurrentLineIndex(lines, lyricsPosition) }
     val currentLine = lines.getOrNull(currentIndex)
+    val nextLine = lines.getOrNull(currentIndex + 1)
     val lineEndTime =
-        remember(currentLine, lines, currentIndex) {
+        remember(currentLine, nextLine) {
             if (currentLine == null) {
                 0L
             } else {
-                val lastWordEnd =
-                    currentLine.words
-                        ?.lastOrNull()
-                        ?.endTime
-                        ?.times(1000)
-                        ?.toLong()
-                lastWordEnd ?: lines.getOrNull(currentIndex + 1)?.time ?: Long.MAX_VALUE
+                // ala v14 (LyricsUtils.getLineEndTime): akhir kata
+                // terlambat (bukan kata terakhir di daftar), lalu awal
+                // baris berikut, lalu +5 detik untuk baris terakhir.
+                val wordsEnd =
+                    currentLine.words?.maxOfOrNull { (it.endTime * 1000).toLong() }
+                when {
+                    wordsEnd != null -> wordsEnd
+                    nextLine != null -> nextLine.time
+                    else -> (currentLine.time + 5000L).coerceAtMost(Long.MAX_VALUE - 2000L)
+                }.coerceAtMost(Long.MAX_VALUE - 2000L)
             }
         }
-    val nextLine = lines.getOrNull(currentIndex + 1)
     val isVisible =
-        remember(currentLine, currentIndex, position, lineEndTime, nextLine, lines) {
+        remember(currentLine, currentIndex, lyricsPosition, lineEndTime, nextLine, lines) {
             if (currentLine == null) {
                 false
             } else {
                 val inSignificantGap =
                     nextLine != null &&
-                        position > lineEndTime &&
+                        lyricsPosition > lineEndTime &&
                         (nextLine.time - lineEndTime) > 5000L
                 val afterLastLine =
-                    nextLine == null && position > lineEndTime + 2000L
-                // currentIndex -1 (sebelum baris pertama) membuat currentLine null,
-                // jadi isVisible sudah false lewat pemeriksaan di atas.
-                !inSignificantGap && !afterLastLine
+                    nextLine == null && lyricsPosition > lineEndTime + 2000L
+                val isBeforeFirstLine =
+                    currentIndex == -1 &&
+                        (lines.firstOrNull()?.time ?: 0L) > 5000L &&
+                        lyricsPosition < (lines.firstOrNull()?.time ?: 0L)
+                !inSignificantGap && !afterLastLine && !isBeforeFirstLine
             }
         }
 
@@ -163,7 +185,7 @@ fun ActiveLyricLine(
             ) { (line, _) ->
                 if (line != null) {
                     Text(
-                        text = rememberSweptLyrics(line, position, textColor),
+                        text = rememberSweptLyrics(line, lyricsPosition, textColor),
                         style = style,
                         maxLines = 2,
                     )
