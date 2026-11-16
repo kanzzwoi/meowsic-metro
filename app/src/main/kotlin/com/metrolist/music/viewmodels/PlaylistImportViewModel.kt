@@ -8,8 +8,8 @@ package com.metrolist.music.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.metrolist.music.db.MusicDatabase
+import com.metrolist.music.playlistimport.ImportProvider
 import com.metrolist.music.playlistimport.PlaylistImport
-import com.metrolist.music.playlistimport.SpotifyPlaylistImporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -53,7 +53,9 @@ constructor(
     private val _status = MutableStateFlow<Status>(Status.Idle)
     val status: StateFlow<Status> = _status.asStateFlow()
 
-    fun importSpotify(url: String) {
+    fun importSpotify(url: String) = importFrom(ImportProvider.SPOTIFY, url)
+
+    fun importFrom(provider: ImportProvider, url: String) {
         val current = _status.value
         if (current is Status.Fetching || current is Status.Resolving || current is Status.Importing) {
             return
@@ -62,7 +64,7 @@ constructor(
             try {
                 _status.value = Status.Fetching
                 val playlist =
-                    SpotifyPlaylistImporter.loadPlaylist(url).getOrElse { throw it }
+                    provider.load(url).getOrElse { throw it }
                 val matches =
                     PlaylistImport.resolveTracks(playlist.tracks) { done, total ->
                         _status.value = Status.Resolving(done, total)

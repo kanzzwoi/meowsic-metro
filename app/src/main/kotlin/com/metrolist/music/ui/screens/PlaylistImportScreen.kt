@@ -42,16 +42,19 @@ import com.metrolist.music.LocalPlayerAwareWindowInsets
 import com.metrolist.music.R
 import com.metrolist.music.ui.component.IconButton
 import com.metrolist.music.ui.utils.backToMain
+import com.metrolist.music.playlistimport.ImportProvider
 import com.metrolist.music.viewmodels.PlaylistImportViewModel
 
 /**
- * Impor playlist dari tautan publik, ala Metrolist v14 — v1 baru mendukung
- * Spotify (tanpa login): tempel tautan playlist/album Spotify publik, lagu
- * dicocokkan ke YouTube Music, hasilnya jadi playlist lokal baru.
+ * Impor playlist dari tautan publik, ala Metrolist v14 — mendukung Spotify,
+ * Apple Music, Deezer, Tidal, dan Amazon Music (tanpa login): tempel tautan
+ * playlist/album publik, lagu dicocokkan ke YouTube Music, hasilnya jadi
+ * playlist lokal baru.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistImportScreen(
+    provider: ImportProvider = ImportProvider.SPOTIFY,
     viewModel: PlaylistImportViewModel = hiltViewModel(),
 ) {
     val navController = LocalNavController.current
@@ -72,7 +75,7 @@ fun PlaylistImportScreen(
                 ),
     ) {
         TopAppBar(
-            title = { Text(stringResource(R.string.import_playlist)) },
+            title = { Text(stringResource(provider.titleRes)) },
             navigationIcon = {
                 IconButton(
                     onClick = navController::navigateUp,
@@ -96,7 +99,7 @@ fun PlaylistImportScreen(
                     ).padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             Text(
-                text = stringResource(R.string.import_playlist_desc),
+                text = stringResource(R.string.import_playlist_desc, provider.providerName),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -108,8 +111,8 @@ fun PlaylistImportScreen(
                     url = it
                     if (status !is PlaylistImportViewModel.Status.Idle) viewModel.reset()
                 },
-                label = { Text(stringResource(R.string.import_playlist_url_label)) },
-                placeholder = { Text(stringResource(R.string.import_playlist_url_hint)) },
+                label = { Text(stringResource(R.string.import_playlist_url_label, provider.providerName)) },
+                placeholder = { Text(stringResource(provider.hintRes)) },
                 singleLine = true,
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth(),
@@ -117,7 +120,7 @@ fun PlaylistImportScreen(
             Spacer(Modifier.height(12.dp))
 
             Button(
-                onClick = { viewModel.importSpotify(url.trim()) },
+                onClick = { viewModel.importFrom(provider, url.trim()) },
                 enabled = url.isNotBlank() && !busy,
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -132,7 +135,7 @@ fun PlaylistImportScreen(
                     CircularProgressIndicator()
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = stringResource(R.string.import_playlist_fetching),
+                        text = stringResource(R.string.import_playlist_fetching, provider.providerName),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }

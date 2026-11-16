@@ -228,6 +228,34 @@ fun BackupAndRestore(
                             showSpotifyUrlDialog = true
                         },
                     ),
+                    Material3SettingsItem(
+                        title = { Text(stringResource(R.string.import_apple_music)) },
+                        icon = painterResource(R.drawable.language),
+                        onClick = {
+                            navController.navigate("playlist_import/apple_music")
+                        },
+                    ),
+                    Material3SettingsItem(
+                        title = { Text(stringResource(R.string.import_deezer)) },
+                        icon = painterResource(R.drawable.language),
+                        onClick = {
+                            navController.navigate("playlist_import/deezer")
+                        },
+                    ),
+                    Material3SettingsItem(
+                        title = { Text(stringResource(R.string.import_tidal)) },
+                        icon = painterResource(R.drawable.language),
+                        onClick = {
+                            navController.navigate("playlist_import/tidal")
+                        },
+                    ),
+                    Material3SettingsItem(
+                        title = { Text(stringResource(R.string.import_amazon)) },
+                        icon = painterResource(R.drawable.language),
+                        onClick = {
+                            navController.navigate("playlist_import/amazon")
+                        },
+                    ),
                 ),
         )
     }

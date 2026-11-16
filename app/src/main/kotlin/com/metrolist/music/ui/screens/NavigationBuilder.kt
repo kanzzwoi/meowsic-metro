@@ -56,6 +56,7 @@ import com.metrolist.music.ui.screens.settings.SettingsScreen
 import com.metrolist.music.ui.screens.settings.StorageSettings
 import com.metrolist.music.ui.screens.settings.ThemeScreen
 import com.metrolist.music.ui.screens.settings.UpdaterScreen
+import com.metrolist.music.playlistimport.ImportProvider
 import com.metrolist.music.ui.screens.settings.integrations.DiscordSettings
 import com.metrolist.music.ui.screens.settings.integrations.LastFMSettings
 import com.metrolist.music.ui.screens.settings.integrations.ListenTogetherSettings
@@ -117,6 +118,18 @@ fun NavGraphBuilder.navigationBuilder(
 
     composable("playlist_import") {
         PlaylistImportScreen()
+    }
+
+    composable(
+        route = "playlist_import/{provider}",
+        arguments = listOf(navArgument("provider") { type = NavType.StringType }),
+    ) { backStackEntry ->
+        PlaylistImportScreen(
+            provider =
+                ImportProvider.fromRoute(
+                    backStackEntry.arguments?.getString("provider"),
+                ),
+        )
     }
 
     composable("mood_and_genres") {
