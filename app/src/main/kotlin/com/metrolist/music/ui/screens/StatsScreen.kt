@@ -186,6 +186,14 @@ fun StatsScreen(
     val mostPlayedArtists by viewModel.filteredArtists.collectAsStateWithLifecycle()
     val mostPlayedAlbums by viewModel.filteredAlbums.collectAsStateWithLifecycle()
     val allArtists by viewModel.mostPlayedArtists.collectAsStateWithLifecycle()
+    // Total ringkasan ala v14 (tanpa filter pilihan artis): jumlah pemutaran
+    // + durasi dari semua lagu periode ini, jumlah artis/album berbeda yang
+    // diputar. Dipakai kartu Ringkasan.
+    val allSongsStats by viewModel.mostPlayedSongsStats.collectAsStateWithLifecycle()
+    val allAlbums by viewModel.mostPlayedAlbums.collectAsStateWithLifecycle()
+    val dailyStats by viewModel.dailyStats.collectAsStateWithLifecycle()
+    val hourlyStats by viewModel.hourlyStats.collectAsStateWithLifecycle()
+    val heatmapRange by viewModel.heatmapRange.collectAsStateWithLifecycle()
     val firstEvent by viewModel.firstEvent.collectAsStateWithLifecycle()
     val currentDate = LocalDateTime.now()
     val orderedMostPlayedSongs =
@@ -193,6 +201,10 @@ fun StatsScreen(
             val songsById = mostPlayedSongs.associateBy { it.song.id }
             mostPlayedSongsStats.mapNotNull { statsSong -> songsById[statsSong.id] }
         }
+    val statsTotalPlays = allSongsStats.sumOf { it.songCountListened }
+    val statsTotalTimeMs = allSongsStats.sumOf { it.timeListened ?: 0L }
+    val statsArtistCount = allArtists.size
+    val statsAlbumCount = allAlbums.size
     val coroutineScope = rememberCoroutineScope()
     val lazyListState = rememberLazyListState()
     val selectedOption by viewModel.selectedOption.collectAsStateWithLifecycle()
@@ -635,59 +647,6 @@ fun StatsScreen(
             }
 
             if (!isSearching) {
-                item(key = "mostPlayedArtists") {
-                    StatisticsCarousel(
-                        title = "${mostPlayedArtists.size} ${stringResource(id = R.string.artists)}",
-                        onSeeAll = { navController.navigate("stats_detail/artists") },
-                        tileSize = statsTileSize,
-                        titleHeight = statsTitleHeight,
-                        subtitleHeight = statsSubtitleHeight,
-                        modifier = Modifier.animateItem(),
-                    ) {
-                        itemsIndexed(
-                            items = mostPlayedArtists,
-                            key = { _, artist -> artist.id },
-                        ) { index, artist ->
-                            StatisticsCarouselItem(
-                                thumbnailUrl = artist.artist.thumbnailUrl,
-                                title = "${index + 1}. ${artist.artist.name}",
-                                subtitle =
-                                    joinByBullet(
-                                        pluralStringResource(
-                                            R.plurals.n_time,
-                                            artist.songCount,
-                                            artist.songCount,
-                                        ),
-                                        makeTimeString(artist.timeListened?.toLong()),
-                                    ),
-                                size = statsTileSize,
-                                titleHeight = statsTitleHeight,
-                                subtitleHeight = statsSubtitleHeight,
-                                shape = CircleShape,
-                                modifier =
-                                    Modifier
-                                        .combinedClickable(
-                                            onClick = {
-                                                navController.navigate("artist/${artist.id}")
-                                            },
-                                            onLongClick = {
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                menuState.show {
-                                                    ArtistMenu(
-                                                        originalArtist = artist,
-                                                        coroutineScope = coroutineScope,
-                                                        onDismiss = menuState::dismiss,
-                                                    )
-                                                }
-                                            },
-                                        ).animateItem(),
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (!isSearching) {
                 item(key = "mostPlayedAlbums") {
                     if (mostPlayedAlbums.isNotEmpty()) {
                         StatisticsCarousel(
@@ -746,6 +705,89 @@ fun StatsScreen(
                     }
                 }
             }
+
+            if (!isSearching) {
+                item(key = "mostPlayedArtists") {
+                    StatisticsCarousel(
+                        title = "${mostPlayedArtists.size} ${stringResource(id = R.string.artists)}",
+                        onSeeAll = { navController.navigate("stats_detail/artists") },
+                        tileSize = statsTileSize,
+                        titleHeight = statsTitleHeight,
+                        subtitleHeight = statsSubtitleHeight,
+                        modifier = Modifier.animateItem(),
+                    ) {
+                        itemsIndexed(
+                            items = mostPlayedArtists,
+                            key = { _, artist -> artist.id },
+                        ) { index, artist ->
+                            StatisticsCarouselItem(
+                                thumbnailUrl = artist.artist.thumbnailUrl,
+                                title = "${index + 1}. ${artist.artist.name}",
+                                subtitle =
+                                    joinByBullet(
+                                        pluralStringResource(
+                                            R.plurals.n_time,
+                                            artist.songCount,
+                                            artist.songCount,
+                                        ),
+                                        makeTimeString(artist.timeListened?.toLong()),
+                                    ),
+                                size = statsTileSize,
+                                titleHeight = statsTitleHeight,
+                                subtitleHeight = statsSubtitleHeight,
+                                shape = CircleShape,
+                                modifier =
+                                    Modifier
+                                        .combinedClickable(
+                                            onClick = {
+                                                navController.navigate("artist/${artist.id}")
+                                            },
+                                            onLongClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                menuState.show {
+                                                    ArtistMenu(
+                                                        originalArtist = artist,
+                                                        coroutineScope = coroutineScope,
+                                                        onDismiss = menuState::dismiss,
+                                                    )
+                                                }
+                                            },
+                                        ).animateItem(),
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (!isSearching) {
+                // Tiga kartu ala v14, urutan sama: Ringkasan, Aktivitas
+                // (heatmap harian), Kebiasaan mendengarkan (per jam).
+                item(key = "statsOverview") {
+                    StatisticsCard(stringResource(R.string.statistics_overview)) {
+                        SummaryGrid(
+                            totalPlays = statsTotalPlays,
+                            totalTimeMs = statsTotalTimeMs,
+                            artistCount = statsArtistCount,
+                            albumCount = statsAlbumCount,
+                        )
+                    }
+                }
+                item(key = "statsActivity") {
+                    StatisticsCard(stringResource(R.string.statistics_activity)) {
+                        ActivityHeatmap(
+                            dailyStats = dailyStats,
+                            firstDate = heatmapRange.first,
+                            today = heatmapRange.second,
+                        )
+                    }
+                }
+                item(key = "statsListeningHabits") {
+                    StatisticsCard(stringResource(R.string.statistics_listening_habits)) {
+                        HourlyActivityChart(hourlyStats = hourlyStats)
+                    }
+                }
+            }
+
 
             if (isSearching) {
                 items(

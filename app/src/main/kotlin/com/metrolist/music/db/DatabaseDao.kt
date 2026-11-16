@@ -35,6 +35,7 @@ import com.metrolist.music.db.entities.ArtistEntity
 import com.metrolist.music.db.entities.Event
 import com.metrolist.music.db.entities.EventWithSong
 import com.metrolist.music.db.entities.FormatEntity
+import com.metrolist.music.db.entities.HistoryBucket
 import com.metrolist.music.db.entities.LyricsEntity
 import com.metrolist.music.db.entities.PlayCountEntity
 import com.metrolist.music.db.entities.Playlist
@@ -402,7 +403,7 @@ interface DatabaseDao {
     @Transaction
     @Query(
         """
-        SELECT s.id, s.title, s.thumbnailUrl, s.isVideo,
+        SELECT s.id, s.title, s.thumbnailUrl, s.isVideo, s.albumId, s.albumName,
                (SELECT name FROM artist WHERE id = sam.artistId) as artistName,
                (SELECT COUNT(1)
                 FROM event
@@ -630,6 +631,28 @@ interface DatabaseDao {
     """
     )
     fun getUniqueAlbumCountInRange(fromTimeStamp: LocalDateTime, toTimeStamp: LocalDateTime): Flow<Int>
+
+    // Bucket harian & per jam ala v14 (HistoryStats.timeBuckets): strftime di
+    // atas timestamp epoch-ms (disimpan UTC) + 'localtime' supaya hari/jam
+    // mengikuti zona waktu perangkat. Dipakai heatmap Aktivitas (harian) dan
+    // grafik Kebiasaan mendengarkan (per jam).
+    @Query(
+        """
+        SELECT strftime('%Y-%m-%d', timestamp / 1000, 'unixepoch', 'localtime') AS bucket, COUNT(*) AS count
+        FROM event WHERE timestamp > :fromTimeStamp AND timestamp <= :toTimeStamp
+        GROUP BY bucket ORDER BY bucket
+        """
+    )
+    fun dailyPlayCounts(fromTimeStamp: LocalDateTime, toTimeStamp: LocalDateTime): Flow<List<HistoryBucket>>
+
+    @Query(
+        """
+        SELECT strftime('%H', timestamp / 1000, 'unixepoch', 'localtime') AS bucket, COUNT(*) AS count
+        FROM event WHERE timestamp > :fromTimeStamp AND timestamp <= :toTimeStamp
+        GROUP BY bucket ORDER BY bucket
+        """
+    )
+    fun hourlyPlayCounts(fromTimeStamp: LocalDateTime, toTimeStamp: LocalDateTime): Flow<List<HistoryBucket>>
 
     @Transaction
     @SuppressWarnings(RoomWarnings.QUERY_MISMATCH)

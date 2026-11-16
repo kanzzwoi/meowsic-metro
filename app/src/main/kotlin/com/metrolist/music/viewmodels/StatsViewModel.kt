@@ -19,6 +19,8 @@ import com.metrolist.music.constants.ShowMostStatsPlaylistsKey
 import com.metrolist.music.constants.StatPeriod
 import com.metrolist.music.constants.statToPeriod
 import com.metrolist.music.db.MusicDatabase
+import com.metrolist.music.db.entities.Album
+import com.metrolist.music.db.entities.AlbumEntity
 import com.metrolist.music.db.entities.PlaylistEntity
 import com.metrolist.music.ui.screens.OptionStats
 import com.metrolist.music.utils.dataStore
@@ -41,9 +43,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -130,7 +134,42 @@ constructor(
                     }
             }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    // Album paling sering diputar, dihitung dari riwayat ala v14
+    // (HistoryStats.albumStatistics): lagu-lagu yang diputar dikelompokkan
+    // per albumId/albumName. Query lama (database.mostPlayedAlbums) butuh
+    // baris album + song_album_map yang sering tidak ada untuk lagu dari
+    // pencarian — makanya seksi album kosong padahal lagu/artis ada isinya.
+    // Album disintesis dari lagu teratas grupnya (sampul + artis lagu itu);
+    // id-nya browseId YouTube asli, jadi navigasi ke halaman album tetap
+    // jalan (dimuat dari jaringan kalau belum ada di DB).
     val mostPlayedAlbums =
+        mostPlayedSongsStats
+            .map { songs ->
+                songs
+                    .filter { !it.albumId.isNullOrBlank() && !it.albumName.isNullOrBlank() }
+                    .groupBy { it.albumId!! }
+                    .map { (albumId, group) ->
+                        val top = group.maxBy { it.songCountListened }
+                        Album(
+                            album =
+                                AlbumEntity(
+                                    id = albumId,
+                                    title = group.first().albumName!!,
+                                    thumbnailUrl = top.thumbnailUrl,
+                                    songCount = group.size,
+                                    duration = 0,
+                                ),
+                            artists = top.artists,
+                            songCountListened = group.sumOf { it.songCountListened },
+                            timeListened = group.sumOf { it.timeListened ?: 0L },
+                        )
+                    }.sortedByDescending { it.songCountListened ?: 0 }
+            }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    // Aliran lama (query DAO) dipertahankan khusus untuk pengayaan album di
+    // bawah: album dengan songCount == 0 diambil halaman YouTubenya lalu
+    // disimpan, atau dihapus kalau sudah tidak ada.
+    private val daoMostPlayedAlbums =
         combine(
             selectedOption,
             indexChips,
@@ -147,6 +186,61 @@ constructor(
                     },
                 )
             }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    // Rentang periode yang sedang tampil (from, to), dipakai ulang oleh
+    // aliran statistik harian/per jam + heatmap.
+    private fun statsRange(selection: OptionStats, t: Int): Pair<LocalDateTime, LocalDateTime> {
+        val from = statToPeriod(selection, t)
+        val to =
+            if (selection == OptionStats.CONTINUOUS || t == 0) {
+                LocalDateTime.now()
+            } else {
+                statToPeriod(selection, t - 1)
+            }
+        return from to to
+    }
+
+    // Hitungan pemutaran per hari ("yyyy-MM-dd" -> jumlah) untuk heatmap
+    // Aktivitas, dan per jam (0-23 -> jumlah) untuk grafik Kebiasaan
+    // mendengarkan, ala v14 (HistoryStats.historyTimeBuckets).
+    val dailyStats =
+        combine(
+            selectedOption,
+            indexChips,
+        ) { first, second -> Pair(first, second) }
+            .flatMapLatest { (selection, t) ->
+                val (from, to) = statsRange(selection, t)
+                database.dailyPlayCounts(from, to)
+            }.map { rows -> rows.associate { it.bucket to it.count } }
+            .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
+
+    val hourlyStats =
+        combine(
+            selectedOption,
+            indexChips,
+        ) { first, second -> Pair(first, second) }
+            .flatMapLatest { (selection, t) ->
+                val (from, to) = statsRange(selection, t)
+                database.hourlyPlayCounts(from, to)
+            }.map { rows -> rows.associate { it.bucket.toInt() to it.count } }
+            .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
+
+    // Rentang heatmap ala v14: tanggal mulai periode (null kalau rentang
+    // terlalu panjang — saat itu heatmap menampilkan 14 minggu terakhir,
+    // seperti periode ALL di v14) dan tanggal akhir periode.
+    val heatmapRange =
+        combine(
+            selectedOption,
+            indexChips,
+        ) { first, second -> Pair(first, second) }
+            .map { (selection, t) ->
+                val (from, to) = statsRange(selection, t)
+                val fromDate = from.toLocalDate()
+                val toDate = to.toLocalDate()
+                val firstDate =
+                    if (ChronoUnit.DAYS.between(fromDate, toDate) > 105) null else fromDate
+                firstDate to toDate
+            }.stateIn(viewModelScope, SharingStarted.Lazily, null to LocalDate.now())
 
     val firstEvent =
         database
@@ -414,7 +508,7 @@ constructor(
             }
         }
         viewModelScope.launch {
-            mostPlayedAlbums.collect { albums ->
+            daoMostPlayedAlbums.collect { albums ->
                 albums
                     .filter {
                         it.album.songCount == 0

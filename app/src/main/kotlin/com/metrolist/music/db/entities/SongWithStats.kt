@@ -39,6 +39,12 @@ data class SongWithStats(
     val artists: List<ArtistEntity>,
     val thumbnailUrl: String,
     val artistName: String?,
+    // Album lagu ini (dari SongEntity, diisi saat metadata jaringan disimpan).
+    // Dipakai statistik album ala v14: album dihitung dari riwayat per
+    // albumId/albumName, bukan dari baris album + song_album_map yang
+    // sering tidak ada untuk lagu dari pencarian.
+    val albumId: String? = null,
+    val albumName: String? = null,
     val songCountListened: Int,
     val timeListened: Long?,
     val isVideo: Boolean = false,
