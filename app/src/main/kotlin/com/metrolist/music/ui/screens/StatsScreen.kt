@@ -7,27 +7,43 @@ package com.metrolist.music.ui.screens
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyRowScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -48,11 +64,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
@@ -61,18 +82,22 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
+import coil3.compose.AsyncImage
 import com.metrolist.innertube.models.Artist
 import com.metrolist.innertube.models.WatchEndpoint
-import com.metrolist.innertube.utils.parseCookieString
 import com.metrolist.music.LocalPlayerAwareWindowInsets
 import com.metrolist.music.LocalPlayerConnection
 import com.metrolist.music.R
 import com.metrolist.music.constants.CONTENT_TYPE_ARTIST
-import com.metrolist.music.constants.InnerTubeCookieKey
+import com.metrolist.music.constants.GridItemSize
+import com.metrolist.music.constants.GridItemsSizeKey
 import com.metrolist.music.constants.StatPeriod
+import com.metrolist.music.constants.ThumbnailCornerRadius
 import com.metrolist.music.extensions.toMediaItem
 import com.metrolist.music.models.toMediaMetadata
 import com.metrolist.music.playback.queues.ListQueue
@@ -80,22 +105,17 @@ import com.metrolist.music.playback.queues.YouTubeQueue
 import com.metrolist.music.ui.component.ArtistListItem
 import com.metrolist.music.ui.component.ChoiceChipsRow
 import com.metrolist.music.ui.component.EmptyPlaceholder
-import com.metrolist.music.ui.component.HideOnScrollFAB
 import com.metrolist.music.ui.component.IconButton
-import com.metrolist.music.ui.component.LocalAlbumsGrid
-import com.metrolist.music.ui.component.LocalArtistsGrid
 import com.metrolist.music.ui.component.LocalMenuState
-import com.metrolist.music.ui.component.LocalSongsGrid
-import com.metrolist.music.ui.component.NavigationTitle
-import com.metrolist.music.ui.component.PlaylistGridItem
 import com.metrolist.music.ui.component.TimeTransfer
 import com.metrolist.music.ui.menu.AlbumMenu
 import com.metrolist.music.ui.menu.ArtistMenu
 import com.metrolist.music.ui.menu.SongMenu
 import com.metrolist.music.ui.utils.backToMain
+import com.metrolist.music.ui.utils.isScrollingUp
 import com.metrolist.music.utils.joinByBullet
 import com.metrolist.music.utils.makeTimeString
-import com.metrolist.music.utils.rememberPreference
+import com.metrolist.music.utils.rememberEnumPreference
 import com.metrolist.music.viewmodels.StatsViewModel
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -124,7 +144,6 @@ fun StatsScreen(
     val menuState = LocalMenuState.current
     val haptic = LocalHapticFeedback.current
     val playerConnection = LocalPlayerConnection.current ?: return
-    val isPlaying by playerConnection.isEffectivelyPlaying.collectAsStateWithLifecycle()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -168,33 +187,24 @@ fun StatsScreen(
     val mostPlayedAlbums by viewModel.filteredAlbums.collectAsStateWithLifecycle()
     val allArtists by viewModel.mostPlayedArtists.collectAsStateWithLifecycle()
     val firstEvent by viewModel.firstEvent.collectAsStateWithLifecycle()
-    val weeklyMostPlaylist by viewModel.weeklyMostPlaylist.collectAsStateWithLifecycle()
-    val monthlyMostPlaylist by viewModel.monthlyMostPlaylist.collectAsStateWithLifecycle()
-    val recapPlaylists by viewModel.recapPlaylists.collectAsStateWithLifecycle()
     val currentDate = LocalDateTime.now()
     val orderedMostPlayedSongs =
         remember(mostPlayedSongsStats, mostPlayedSongs) {
             val songsById = mostPlayedSongs.associateBy { it.song.id }
             mostPlayedSongsStats.mapNotNull { statsSong -> songsById[statsSong.id] }
         }
-    val mostPeriodPlaylists = listOfNotNull(weeklyMostPlaylist, monthlyMostPlaylist)
-    val (innerTubeCookie) = rememberPreference(InnerTubeCookieKey, "")
-    val isLoggedIn =
-        remember(innerTubeCookie) {
-            "SAPISID" in parseCookieString(innerTubeCookie)
-        }
-    val visibleStatsPlaylists =
-        remember(mostPeriodPlaylists, recapPlaylists, isLoggedIn) {
-            if (isLoggedIn) {
-                (mostPeriodPlaylists + recapPlaylists).distinctBy { it.id }
-            } else {
-                mostPeriodPlaylists
-            }
-        }
-
     val coroutineScope = rememberCoroutineScope()
     val lazyListState = rememberLazyListState()
     val selectedOption by viewModel.selectedOption.collectAsStateWithLifecycle()
+
+    // Ukuran ubin carousel ala v14: dihitung dari lebar layar (bukan 128dp
+    // tetap), supaya ~3 ubin muat selebar layar HP. Tinggi judul/subjudul
+    // dicadangkan seperti v14 supaya baris tidak lompat saat teks pendek.
+    val statsTileSize = statisticsCarouselTileSize()
+    val statsTitleHeight =
+        with(LocalDensity.current) { MaterialTheme.typography.titleSmall.lineHeight.toDp() }
+    val statsSubtitleHeight =
+        with(LocalDensity.current) { MaterialTheme.typography.bodySmall.lineHeight.toDp() }
 
     // Tombol Bagikan (ala Metrolist v14): statistik periode ini dirender jadi
     // kartu gambar 1080px dengan branding Meowsic, lalu dibagikan lewat
@@ -348,10 +358,6 @@ fun StatsScreen(
                 prevIndexChips = null
             },
         )
-    }
-
-    LaunchedEffect(Unit) {
-        viewModel.syncMostPlaylistsIfNeeded()
     }
 
     val weeklyDates =
@@ -522,72 +528,61 @@ fun StatsScreen(
                 )
             }
 
-            if (visibleStatsPlaylists.isNotEmpty() && !isSearching && sArtists.isEmpty()) {
-                item(key = "mostPeriodPlaylistsTitle") {
-                    NavigationTitle(
-                        title =
-                            pluralStringResource(
-                                R.plurals.n_playlist,
-                                visibleStatsPlaylists.size,
-                                visibleStatsPlaylists.size,
-                            ),
-                        modifier = Modifier.animateItem(),
-                    )
-                }
-
-                item(key = "mostPeriodPlaylists") {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 4.dp),
-                        modifier = Modifier.animateItem(),
+            // Tombol Acak full-width ala v14 (di sana di bawah judul +
+            // ringkasan, sebelum carousel). Acak pindah ke sini supaya
+            // tombol melayang di bawah hanya Bagikan, seperti v14.
+            if (!isSearching) {
+                item(key = "shuffle_most_played") {
+                    Column(
+                        modifier =
+                            Modifier
+                                .padding(horizontal = 16.dp)
+                                .animateItem(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        itemsIndexed(
-                            items = visibleStatsPlaylists,
-                            key = { _, playlist -> playlist.id },
-                        ) { _, playlist ->
-                            PlaylistGridItem(
-                                playlist = playlist,
-                                autoPlaylist = true,
-                                modifier =
-                                    Modifier
-                                        .combinedClickable(
-                                            onClick = {
-                                                navController.navigate("local_playlist/${playlist.id}")
-                                            },
-                                        ).animateItem(),
+                        Button(
+                            onClick = {
+                                playerConnection.playQueue(
+                                    ListQueue(
+                                        title = context.getString(R.string.most_played_songs),
+                                        items = orderedMostPlayedSongs.map { it.toMediaMetadata().toMediaItem() }.shuffled(),
+                                    ),
+                                )
+                            },
+                            enabled = orderedMostPlayedSongs.isNotEmpty(),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.shuffle),
+                                contentDescription = null,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.shuffle),
+                                style = MaterialTheme.typography.titleMedium,
                             )
                         }
+                        HorizontalDivider(Modifier.padding(top = 8.dp))
                     }
                 }
             }
 
             if (!isSearching) {
                 item(key = "mostPlayedSongs") {
-                    NavigationTitle(
+                    StatisticsCarousel(
                         title = "${mostPlayedSongsStats.size} ${stringResource(id = R.string.songs)}",
-                        onPlayAllClick =
-                            if (orderedMostPlayedSongs.isNotEmpty()) {
-                                {
-                                    playerConnection.playQueue(
-                                        ListQueue(
-                                            title = context.getString(R.string.most_played_songs),
-                                            items = orderedMostPlayedSongs.map { it.toMediaMetadata().toMediaItem() },
-                                        ),
-                                    )
-                                }
-                            } else {
-                                null
-                            },
-                        modifier = Modifier.animateItem(),
-                    )
-
-                    LazyRow(
+                        onSeeAll = { navController.navigate("stats_detail/tracks") },
+                        tileSize = statsTileSize,
+                        titleHeight = statsTitleHeight,
+                        subtitleHeight = statsSubtitleHeight,
                         modifier = Modifier.animateItem(),
                     ) {
                         itemsIndexed(
                             items = mostPlayedSongsStats,
                             key = { index, song -> "${song.id}_$index" },
                         ) { index, song ->
-                            LocalSongsGrid(
+                            StatisticsCarouselItem(
+                                thumbnailUrl = song.thumbnailUrl,
                                 title = "${index + 1}. ${song.title}",
                                 subtitle =
                                     joinByBullet(
@@ -598,12 +593,12 @@ fun StatsScreen(
                                         ),
                                         makeTimeString(song.timeListened),
                                     ),
-                                thumbnailUrl = song.thumbnailUrl,
-                                isActive = song.id == mediaMetadata?.id,
-                                isPlaying = isPlaying,
+                                size = statsTileSize,
+                                titleHeight = statsTitleHeight,
+                                subtitleHeight = statsSubtitleHeight,
+                                shape = RoundedCornerShape(ThumbnailCornerRadius),
                                 modifier =
                                     Modifier
-                                        .fillMaxWidth()
                                         .combinedClickable(
                                             onClick = {
                                                 if (song.id == mediaMetadata?.id) {
@@ -641,19 +636,20 @@ fun StatsScreen(
 
             if (!isSearching) {
                 item(key = "mostPlayedArtists") {
-                    NavigationTitle(
+                    StatisticsCarousel(
                         title = "${mostPlayedArtists.size} ${stringResource(id = R.string.artists)}",
-                        modifier = Modifier.animateItem(),
-                    )
-
-                    LazyRow(
+                        onSeeAll = { navController.navigate("stats_detail/artists") },
+                        tileSize = statsTileSize,
+                        titleHeight = statsTitleHeight,
+                        subtitleHeight = statsSubtitleHeight,
                         modifier = Modifier.animateItem(),
                     ) {
                         itemsIndexed(
                             items = mostPlayedArtists,
                             key = { _, artist -> artist.id },
                         ) { index, artist ->
-                            LocalArtistsGrid(
+                            StatisticsCarouselItem(
+                                thumbnailUrl = artist.artist.thumbnailUrl,
                                 title = "${index + 1}. ${artist.artist.name}",
                                 subtitle =
                                     joinByBullet(
@@ -664,7 +660,10 @@ fun StatsScreen(
                                         ),
                                         makeTimeString(artist.timeListened?.toLong()),
                                     ),
-                                thumbnailUrl = artist.artist.thumbnailUrl,
+                                size = statsTileSize,
+                                titleHeight = statsTitleHeight,
+                                subtitleHeight = statsSubtitleHeight,
+                                shape = CircleShape,
                                 modifier =
                                     Modifier
                                         .combinedClickable(
@@ -690,20 +689,21 @@ fun StatsScreen(
 
             if (!isSearching) {
                 item(key = "mostPlayedAlbums") {
-                    NavigationTitle(
-                        title = "${mostPlayedAlbums.size} ${stringResource(id = R.string.albums)}",
-                        modifier = Modifier.animateItem(),
-                    )
-
                     if (mostPlayedAlbums.isNotEmpty()) {
-                        LazyRow(
+                        StatisticsCarousel(
+                            title = "${mostPlayedAlbums.size} ${stringResource(id = R.string.albums)}",
+                            onSeeAll = { navController.navigate("stats_detail/albums") },
+                            tileSize = statsTileSize,
+                            titleHeight = statsTitleHeight,
+                            subtitleHeight = statsSubtitleHeight,
                             modifier = Modifier.animateItem(),
                         ) {
                             itemsIndexed(
                                 items = mostPlayedAlbums,
                                 key = { _, album -> album.id },
                             ) { index, album ->
-                                LocalAlbumsGrid(
+                                StatisticsCarouselItem(
+                                    thumbnailUrl = album.album.thumbnailUrl,
                                     title = "${index + 1}. ${album.album.title}",
                                     subtitle =
                                         joinByBullet(
@@ -714,12 +714,12 @@ fun StatsScreen(
                                             ),
                                             makeTimeString(album.timeListened),
                                         ),
-                                    thumbnailUrl = album.album.thumbnailUrl,
-                                    isActive = album.id == mediaMetadata?.album?.id,
-                                    isPlaying = isPlaying,
+                                    size = statsTileSize,
+                                    titleHeight = statsTitleHeight,
+                                    subtitleHeight = statsSubtitleHeight,
+                                    shape = RoundedCornerShape(ThumbnailCornerRadius),
                                     modifier =
                                         Modifier
-                                            .fillMaxWidth()
                                             .combinedClickable(
                                                 onClick = {
                                                     navController.navigate("album/${album.id}")
@@ -737,6 +737,12 @@ fun StatsScreen(
                                 )
                             }
                         }
+                    } else {
+                        StatisticsCarouselHeader(
+                            title = "${mostPlayedAlbums.size} ${stringResource(id = R.string.albums)}",
+                            onSeeAll = { navController.navigate("stats_detail/albums") },
+                            modifier = Modifier.animateItem(),
+                        )
                     }
                 }
             }
@@ -783,23 +789,41 @@ fun StatsScreen(
                     )
                 }
             }
+
+            // Ruang bawah 96dp ala v14 supaya tombol Bagikan yang melayang
+            // tidak menutupi baris terakhir saat daftar di-scroll mentok.
+            item(key = "bottom_spacing") {
+                Spacer(Modifier.height(96.dp))
+            }
         }
-        // FAB to shuffle most played songs
+        // Hanya tombol Bagikan yang melayang, ala v14. Acak sudah pindah
+        // ke tombol full-width di atas; dua tombol bertumpuk menutupi
+        // konten seperti sebelumnya.
         if (mostPlayedSongsStats.isNotEmpty() && !isSearching) {
-            HideOnScrollFAB(
-                visible = true,
-                lazyListState = lazyListState,
-                icon = R.drawable.shuffle,
-                onClick = {
-                    playerConnection.playQueue(
-                        ListQueue(
-                            title = context.getString(R.string.most_played_songs),
-                            items = orderedMostPlayedSongs.map { it.toMediaMetadata().toMediaItem() }.shuffled(),
+            AnimatedVisibility(
+                visible = lazyListState.isScrollingUp(),
+                enter = slideInVertically { it },
+                exit = slideOutVertically { it },
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .windowInsetsPadding(
+                            LocalPlayerAwareWindowInsets.current
+                                .only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal),
                         ),
-                    )
-                },
-                onShareClick = shareStats,
-            )
+            ) {
+                ExtendedFloatingActionButton(
+                    onClick = shareStats,
+                    icon = {
+                        Icon(
+                            painter = painterResource(R.drawable.share),
+                            contentDescription = null,
+                        )
+                    },
+                    text = { Text(stringResource(R.string.share)) },
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
         }
     }
 
@@ -918,6 +942,128 @@ fun StatsScreen(
             }
         },
     )
+}
+
+// Ukuran ubin carousel ala v14 (Dimensions.kt): dihitung dari lebar
+// layar, bukan nilai tetap — target 160dp per ubin (130dp kalau ukuran
+// grid SMALL), minimal 3 kolom (4 kalau SMALL), jarak antar ubin 6dp.
+@Composable
+private fun statisticsCarouselTileSize(): Dp {
+    val gridItemSize by rememberEnumPreference(GridItemsSizeKey, GridItemSize.BIG)
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val available = screenWidth - 32.dp
+    val target =
+        160.dp * (if (gridItemSize == GridItemSize.BIG) 128f else 104f) / 128f
+    val minColumns = if (gridItemSize == GridItemSize.BIG) 3 else 4
+    val columns = (available / target).toInt().coerceAtLeast(minColumns)
+    return (available - 6.dp * (columns - 1)) / columns
+}
+
+// Header carousel ala v14: judul headlineMedium warna primary + tombol
+// panah berisi (lihat semua) ke layar detail.
+@Composable
+private fun StatisticsCarouselHeader(
+    title: String,
+    onSeeAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .then(modifier),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        FilledIconButton(onClick = onSeeAll) {
+            Icon(
+                painter = painterResource(R.drawable.arrow_forward),
+                contentDescription = null,
+            )
+        }
+    }
+}
+
+// Carousel ala v14: header + LazyRow dengan padding horizontal 16dp,
+// jarak antar ubin 6dp, dan tinggi yang dicadangkan penuh supaya tidak
+// melompat saat data berubah.
+@Composable
+private fun StatisticsCarousel(
+    title: String,
+    onSeeAll: () -> Unit,
+    tileSize: Dp,
+    titleHeight: Dp,
+    subtitleHeight: Dp,
+    modifier: Modifier = Modifier,
+    items: LazyRowScope.() -> Unit,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        StatisticsCarouselHeader(title = title, onSeeAll = onSeeAll)
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(tileSize + 6.dp + titleHeight + subtitleHeight),
+        ) {
+            items()
+        }
+    }
+}
+
+// Ubin carousel ala v14: sampul saja (tanpa tombol putar di tengah),
+// judul titleSmall + subjudul bodySmall, masing-masing 1 baris dengan
+// ellipsis dan tinggi yang dicadangkan.
+@Composable
+private fun StatisticsCarouselItem(
+    thumbnailUrl: String?,
+    title: String,
+    subtitle: String,
+    size: Dp,
+    titleHeight: Dp,
+    subtitleHeight: Dp,
+    shape: Shape,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.width(size)) {
+        AsyncImage(
+            model = thumbnailUrl,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier =
+                Modifier
+                    .size(size)
+                    .clip(shape),
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.height(titleHeight),
+        )
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.height(subtitleHeight),
+        )
+    }
 }
 
 enum class OptionStats { WEEKS, MONTHS, YEARS, CONTINUOUS }

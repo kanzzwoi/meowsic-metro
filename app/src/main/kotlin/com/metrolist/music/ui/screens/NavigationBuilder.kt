@@ -116,6 +116,16 @@ fun NavGraphBuilder.navigationBuilder(
         StatsScreen(navController)
     }
 
+    composable(
+        route = "stats_detail/{type}",
+        arguments = listOf(navArgument("type") { type = NavType.StringType }),
+    ) { backStackEntry ->
+        StatsDetailScreen(
+            navController = navController,
+            type = backStackEntry.arguments?.getString("type") ?: "tracks",
+        )
+    }
+
     composable("playlist_import") {
         PlaylistImportScreen()
     }
