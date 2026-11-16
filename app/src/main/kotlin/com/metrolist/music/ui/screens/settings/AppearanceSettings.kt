@@ -6,6 +6,9 @@
 package com.metrolist.music.ui.screens.settings
 
 import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -34,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -53,7 +57,10 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.metrolist.music.LocalPlayerAwareWindowInsets
 import com.metrolist.music.R
+import com.metrolist.music.constants.ActiveFontIdKey
 import com.metrolist.music.constants.ChipSortTypeKey
+import com.metrolist.music.constants.CustomFontFileKey
+import com.metrolist.music.constants.CustomFontNameKey
 import com.metrolist.music.constants.CropAlbumArtKey
 import com.metrolist.music.constants.DefaultOpenTabKey
 import com.metrolist.music.constants.DensityScale
@@ -113,10 +120,14 @@ import com.metrolist.music.ui.component.WavySlider
 import com.metrolist.music.ui.theme.DefaultThemeColor
 import com.metrolist.music.ui.theme.PlayerSliderColors
 import com.metrolist.music.ui.utils.backToMain
+import com.metrolist.music.utils.AppFontManager
 import com.metrolist.music.utils.IconUtils
+import com.metrolist.music.utils.QuickFontManager
 import com.metrolist.music.utils.rememberEnumPreference
 import com.metrolist.music.utils.rememberPreference
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -899,6 +910,46 @@ fun AppearanceSettings(
         }
     }
 
+    // Font aplikasi ala Metrolist v14: font sistem, 5 font Google siap
+    // unduh, atau font sendiri (TTF/OTF) lewat pemilih file.
+    val context = LocalContext.current
+    val fontScope = rememberCoroutineScope()
+    val (activeFontId, onActiveFontIdChange) =
+        rememberPreference(ActiveFontIdKey, QuickFontManager.SYSTEM_ID)
+    val (customFontFile, onCustomFontFileChange) =
+        rememberPreference(CustomFontFileKey, "")
+    val (customFontName, onCustomFontNameChange) =
+        rememberPreference(CustomFontNameKey, "")
+    val hasCustomFont = AppFontManager.hasImportedFont(context, customFontFile)
+    var downloadingFontId by remember { mutableStateOf<String?>(null) }
+    var installedFontIds by remember { mutableStateOf<Set<String>?>(null) }
+    LaunchedEffect(downloadingFontId) {
+        installedFontIds = QuickFontManager.downloadedFontIds(context)
+    }
+    val fontPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            fontScope.launch {
+                withContext(Dispatchers.IO) { AppFontManager.importFont(context, uri) }
+                    .onSuccess { font ->
+                        onCustomFontFileChange(font.fileName)
+                        onCustomFontNameChange(font.displayName)
+                        onActiveFontIdChange(QuickFontManager.CUSTOM_ID)
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.app_font_applied, font.displayName),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }.onFailure {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.app_font_invalid),
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+            }
+        }
+
     Column(
         Modifier
             .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
@@ -1016,6 +1067,118 @@ fun AppearanceSettings(
                             onClick = { navController.navigate("settings/appearance/theme") },
                         ),
                     )
+                },
+        )
+
+        Spacer(modifier = Modifier.height(27.dp))
+
+        Material3SettingsGroup(
+            title = stringResource(R.string.app_font),
+            items =
+                buildList {
+                    add(
+                        Material3SettingsItem(
+                            icon = painterResource(R.drawable.edit),
+                            title = { Text(stringResource(R.string.app_font_system)) },
+                            description = {
+                                Text(
+                                    if (activeFontId == QuickFontManager.SYSTEM_ID) {
+                                        stringResource(R.string.app_font_active)
+                                    } else {
+                                        stringResource(R.string.app_font_system_desc)
+                                    },
+                                )
+                            },
+                            onClick = { onActiveFontIdChange(QuickFontManager.SYSTEM_ID) },
+                        ),
+                    )
+                    QuickFontManager.fonts.forEach { font ->
+                        val isDownloaded = font.id in installedFontIds.orEmpty()
+                        val isActive = activeFontId == font.id && isDownloaded
+                        add(
+                            Material3SettingsItem(
+                                title = { Text(font.label) },
+                                description = {
+                                    Text(
+                                        when {
+                                            downloadingFontId == font.id ->
+                                                stringResource(R.string.app_font_downloading, font.label)
+
+                                            installedFontIds == null ->
+                                                stringResource(R.string.app_font_checking)
+
+                                            isActive -> stringResource(R.string.app_font_active)
+                                            isDownloaded -> stringResource(R.string.app_font_installed)
+                                            else -> stringResource(R.string.app_font_download_and_use)
+                                        },
+                                    )
+                                },
+                                enabled = installedFontIds != null && downloadingFontId == null,
+                                onClick = {
+                                    if (isDownloaded) {
+                                        onActiveFontIdChange(font.id)
+                                    } else {
+                                        downloadingFontId = font.id
+                                        fontScope.launch {
+                                            QuickFontManager
+                                                .downloadFonts(context, font.id)
+                                                .onSuccess {
+                                                    onActiveFontIdChange(font.id)
+                                                }.onFailure {
+                                                    Toast.makeText(
+                                                        context,
+                                                        context.getString(R.string.app_font_download_error, font.label),
+                                                        Toast.LENGTH_LONG,
+                                                    ).show()
+                                                }
+                                            downloadingFontId = null
+                                        }
+                                    }
+                                },
+                            ),
+                        )
+                    }
+                    add(
+                        Material3SettingsItem(
+                            icon = painterResource(R.drawable.download),
+                            title = { Text(stringResource(R.string.app_font_import_custom)) },
+                            description = {
+                                Text(
+                                    if (hasCustomFont) {
+                                        customFontName.ifBlank { stringResource(R.string.app_font_custom_active) }
+                                    } else {
+                                        stringResource(R.string.app_font_choose)
+                                    },
+                                )
+                            },
+                            onClick = {
+                                fontPicker.launch(
+                                    arrayOf(
+                                        "font/ttf",
+                                        "font/otf",
+                                        "application/x-font-ttf",
+                                        "application/x-font-opentype",
+                                        "application/octet-stream",
+                                    ),
+                                )
+                            },
+                        ),
+                    )
+                    if (hasCustomFont || activeFontId != QuickFontManager.SYSTEM_ID) {
+                        add(
+                            Material3SettingsItem(
+                                icon = painterResource(R.drawable.clear_all),
+                                title = { Text(stringResource(R.string.app_font_reset)) },
+                                description = { Text(stringResource(R.string.app_font_reset_description)) },
+                                onClick = {
+                                    onActiveFontIdChange(QuickFontManager.SYSTEM_ID)
+                                    onCustomFontFileChange("")
+                                    onCustomFontNameChange("")
+                                    AppFontManager.removeImportedFont(context)
+                                },
+                            ),
+                        )
+                    }
                 },
         )
 
