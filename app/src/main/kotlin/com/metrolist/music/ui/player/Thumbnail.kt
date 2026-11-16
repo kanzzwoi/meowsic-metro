@@ -348,6 +348,7 @@ fun Thumbnail(
                         albumTitle = mediaMetadata?.album?.title,
                         textColor = textBackgroundColor,
                         onCollapse = onCollapse,
+                        onToggleFullThumbnail = onToggleFullThumbnail,
                     )
                 }
                 
@@ -407,7 +408,6 @@ fun Thumbnail(
                                 dimensions = dimensions,
                                 hidePlayerThumbnail = hidePlayerThumbnail,
                                 isFullThumbnail = isFullThumbnail,
-                                onToggleFullThumbnail = onToggleFullThumbnail,
                                 // Full player selalu Crop ala v14 (artwork
                                 // nge-fill kotak 1:1, tanpa bar hitam).
                                 // Setting CropAlbumArtKey tetap berlaku untuk
@@ -458,6 +458,7 @@ private fun ThumbnailHeader(
     textColor: Color,
     modifier: Modifier = Modifier,
     onCollapse: () -> Unit = {},
+    onToggleFullThumbnail: () -> Unit = {},
 ) {
     val listenTogetherManager = LocalListenTogetherManager.current
     val listenTogetherRoleState = listenTogetherManager?.role?.collectAsStateWithLifecycle(initialValue = RoomRole.NONE)
@@ -481,6 +482,26 @@ private fun ThumbnailHeader(
                 painter = painterResource(R.drawable.expand_more),
                 contentDescription = null,
                 tint = textColor,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        // Tombol thumbnail penuh (kanan atas): ganti mode thumbnail,
+        // ikon dari SVG kiriman user, putih, lingkaran kayak chevron.
+        // Tombol ini yang gantiin tap artwork (tap sering tidak
+        // ke-tangkap karena rebutan dengan deteksi double-tap seek).
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.15f))
+                .clickable { onToggleFullThumbnail() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.thumbnail_fullscreen),
+                contentDescription = null,
+                tint = Color.White,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -525,7 +546,6 @@ private fun ThumbnailItem(
     dimensions: ThumbnailDimensions,
     hidePlayerThumbnail: Boolean,
     isFullThumbnail: Boolean = false,
-    onToggleFullThumbnail: () -> Unit = {},
     cropAlbumArt: Boolean,
     textBackgroundColor: Color,
     layoutDirection: LayoutDirection,
@@ -559,8 +579,11 @@ private fun ThumbnailItem(
                 compositingStrategy = CompositingStrategy.Offscreen
             }
             .pointerInput(Unit) {
+                // Tap artwork tidak lagi ganti mode thumbnail: sering
+                // tidak ke-tangkap karena onTap harus nunggu timeout
+                // double-tap. Gantinya tombol kanan atas di header.
+                // Double-tap tetap seek seperti biasa.
                 detectTapGestures(
-                    onTap = { onToggleFullThumbnail() },
                     onDoubleTap = { offset ->
                         if (isListenTogetherGuest) return@detectTapGestures
 
