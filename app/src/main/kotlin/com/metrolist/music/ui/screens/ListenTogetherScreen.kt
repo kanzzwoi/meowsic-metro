@@ -1702,47 +1702,54 @@ private fun ProfileEditorDialog(
     DefaultDialog(
         onDismiss = onDismiss,
         icon = {
+            // Tombol Simpan pindah ke kanan atas: isi dialog (ditambah seksi foto
+            // profil) sudah terlalu tinggi sampai tombol bawah terpotong.
+            // Batal tidak lagi ditampilkan; dialog tetap bisa ditutup lewat
+            // tap di luar dialog atau tombol back.
             Box(
-                modifier = Modifier.size(84.dp),
+                modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center,
             ) {
                 Box(
-                    modifier =
-                        Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(runCatching { Color(android.graphics.Color.parseColor(color)) }.getOrDefault(MaterialTheme.colorScheme.primary)),
+                    modifier = Modifier.size(84.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(emoji.ifBlank { initial }, style = MaterialTheme.typography.headlineMedium)
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(runCatching { Color(android.graphics.Color.parseColor(color)) }.getOrDefault(MaterialTheme.colorScheme.primary)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(emoji.ifBlank { initial }, style = MaterialTheme.typography.headlineMedium)
+                    }
+                    // Foto profil rahasia menimpa warna + emoji di preview.
+                    pfpDrawableRes(pfp)?.let { pfpRes ->
+                        Image(
+                            painter = painterResource(pfpRes),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(64.dp).clip(CircleShape),
+                        )
+                    }
+                    borderDrawableRes(border)?.let { borderRes ->
+                        Image(
+                            painter = painterResource(borderRes),
+                            contentDescription = null,
+                            modifier = Modifier.size(84.dp),
+                        )
+                    }
                 }
-                // Foto profil rahasia menimpa warna + emoji di preview.
-                pfpDrawableRes(pfp)?.let { pfpRes ->
-                    Image(
-                        painter = painterResource(pfpRes),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.size(64.dp).clip(CircleShape),
-                    )
-                }
-                borderDrawableRes(border)?.let { borderRes ->
-                    Image(
-                        painter = painterResource(borderRes),
-                        contentDescription = null,
-                        modifier = Modifier.size(84.dp),
-                    )
+                TextButton(
+                    onClick = { onSave(emoji, color, border, pfp) },
+                    modifier = Modifier.align(Alignment.TopEnd),
+                ) {
+                    Text("Simpan")
                 }
             }
         },
         title = { Text("Profil Saya", fontWeight = FontWeight.Bold) },
-        buttons = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(android.R.string.cancel))
-            }
-            TextButton(onClick = { onSave(emoji, color, border, pfp) }) {
-                Text("Simpan")
-            }
-        },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Pilih border", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
