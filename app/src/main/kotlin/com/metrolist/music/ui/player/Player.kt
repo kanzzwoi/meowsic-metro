@@ -1006,119 +1006,116 @@ fun BottomSheetPlayer(
         state = state,
         modifier = modifier,
         background = {
-            Box(
+            BoxWithConstraints(
                 modifier =
                     Modifier
                         .fillMaxSize()
                         .background(bottomSheetBackgroundColor),
             ) {
                 val fullThumbnailUrl = mediaMetadata?.thumbnailUrl
-                if (isFullThumbnail && !hidePlayerThumbnail && fullThumbnailUrl != null && !showInlineLyrics) {
-                    // Thumbnail penuh ala v14 (FullscreenArtworkBleed):
-                    // cover di atas, di-zoom sampai 60% tinggi player
-                    // (sisi terpotong, maks 1.6x), lalu ke bawah berlanjut
-                    // jadi bleed dari baris bawah cover dengan blur
-                    // progresif + tone gelap. Semua CPU, jalan di Android 10.
-                    // Bleed HANYA saat lirik penuh tertutup, ala v14
-                    // (PlayerScreen: FullscreenThumbnailBackground cuma
-                    // digambar kalau !isLyricsVisible; kalau lirik dibuka,
-                    // background balik ke background normal — blur/granit).
-                    // Sebelumnya bleed tampil terus, jadi pas buka lirik
-                    // backgroundnya tetap thumbnail, bukan yang biasa.
-                    BoxWithConstraints(
-                        modifier = Modifier.fillMaxSize().alpha(backgroundAlpha),
-                    ) {
-                        val density = LocalDensity.current
-                        val viewportPx =
-                            with(density) {
-                                IntSize(maxWidth.roundToPx(), maxHeight.roundToPx())
-                            }
-                        val artwork =
-                            rememberFullscreenArtworkBitmap(
-                                thumbnailUrl = fullThumbnailUrl,
-                                targetSize = IntSize(viewportPx.width, (viewportPx.height * 0.66f).roundToInt()),
-                            )
-                        FullscreenArtworkBleed(
-                            url = fullThumbnailUrl,
-                            artwork = artwork,
-                            viewport = viewportPx,
-                        )
+                val density = LocalDensity.current
+                val viewportPx =
+                    with(density) {
+                        IntSize(maxWidth.roundToPx(), maxHeight.roundToPx())
                     }
-                } else {
-                    when (playerBackground) {
-                        PlayerBackgroundStyle.BLUR -> {
-                        // Kunci fade pada thumbnailUrl (bukan hanya target), agar
-                        // transisi tidak menggantung ketika thumbnailUrl null
-                        // sesaat setelah ganti lagu. key() memaksa gambar baru
-                        // dibuat ulang tiap lagu berganti.
-                        AnimatedContent(
-                            targetState = mediaMetadata?.id,
-                            transitionSpec = {
-                                fadeIn(tween(400)) togetherWith fadeOut(tween(400))
-                            },
-                            label = "blurBackground",
-                        ) { songId ->
-                            val thumbnailUrl =
-                                remember(songId, mediaMetadata?.thumbnailUrl) {
-                                    mediaMetadata?.thumbnailUrl?.let {
-                                        if (it.startsWith("http")) it.resize(100, 100) else it
-                                    }
-                                }
-                            if (thumbnailUrl != null) {
-                                Box(modifier = Modifier.alpha(backgroundAlpha)) {
-                                    BlurBackground(
-                                        thumbnailUrl = thumbnailUrl,
-                                        songId = mediaMetadata?.id,
-                                        radius = 12,
-                                        scrimAlpha = 0.3f,
-                                        modifier = Modifier.fillMaxSize(),
-                                        fadeIn = true,
-                                        // Background animasi ala Metrolist v14.
-                                        animated = true,
-                                        isPlaying = isPlaying,
-                                    )
+                // Ala v14: artwork dimuat SEKALI per lagu di sini, sejak
+                // player dibuka / lagu berganti — bukan saat tombol thumbnail
+                // penuh ditekan. Jadi pas toggle, bitmap sudah di memori dan
+                // bleed langsung dihitung tanpa nunggu load.
+                val fullscreenArtwork =
+                    rememberFullscreenArtworkBitmap(
+                        thumbnailUrl = fullThumbnailUrl,
+                        targetSize = IntSize(viewportPx.width, (viewportPx.height * 0.66f).roundToInt()),
+                    )
+                when (playerBackground) {
+                    PlayerBackgroundStyle.BLUR -> {
+                    // Kunci fade pada thumbnailUrl (bukan hanya target), agar
+                    // transisi tidak menggantung ketika thumbnailUrl null
+                    // sesaat setelah ganti lagu. key() memaksa gambar baru
+                    // dibuat ulang tiap lagu berganti.
+                    AnimatedContent(
+                        targetState = mediaMetadata?.id,
+                        transitionSpec = {
+                            fadeIn(tween(400)) togetherWith fadeOut(tween(400))
+                        },
+                        label = "blurBackground",
+                    ) { songId ->
+                        val thumbnailUrl =
+                            remember(songId, mediaMetadata?.thumbnailUrl) {
+                                mediaMetadata?.thumbnailUrl?.let {
+                                    if (it.startsWith("http")) it.resize(100, 100) else it
                                 }
                             }
-                        }
-                    }
-
-                    PlayerBackgroundStyle.GRADIENT -> {
-                        AnimatedContent(
-                            targetState = gradientColors,
-                            transitionSpec = {
-                                fadeIn(tween(800)).togetherWith(fadeOut(tween(800)))
-                            },
-                            label = "gradientBackground",
-                        ) { colors ->
-                            if (colors.isNotEmpty()) {
-                                val gradientColorStops =
-                                    if (colors.size >= 3) {
-                                        arrayOf(
-                                            0.0f to colors[0],
-                                            0.5f to colors[1],
-                                            1.0f to colors[2],
-                                        )
-                                    } else {
-                                        arrayOf(
-                                            0.0f to colors[0],
-                                            0.6f to colors[0].copy(alpha = 0.7f),
-                                            1.0f to Color.Black,
-                                        )
-                                    }
-                                Box(
-                                    Modifier
-                                        .fillMaxSize()
-                                        .alpha(backgroundAlpha)
-                                        .background(Brush.verticalGradient(colorStops = gradientColorStops))
-                                        .background(Color.Black.copy(alpha = 0.2f)),
+                        if (thumbnailUrl != null) {
+                            Box(modifier = Modifier.alpha(backgroundAlpha)) {
+                                BlurBackground(
+                                    thumbnailUrl = thumbnailUrl,
+                                    songId = mediaMetadata?.id,
+                                    radius = 12,
+                                    scrimAlpha = 0.3f,
+                                    modifier = Modifier.fillMaxSize(),
+                                    fadeIn = true,
+                                    // Background animasi ala Metrolist v14.
+                                    animated = true,
+                                    isPlaying = isPlaying,
                                 )
                             }
                         }
                     }
+                }
 
-                    else -> {
-                        PlayerBackgroundStyle.DEFAULT
+                PlayerBackgroundStyle.GRADIENT -> {
+                    AnimatedContent(
+                        targetState = gradientColors,
+                        transitionSpec = {
+                            fadeIn(tween(800)).togetherWith(fadeOut(tween(800)))
+                        },
+                        label = "gradientBackground",
+                    ) { colors ->
+                        if (colors.isNotEmpty()) {
+                            val gradientColorStops =
+                                if (colors.size >= 3) {
+                                    arrayOf(
+                                        0.0f to colors[0],
+                                        0.5f to colors[1],
+                                        1.0f to colors[2],
+                                    )
+                                } else {
+                                    arrayOf(
+                                        0.0f to colors[0],
+                                        0.6f to colors[0].copy(alpha = 0.7f),
+                                        1.0f to Color.Black,
+                                    )
+                                }
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .alpha(backgroundAlpha)
+                                    .background(Brush.verticalGradient(colorStops = gradientColorStops))
+                                    .background(Color.Black.copy(alpha = 0.2f)),
+                            )
+                        }
                     }
+                }
+
+                else -> {
+                    PlayerBackgroundStyle.DEFAULT
+                }
+                }
+                // Lapisan atas, ala v14 (FullscreenThumbnailBackground cuma
+                // digambar kalau !isLyricsVisible): bleed HANYA saat mode
+                // penuh + lirik penuh tertutup. Background normal di atas
+                // tetap jadi lapisan bawah, jadi layar tidak pernah kosong
+                // selagi bleed dihitung.
+                if (isFullThumbnail && !hidePlayerThumbnail && fullThumbnailUrl != null && !showInlineLyrics) {
+                    Box(
+                        modifier = Modifier.fillMaxSize().alpha(backgroundAlpha),
+                    ) {
+                        FullscreenArtworkBleed(
+                            url = fullThumbnailUrl,
+                            artwork = fullscreenArtwork,
+                            viewport = viewportPx,
+                        )
                     }
                 }
             }

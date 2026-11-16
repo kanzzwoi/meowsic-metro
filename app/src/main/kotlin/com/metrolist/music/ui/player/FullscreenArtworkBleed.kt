@@ -45,7 +45,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import coil3.imageLoader
 import coil3.request.ImageRequest
-import coil3.request.allowHardware
 import coil3.size.Scale
 import coil3.toBitmap
 import kotlinx.coroutines.Dispatchers
@@ -636,19 +635,23 @@ private fun blurPass(
 
 /**
  * Muat bitmap artwork untuk bleed, ala v14 (rememberFullscreenArtworkBitmap):
- * ukuran target = zona cover (lebar layar x 0.66 tinggi), Scale.FILL,
- * allowHardware(false) supaya bisa dibaca pikselnya di CPU.
- * Bitmap lama dipertahankan sampai yang baru tiba, supaya background
- * tidak berkedip saat ganti lagu.
+ * ukuran target = zona cover (lebar layar x 0.66 tinggi), Scale.FILL.
+ * Bitmap hardware (bukan software): baca piksel hanya terjadi di salinan
+ * software hasil downscale di dalam pipeline bleed, sementara bitmap
+ * aslinya cuma digambar — jadi allowHardware(false) tidak diperlukan dan
+ * decode-nya lebih cepat + satu entri cache dengan gambar hardware lain.
+ * State diikat ke URL: ganti lagu -> null dulu, supaya bleed tidak pernah
+ * dihitung dari bitmap lagu lama lalu ke-cache di bawah kunci URL baru.
  */
 @Composable
 internal fun rememberFullscreenArtworkBitmap(
-    thumbnailUrl: String,
+    thumbnailUrl: String?,
     targetSize: IntSize,
 ): ImageBitmap? {
     val context = LocalContext.current
-    var artwork by remember { mutableStateOf<ImageBitmap?>(null) }
+    var artwork by remember(thumbnailUrl) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(thumbnailUrl, targetSize) {
+        if (thumbnailUrl.isNullOrBlank()) return@LaunchedEffect
         val loaded =
             withContext(Dispatchers.IO) {
                 runCatching {
@@ -657,7 +660,6 @@ internal fun rememberFullscreenArtworkBitmap(
                             .data(thumbnailUrl)
                             .size(targetSize.width, targetSize.height)
                             .scale(Scale.FILL)
-                            .allowHardware(false)
                             .build()
                     context.imageLoader.execute(request).image?.toBitmap()?.asImageBitmap()
                 }.getOrNull()
