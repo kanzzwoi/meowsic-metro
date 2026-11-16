@@ -1660,7 +1660,7 @@ private fun ProfileEditorDialog(
     onDismiss: () -> Unit,
     onSave: (String, String, Int) -> Unit,
 ) {
-    val emojis = listOf("🎧", "😎", "🐱", "🐺", "🦊", "🐼", "🦄", "🌙", "⭐", "🔥", "🌊", "🍿", "🪩", "🚀", "👾", "🌸", "🐸")
+    val emojis = listOf("🎧", "😎", "🐱", "🐺", "🦊", "🐼", "🦄", "🌙", "⭐", "🔥", "🌊", "🍿", "🪩", "🚀", "👾", "🌸", "🐸", "🗿", "👽", "🧚", "🦋", "🧸", "🩲")
     val colors = listOf("#7C4DFF", "#FF5252", "#FF6E40", "#FFC400", "#69F0AE", "#18FFFF", "#40C4FF", "#448AFF", "#B388FF", "#F06292", "#AED581", "#FFAB40")
     /** Huruf default: huruf awal nama, dipakai kalau emoji dikosongkan. */
     val initial = username.take(1).uppercase()
