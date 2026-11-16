@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageShader
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -45,8 +46,10 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import coil3.imageLoader
 import coil3.request.ImageRequest
+import coil3.request.allowHardware
 import coil3.size.Scale
 import coil3.toBitmap
+import com.metrolist.music.utils.reportException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -151,15 +154,27 @@ internal fun FullscreenArtworkBleed(
     LaunchedEffect(key, artwork) {
         // The mini player's smaller image can arrive first; a bleed built from it would keep the cover blurry, so rebuild
         // once the full-size one lands.
+        // Hitung bleed dibungkus runCatching: ini dekorasi latar — kalau
+        // gagal (misalnya bitmap tidak terbaca), background cukup balik ke
+        // blur biasa, aplikasi tidak boleh crash karenanya.
         val current = bleed
         if (container.height <= detailTop || (current?.detail != null && current.sourceWidth >= artwork.width)) return@LaunchedEffect
-        val coarse = current ?: withContext(Dispatchers.Default) { renderCoarseBleed(artwork, container, artHeight, detailTop) }
+        val coarse =
+            current ?: withContext(Dispatchers.Default) {
+                runCatching { renderCoarseBleed(artwork, container, artHeight, detailTop) }
+                    .onFailure { reportException(it) }
+                    .getOrNull()
+            } ?: return@LaunchedEffect
         bleed = coarse
-        bleed =
+        val detailed =
             withContext(Dispatchers.Default) {
-                val art = artwork.downscaled(container.width, artHeight)
-                renderBleedBitmaps(art, container, artHeight, detailTop, softTop, coarse, artwork.width)
-            }.also {
+                runCatching {
+                    val art = artwork.downscaled(container.width, artHeight)
+                    renderBleedBitmaps(art, container, artHeight, detailTop, softTop, coarse, artwork.width)
+                }.onFailure { reportException(it) }.getOrNull()
+            } ?: return@LaunchedEffect
+        bleed =
+            detailed.also {
                 bleedCache[key] = it
                 if (bleedCache.size > BLEED_CACHE_SIZE) bleedCache.remove(bleedCache.keys.first())
             }
@@ -293,9 +308,21 @@ private fun ImageBitmap.downscaled(
     width: Int,
     height: Int,
 ): IntArray {
+    // Bitmap hardware tidak bisa digambar ke canvas software (target
+    // ImageBitmap di bawah): Android melempar IllegalArgumentException dan
+    // aplikasi crash. Salin dulu ke software kalau perlu; kalau salinan
+    // gagal, kembalikan piksel kosong daripada crash.
+    val source =
+        asAndroidBitmap().let { android ->
+            if (android.config == Bitmap.Config.HARDWARE) {
+                android.copy(Bitmap.Config.ARGB_8888, false)?.asImageBitmap() ?: return IntArray(width * height)
+            } else {
+                this
+            }
+        }
     val target = ImageBitmap(width, height)
     CanvasDrawScope().draw(Density(1f), LayoutDirection.Ltr, GraphicsCanvas(target), Size(width.toFloat(), height.toFloat())) {
-        drawImage(this@downscaled, dstSize = IntSize(width, height), filterQuality = FilterQuality.High)
+        drawImage(source, dstSize = IntSize(width, height), filterQuality = FilterQuality.High)
     }
     return IntArray(width * height).also { target.readPixels(it) }
 }
@@ -636,10 +663,13 @@ private fun blurPass(
 /**
  * Muat bitmap artwork untuk bleed, ala v14 (rememberFullscreenArtworkBitmap):
  * ukuran target = zona cover (lebar layar x 0.66 tinggi), Scale.FILL.
- * Bitmap hardware (bukan software): baca piksel hanya terjadi di salinan
- * software hasil downscale di dalam pipeline bleed, sementara bitmap
- * aslinya cuma digambar — jadi allowHardware(false) tidak diperlukan dan
- * decode-nya lebih cepat + satu entri cache dengan gambar hardware lain.
+ * HARUS software (allowHardware(false)): pipeline bleed menggambar bitmap
+ * ini ke canvas software di downscaled() — bitmap hardware melempar
+ * IllegalArgumentException di sana dan aplikasi crash (kejadian di debug32
+ * saat flag ini sempat dihapus; penalaran lama yang mengira bitmap asli
+ * "cuma digambar" itu salah, downscaled() memang menggambarnya ke target
+ * software). Kecepatan tetap datang dari pemuatan awal per lagu, bukan
+ * dari jenis bitmap.
  * State diikat ke URL: ganti lagu -> null dulu, supaya bleed tidak pernah
  * dihitung dari bitmap lagu lama lalu ke-cache di bawah kunci URL baru.
  */
@@ -660,6 +690,7 @@ internal fun rememberFullscreenArtworkBitmap(
                             .data(thumbnailUrl)
                             .size(targetSize.width, targetSize.height)
                             .scale(Scale.FILL)
+                            .allowHardware(false)
                             .build()
                     context.imageLoader.execute(request).image?.toBitmap()?.asImageBitmap()
                 }.getOrNull()
