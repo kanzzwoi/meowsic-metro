@@ -167,6 +167,7 @@ import com.metrolist.music.constants.PlayerThumbnailStyle
 import com.metrolist.music.constants.PlayerThumbnailStyleKey
 import com.metrolist.music.constants.PlayerButtonsStyle
 import com.metrolist.music.constants.PlayerButtonsStyleKey
+import com.metrolist.music.constants.PreferWordSyncedLyricsKey
 import com.metrolist.music.constants.PlayerHorizontalPadding
 import com.metrolist.music.constants.QueuePeekHeight
 import com.metrolist.music.constants.SleepTimerDefaultKey
@@ -366,6 +367,7 @@ fun BottomSheetPlayer(
     // panel lirik dibuka, jadi fetch-nya cuma jalan di kondisi itu.
     val database = LocalDatabase.current
     val lyricsForFetch by playerConnection.currentLyrics.collectAsStateWithLifecycle(initialValue = null)
+    val preferWordSyncedLyrics by rememberPreference(PreferWordSyncedLyricsKey, false)
     val queueWindowsForLyrics by playerConnection.queueWindows.collectAsStateWithLifecycle(initialValue = emptyList())
     val currentWindowIndexForLyrics by playerConnection.currentWindowIndex.collectAsStateWithLifecycle(initialValue = -1)
     val nextMetadataForLyrics =
@@ -409,7 +411,7 @@ fun BottomSheetPlayer(
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
-    val preferredLyricsProviders = remember { setOf("Paxsenix", "BetterLyrics", "Unison", "LyricsPlus") }
+    val preferredLyricsProviders = remember { setOf("BetterLyrics", "Unison", "LyricsPlus") }
     LaunchedEffect(mediaMetadata?.id, lyricsForFetch) {
         val currentMeta = mediaMetadata ?: return@LaunchedEffect
         val cachedForCurrent = lyricsForFetch?.takeIf { it.id == currentMeta.id }
@@ -419,8 +421,16 @@ fun BottomSheetPlayer(
                 com.metrolist.music.di.LyricsHelperEntryPoint::class.java,
             )
 
-        // Lirik sudah ada (dari cache): langsung pakai, tanpa penukaran diam-diam.
-        if (cachedForCurrent != null) return@LaunchedEffect
+        // Lirik sudah ada (dari cache): langsung pakai, tanpa penukaran diam-diam —
+        // kecuali toggle per kata nyala dan cache-nya cuma per baris (ala v14:
+        // cache cuma dipakai kalau tingkat timingnya sudah sesuai).
+        val cachedUsable = cachedForCurrent?.takeIf {
+            !preferWordSyncedLyrics ||
+                com.metrolist.music.lyrics.LyricsUtils.lyricsTimingKind(
+                    com.metrolist.music.lyrics.LyricsUtils.parseLyrics(it.lyrics),
+                ) >= com.metrolist.music.lyrics.LyricsTimingKind.WORD_SYNCED
+        }
+        if (cachedUsable != null) return@LaunchedEffect
 
         // Belum ada lirik: ambil dari provider sesuai urutan (ala v14).
         val startedAt = System.currentTimeMillis()

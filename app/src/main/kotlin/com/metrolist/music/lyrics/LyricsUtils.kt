@@ -1481,4 +1481,29 @@ object LyricsUtils {
         return if (timed.size == 1) timed.single().time > 0L
         else timed.any { it.time != timed.first().time }
     }
+
+    /**
+     * Port dari v14 (LyricsUtils.lyricsTimingKind): tingkat timing sebuah
+     * file lirik — WORD_SYNCED kalau ada kata dengan end > start,
+     * LINE_SYNCED kalau waktu barisnya berbeda-beda, UNSYNCED kalau tidak
+     * ada timing. Dipakai toggle "utamakan lirik per kata": file per kata
+     * mengalahkan file per baris tanpa peduli urutan provider.
+     */
+    fun lyricsTimingKind(lines: List<LyricsEntry>): LyricsTimingKind {
+        if (lines.any { entry -> entry.words.orEmpty().any { it.endTime > it.startTime } }) {
+            return LyricsTimingKind.WORD_SYNCED
+        }
+        val timed = lines.filter { it.text.isNotBlank() || !it.words.isNullOrEmpty() }
+        val hasLineTiming =
+            if (timed.isEmpty()) false
+            else if (timed.size == 1) timed.single().time > 0L
+            else timed.any { it.time != timed.first().time }
+        return if (hasLineTiming) LyricsTimingKind.LINE_SYNCED else LyricsTimingKind.UNSYNCED
+    }
+}
+
+enum class LyricsTimingKind {
+    UNSYNCED,
+    LINE_SYNCED,
+    WORD_SYNCED,
 }

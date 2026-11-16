@@ -65,7 +65,7 @@ import com.metrolist.music.constants.CountryCodeToName
 import com.metrolist.music.constants.EnableBetterLyricsKey
 import com.metrolist.music.constants.EnableKugouKey
 import com.metrolist.music.constants.EnableLrcLibKey
-import com.metrolist.music.constants.EnablePaxsenixKey
+import com.metrolist.music.constants.PreferWordSyncedLyricsKey
 import com.metrolist.music.constants.EnableLyricsPlus
 import com.metrolist.music.constants.HideExplicitKey
 import com.metrolist.music.constants.HideVideoSongsKey
@@ -124,8 +124,8 @@ fun ContentSettings(
     val (enableKugou, onEnableKugouChange) = rememberPreference(key = EnableKugouKey, defaultValue = true)
     val (enableLrclib, onEnableLrclibChange) = rememberPreference(key = EnableLrcLibKey, defaultValue = true)
     val (enableBetterLyrics, onEnableBetterLyricsChange) = rememberPreference(key = EnableBetterLyricsKey, defaultValue = true)
-    val (enablePaxsenix, onEnablePaxsenixChange) = rememberPreference(key = EnablePaxsenixKey, defaultValue = true)
     val (enableLyricsPlus, onEnableLyricsPlusChange) = rememberPreference(key = EnableLyricsPlus, defaultValue = true)
+    val (preferWordSyncedLyrics, onPreferWordSyncedLyricsChange) = rememberPreference(key = PreferWordSyncedLyricsKey, defaultValue = false)
     val (lyricsProviderOrder, onLyricsProviderOrderChange) = rememberPreference(
         key = LyricsProviderOrderKey,
         defaultValue = LyricsProviderRegistry.serializeProviderOrder(LyricsProviderRegistry.getDefaultProviderOrder())
@@ -168,7 +168,6 @@ fun ContentSettings(
         mapOf(
             "Unison" to "Unison",
             "BetterLyrics" to "Better Lyrics",
-            "Paxsenix" to "Paxsenix",
             "LrcLib" to "LrcLib",
             "KuGou" to "KuGou",
             "LyricsPlus" to "LyricsPlus",
@@ -469,20 +468,20 @@ fun ContentSettings(
                         Column(
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text(stringResource(R.string.enable_paxsenix))
+                            Text(stringResource(R.string.prefer_word_synced_lyrics))
                             Text(
-                                text = stringResource(R.string.enable_paxsenix_desc),
+                                text = stringResource(R.string.prefer_word_synced_lyrics_description),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Switch(
-                            checked = enablePaxsenix,
-                            onCheckedChange = onEnablePaxsenixChange,
+                            checked = preferWordSyncedLyrics,
+                            onCheckedChange = onPreferWordSyncedLyricsChange,
                             thumbContent = {
                                 Icon(
                                     painter = painterResource(
-                                        id = if (enablePaxsenix) R.drawable.check else R.drawable.close
+                                        id = if (preferWordSyncedLyrics) R.drawable.check else R.drawable.close
                                     ),
                                     contentDescription = null,
                                     modifier = Modifier.size(SwitchDefaults.IconSize)
@@ -642,13 +641,12 @@ fun ContentSettings(
             "LrcLib".takeIf { enableLrclib },
             "KuGou".takeIf { enableKugou },
             "BetterLyrics".takeIf { enableBetterLyrics },
-            "Paxsenix".takeIf { enablePaxsenix },
             "LyricsPlus".takeIf { enableLyricsPlus },
         ).filterNotNull().toSet()
         val lyricsIcon = painterResource(R.drawable.lyrics)
         val draggableItems = remember { mutableStateListOf<DraggableLyricsProviderItem>() }
 
-        LaunchedEffect(normalizedOrder, enableLrclib, enableKugou, enableBetterLyrics, enablePaxsenix, enableLyricsPlus) {
+        LaunchedEffect(normalizedOrder, enableLrclib, enableKugou, enableBetterLyrics, enableLyricsPlus) {
             val orderedEnabledProviders = normalizedOrder.filter { it in enabledProviders }
             draggableItems.clear()
             draggableItems.addAll(

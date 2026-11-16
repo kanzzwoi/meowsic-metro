@@ -101,7 +101,6 @@ val EnableZemerKey = booleanPreferencesKey("enableZemer")
 val EnableKugouKey = booleanPreferencesKey("enableKugou")
 val EnableLrcLibKey = booleanPreferencesKey("enableLrclib")
 val EnableBetterLyricsKey = booleanPreferencesKey("enableBetterLyrics")
-val EnablePaxsenixKey = booleanPreferencesKey("enablePaxsenix")
 val EnableLyricsPlus = booleanPreferencesKey("enableLyricsPlus")
 val HideExplicitKey = booleanPreferencesKey("hideExplicit")
 val HideVideoSongsKey = booleanPreferencesKey("hideVideoSongs")
@@ -277,6 +276,7 @@ val PlaylistEditLockKey = booleanPreferencesKey("playlistEditLock")
 val QuickPicksKey = stringPreferencesKey("discover")
 val PreferredLyricsProviderKey = stringPreferencesKey("lyricsProvider")
 val LyricsProviderOrderKey = stringPreferencesKey("lyricsProviderOrder")
+val PreferWordSyncedLyricsKey = booleanPreferencesKey("preferWordSyncedLyrics")
 val SimpMusicMigrationDoneKey = booleanPreferencesKey("simpMusicMigrationDone")
 val VideoThumbnailMigrationDoneKey = booleanPreferencesKey("videoThumbnailMigrationDone")
 val WavySliderDefaultMigrationKey = booleanPreferencesKey("wavySliderDefaultMigration")
@@ -439,7 +439,6 @@ enum class PreferredLyricsProvider {
     LRCLIB,
     KUGOU,
     BETTER_LYRICS,
-    PAXSENIX,
     LYRICSPLUS
 }
 

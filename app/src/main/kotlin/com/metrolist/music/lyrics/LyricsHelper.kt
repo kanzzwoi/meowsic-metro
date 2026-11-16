@@ -8,6 +8,7 @@ package com.metrolist.music.lyrics
 import android.content.Context
 import android.util.LruCache
 import com.metrolist.music.constants.LyricsProviderOrderKey
+import com.metrolist.music.constants.PreferWordSyncedLyricsKey
 import com.metrolist.music.db.entities.LyricsEntity.Companion.LYRICS_NOT_FOUND
 import com.metrolist.music.models.MediaMetadata
 import com.metrolist.music.utils.NetworkConnectivityObserver
@@ -62,8 +63,18 @@ constructor(
         val startedAt = System.currentTimeMillis()
         currentLyricsJob?.cancel()
 
+        // Port dari v14 (preferWordSyncedLyrics): kalau toggle nyala, yang
+        // dicari lirik per kata; kalau mati, cukup per baris (default v14).
+        val preferWordSynced = context.dataStore.data
+            .map { it[PreferWordSyncedLyricsKey] ?: false }
+            .first()
+        val preferredTiming =
+            if (preferWordSynced) LyricsTimingKind.WORD_SYNCED else LyricsTimingKind.LINE_SYNCED
+
         val cached = cache.get(mediaMetadata.id)?.firstOrNull()
-        if (cached != null) {
+        if (cached != null &&
+            LyricsUtils.lyricsTimingKind(LyricsUtils.parseLyrics(cached.lyrics)) >= preferredTiming
+        ) {
             return LyricsWithProvider(cached.lyrics, cached.providerName)
         }
 
@@ -92,11 +103,12 @@ constructor(
             val artistLine = mediaMetadata.artists.joinToString { it.name }
             val albumTitle = mediaMetadata.album?.title
 
-            // Port dari v14 (LyricsClient AUTO): provider dicoba SATU PER SATU
-            // sesuai urutan pengguna; yang pertama punya timing putar langsung
-            // dipakai dan pencarian berhenti. Tidak ada balapan antar provider
-            // dan tidak ada preferensi lirik per kata — persis seperti v14
-            // (preferWordSyncedLyrics di v14 default-nya mati).
+            // Port dari v14 (LyricsClient AUTO + LyricsRepository.prefersLyrics):
+            // provider dicoba SATU PER SATU sesuai urutan pengguna. Hasil
+            // pertama yang punya timing langsung dipakai dan pencarian
+            // berhenti — kecuali toggle per kata nyala: pencarian lanjut
+            // sampai ketemu yang per kata, karena file per kata mengalahkan
+            // file per baris tanpa peduli urutan provider.
             Timber.tag("LyricsHelper").d("Sequential fetch for: $cleanedTitle by $artistLine")
             Timber.tag("LyricsHelper").d("Enabled providers in order: ${enabledProviders.joinToString { it.name }}")
 
@@ -119,7 +131,7 @@ constructor(
                 }?.takeIf { it.isNotBlank() }
 
             var found: LyricsWithProvider? = null
-            var foundTimed = false
+            var foundTimingKind = LyricsTimingKind.UNSYNCED
             val notes = mutableListOf<String>()
             for (provider in enabledProviders) {
                 val t0 = System.currentTimeMillis()
@@ -131,16 +143,36 @@ constructor(
                     continue
                 }
                 val parsed = LyricsUtils.parseLyrics(text)
-                val timed = LyricsUtils.hasPlaybackTiming(parsed)
-                notes.add("%s %.1fs%s".format(provider.name, spent, if (timed) "" else " (tanpa timing)"))
-                if (LyricsUtils.usableProviderLyrics(parsed) && (found == null || timed)) {
-                    found = LyricsWithProvider(
-                        LyricsUtils.filterLyricsCreditLines(text),
+                val timingKind = LyricsUtils.lyricsTimingKind(parsed)
+                val timed = timingKind != LyricsTimingKind.UNSYNCED
+                notes.add(
+                    "%s %.1fs%s".format(
                         provider.name,
-                    )
-                    foundTimed = timed
+                        spent,
+                        when (timingKind) {
+                            LyricsTimingKind.WORD_SYNCED -> " (per kata)"
+                            LyricsTimingKind.LINE_SYNCED -> ""
+                            LyricsTimingKind.UNSYNCED -> " (tanpa timing)"
+                        },
+                    ),
+                )
+                if (LyricsUtils.usableProviderLyrics(parsed)) {
+                    // v14 prefersLyrics: kalau toggle nyala dan tingkat
+                    // timing beda, yang lebih tinggi menang; kalau tidak,
+                    // yang ber-timing mengalahkan yang tidak. Urutan
+                    // provider sudah dijamin loop sekuensial ini.
+                    val better = found == null ||
+                        (preferWordSynced && timingKind > foundTimingKind) ||
+                        (timed && foundTimingKind == LyricsTimingKind.UNSYNCED)
+                    if (better) {
+                        found = LyricsWithProvider(
+                            LyricsUtils.filterLyricsCreditLines(text),
+                            provider.name,
+                        )
+                        foundTimingKind = timingKind
+                    }
                 }
-                if (found != null && foundTimed) break
+                if (found != null && foundTimingKind >= preferredTiming) break
             }
             LyricsStats.detail = notes.joinToString(", ").takeIf { it.isNotEmpty() }
 

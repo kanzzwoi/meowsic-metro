@@ -9,7 +9,6 @@ object LyricsProviderRegistry {
     private val providerMap = mapOf(
         "Unison" to UnisonLyricsProvider,
         "BetterLyrics" to BetterLyricsProvider,
-        "Paxsenix" to PaxsenixLyricsProvider,
         "LrcLib" to LrcLibLyricsProvider,
         "KuGou" to KuGouLyricsProvider,
         "QQMusic" to QQMusicLyricsProvider,
@@ -42,18 +41,19 @@ object LyricsProviderRegistry {
     }
 
     // Urutan default = urutan v14 (LyricsProvider.userConfigurable):
-    // LYPRIO, BETTERLYRICS, LRCRED, UNISON, LRCLIB, KUGOU, PAXSENIX.
-    // LYPRIO tidak ada padanannya di Meowsic, jadi dilewati. LyricsPlus
-    // (Binimum) dan QQMusic cuma ada di Meowsic, ditaruh setelah ketujuh
-    // provider v14, sebelum fallback YouTube — sama seperti v14 yang
-    // menaruh YouTubeSubtitle/YouTube paling akhir.
+    // LYPRIO, BETTERLYRICS, LRCRED, UNISON, LRCLIB, KUGOU.
+    // LYPRIO tidak ada padanannya di Meowsic, jadi dilewati; PAXSENIX
+    // dihapus dari Meowsic karena lambat (sekali dipanggil bisa 3x search
+    // + sampai 10x ambil lirik). LyricsPlus (Binimum) dan QQMusic cuma ada
+    // di Meowsic, ditaruh setelah keenam provider v14, sebelum fallback
+    // YouTube — sama seperti v14 yang menaruh YouTubeSubtitle/YouTube
+    // paling akhir.
     fun getDefaultProviderOrder(): List<String> = listOf(
         "BetterLyrics",
         "LrcRed",
         "Unison",
         "LrcLib",
         "KuGou",
-        "Paxsenix",
         "LyricsPlus",
         "QQMusic",
         "YouTubeSubtitle",
