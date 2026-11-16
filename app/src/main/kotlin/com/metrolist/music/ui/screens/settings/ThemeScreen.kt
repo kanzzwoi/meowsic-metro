@@ -137,7 +137,7 @@ fun ThemeScreen(
         SelectedThemeColorKey,
         DefaultThemeColor.toArgb()
     )
-    val (_, onDynamicThemeChange) = rememberPreference(DynamicThemeKey, defaultValue = true)
+    val (_, onDynamicThemeChange) = rememberPreference(DynamicThemeKey, defaultValue = false)
     val (liquidBackground, onLiquidBackgroundChange) =
         rememberPreference(LiquidBackgroundKey, defaultValue = true)
 
