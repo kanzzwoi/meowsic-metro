@@ -17,6 +17,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -166,6 +167,12 @@ fun ActiveLyricLine(
             modifier =
                 Modifier
                     .padding(top = 16.dp, bottom = 12.dp)
+                    // Naik 8dp lagi TANPA mengubah tinggi blok: offset hanya
+                    // menggeser tampilan, jadi ukuran layout tetap dan
+                    // artwork di atas (Box weight 1f) tidak ikut naik.
+                    // Padding bawah 12dp sebelumnya sengaja dipertahankan
+                    // supaya artwork tidak turun kembali.
+                    .offset(y = -8.dp)
                     .fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
