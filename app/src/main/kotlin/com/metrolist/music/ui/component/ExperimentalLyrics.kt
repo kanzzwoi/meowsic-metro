@@ -111,6 +111,7 @@ import com.metrolist.music.constants.TranslateModeKey
 import com.metrolist.music.db.entities.LyricsEntity.Companion.LYRICS_NOT_FOUND
 import com.metrolist.music.lyrics.LyricsTranslationHelper
 import com.metrolist.music.lyrics.LyricsUtils.findActiveLineIndices
+import com.metrolist.music.lyrics.LyricsUtils.findCurrentLineIndex
 import com.metrolist.music.lyrics.lyricsTextLooksSynced
 import com.metrolist.music.ui.component.shimmer.ShimmerHost
 import com.metrolist.music.ui.component.shimmer.TextPlaceholder
@@ -600,6 +601,22 @@ fun ExperimentalLyrics(
 
         LaunchedEffect(showLyrics, lyrics, mergedLyricsList.size) {
             if (showLyrics && mergedLyricsList.isNotEmpty()) {
+                // Jangkar ke baris yang sedang dinyanyikan SEBELUM fade-in
+                // selesai, supaya daftar tidak melompat dari awal lagu ke
+                // baris aktif setelah dibuka. v14 menghindari ini dengan
+                // LazyColumn yang langsung mulai di baris aktif
+                // (initialFirstVisibleItemIndex); di sini jangkarnya
+                // disamakan dulu ke posisi putar saat ini (termasuk offset
+                // lirik lagu), jadi jendela ukur di bawah sudah mengukur
+                // baris yang benar dan snap awal langsung tepat.
+                val livePosition =
+                    runCatching { playerConnection.player.currentPosition }.getOrDefault(0L) +
+                        (currentSong?.song?.lyricsOffset ?: 0)
+                val liveLine = findCurrentLineIndex(lines, livePosition)
+                if (liveLine >= 0) {
+                    deferredCurrentLineIndex = liveLine
+                    scrollTargetIndex = liveLine
+                }
                 isInitialLayout = true
                 snapshotFlow { 
                     val h = itemHeights.toMap()
