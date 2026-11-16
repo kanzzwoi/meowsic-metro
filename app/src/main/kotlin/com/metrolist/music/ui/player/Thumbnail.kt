@@ -124,13 +124,17 @@ private fun calculateThumbnailDimensions(
     isLandscape: Boolean = false
 ): ThumbnailDimensions {
     // In landscape, use height as the constraining dimension for a square thumbnail
+    // ala v14: artwork mengisi penuh min(lebar, tinggi) panel — tanpa
+    // margin mati 32dp di kiri-kanan seperti sebelumnya, dan lebar item
+    // = sisi kotak (bukan lebar panel) supaya artwork tetap di tengah
+    // di HP yang lebih lebar dari HP ini.
     val effectiveSize = if (isLandscape) {
-        minOf(containerWidth, containerHeight) - (horizontalPadding * 2)
+        minOf(containerWidth, containerHeight)
     } else {
         containerWidth - (horizontalPadding * 2)
     }
     return ThumbnailDimensions(
-        itemWidth = containerWidth,
+        itemWidth = if (isLandscape) effectiveSize else containerWidth,
         containerSize = containerWidth,
         thumbnailSize = effectiveSize,
         cornerRadius = cornerRadius * 2
@@ -385,7 +389,7 @@ fun Thumbnail(
                         flingBehavior = rememberSnapFlingBehavior(thumbnailSnapLayoutInfoProvider),
                         userScrollEnabled = isScrollEnabled,
                         modifier = if (isLandscape) {
-                            Modifier.size(dimensions.thumbnailSize + (PlayerHorizontalPadding * 2))
+                            Modifier.size(dimensions.thumbnailSize)
                         } else {
                             Modifier.fillMaxSize()
                         }
@@ -536,14 +540,14 @@ private fun ThumbnailItem(
         modifier = modifier
             .then(
                 if (isLandscape) {
-                    Modifier.size(dimensions.thumbnailSize + (PlayerHorizontalPadding * 2))
+                    Modifier.size(dimensions.thumbnailSize)
                 } else {
                     Modifier
                         .width(dimensions.itemWidth)
                         .fillMaxSize()
+                        .padding(horizontal = PlayerHorizontalPadding)
                 }
             )
-            .padding(horizontal = PlayerHorizontalPadding)
             .graphicsLayer {
                 // Render entire thumbnail item on separate hardware layer for smooth animations
                 compositingStrategy = CompositingStrategy.Offscreen

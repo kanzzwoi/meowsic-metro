@@ -42,6 +42,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -54,12 +55,16 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -929,12 +934,12 @@ fun BottomSheetPlayer(
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val queuePeekHeight = if (isLandscape) 56.dp else QueuePeekHeight
 
-    // Lebar kolom kontrol di landscape: bobot 0.65 dari total 1.65
-    // (kolom kiri bobot 1), jadi ~39% lebar layar. Bobotnya dibuat
-    // tetap, tidak tergantung lirik, supaya tombol tidak menyempit
-    // saat Lirik dipencet. Pil antrean memakai fraksi yang sama
-    // supaya selebar kolom kontrol.
-    val controlsWeight = 0.65f
+    // Lebar kolom kontrol di landscape ala v14: dua panel selebar
+    // setengah layar (kiri artwork, kanan kontrol), jadi di HP lain
+    // pun muat — dulu bobot 0.65 (~39%) bikin baris kontrol yang
+    // ukurannya tetap meluber di layar yang lebih sempit dari HP ini.
+    // Pil antrean memakai fraksi yang sama supaya selebar kolom kontrol.
+    val controlsWeight = 1f
     val controlsFraction = controlsWeight / (1f + controlsWeight)
 
     val dismissedBound = queuePeekHeight + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
@@ -1883,91 +1888,116 @@ fun BottomSheetPlayer(
 
         when (LocalConfiguration.current.orientation) {
             Configuration.ORIENTATION_LANDSCAPE -> {
-                // Calculate vertical padding like OuterTune
                 val density = LocalDensity.current
-                val verticalPadding =
-                    max(
-                        WindowInsets.systemBars.getTop(density),
-                        WindowInsets.systemBars.getBottom(density),
-                    )
-                val verticalPaddingDp = with(density) { verticalPadding.toDp() }
-                val verticalWindowInsets = WindowInsets(left = 0.dp, top = verticalPaddingDp, right = 0.dp, bottom = verticalPaddingDp)
+                // Inset bawah aktual (gesture nav / tombol) — dipakai
+                // untuk menghitung ruang pill, bukan angka tetap.
+                val safeBottomDp =
+                    with(density) { WindowInsets.safeDrawing.getBottom(density).toDp() }
 
-                Row(
+                // Tata letak landscape ala Metrolist v14: dua panel
+                // selebar setengah layar yang menyesuaikan tinggi layar
+                // yang tersedia (BoxWithConstraints), bukan angka tetap
+                // yang cuma pas di satu HP. Tombol tetap desain Meowsic
+                // sendiri; yang dicontek hanya strukturnya.
+                BoxWithConstraints(
                     modifier =
                         Modifier
-                            .windowInsetsPadding(
-                                WindowInsets.systemBars.only(WindowInsetsSides.Horizontal).add(verticalWindowInsets),
-                            )
-                            .padding(bottom = 24.dp)
-                            .fillMaxSize(),
+                            .fillMaxSize()
+                            .windowInsetsPadding(WindowInsets.safeDrawing),
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
+                    val compactHeight = maxHeight < 520.dp
+                    val horizontalPadding = if (compactHeight) 16.dp else 28.dp
+                    val verticalPadding = if (compactHeight) 8.dp else 20.dp
+                    // Ruang untuk pill antrean di kanan bawah: tinggi pill
+                    // (collapsedBound, sudah termasuk inset bawah)
+                    // dikurangi jarak kolom ke tepi bawah layar.
+                    val pillBottomPadding =
+                        if (isFullScreen) {
+                            0.dp
+                        } else {
+                            (queueSheetState.collapsedBound + 8.dp - safeBottomDp - verticalPadding)
+                                .coerceAtLeast(0.dp)
+                        }
+
+                    Row(
                         modifier =
                             Modifier
-                                .weight(1f)
-                                .nestedScroll(state.preUpPostDownNestedScrollConnection),
+                                .fillMaxSize()
+                                .padding(vertical = verticalPadding),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        // Remember lambdas to prevent unnecessary recomposition
-                        val currentSliderPosition by rememberUpdatedState(sliderPosition)
-                        val sliderPositionProvider = remember { { currentSliderPosition } }
-                        val isExpandedProvider = remember(state) { { state.isExpanded } }
-                        AnimatedContent(
-                            targetState = showInlineLyrics,
-                            label = "Lyrics",
-                            transitionSpec = { fadeIn() togetherWith fadeOut() },
-                        ) { showLyrics ->
-                            if (showLyrics) {
-                                InlineLyricsView(
-                                    mediaMetadata = mediaMetadata,
-                                    showLyrics = showLyrics,
-                                    positionProvider = { effectivePosition },
-                                )
-                            } else {
-                                Thumbnail(
-                                    sliderPositionProvider = sliderPositionProvider,
-                                    modifier = Modifier.animateContentSize(),
-                                    isPlayerExpanded = isExpandedProvider,
-                                    isLandscape = true,
-                                    isListenTogetherGuest = isListenTogetherGuest,
-                                    onCollapse = { state.collapseSoft() },
-                                )
+                        // Panel kiri: artwork / lirik penuh.
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .padding(horizontal = horizontalPadding)
+                                    .nestedScroll(state.preUpPostDownNestedScrollConnection),
+                        ) {
+                            // Remember lambdas to prevent unnecessary recomposition
+                            val currentSliderPosition by rememberUpdatedState(sliderPosition)
+                            val sliderPositionProvider = remember { { currentSliderPosition } }
+                            val isExpandedProvider = remember(state) { { state.isExpanded } }
+                            AnimatedContent(
+                                targetState = showInlineLyrics,
+                                label = "Lyrics",
+                                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                            ) { showLyrics ->
+                                if (showLyrics) {
+                                    InlineLyricsView(
+                                        mediaMetadata = mediaMetadata,
+                                        showLyrics = showLyrics,
+                                        positionProvider = { effectivePosition },
+                                    )
+                                } else {
+                                    Thumbnail(
+                                        sliderPositionProvider = sliderPositionProvider,
+                                        modifier = Modifier.animateContentSize(),
+                                        isPlayerExpanded = isExpandedProvider,
+                                        isLandscape = true,
+                                        isListenTogetherGuest = isListenTogetherGuest,
+                                        onCollapse = { state.collapseSoft() },
+                                    )
+                                }
                             }
                         }
-                    }
 
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier =
-                            Modifier
-                                .weight(controlsWeight)
-                                .animateContentSize()
-                                // Row sudah menangani inset status bar di
-                                // landscape, jadi inset atas ganda dihapus.
-                                .windowInsetsPadding(
-                                    if (isLandscape) WindowInsets(0.dp, 0.dp, 0.dp, 0.dp)
-                                    else WindowInsets.systemBars.only(WindowInsetsSides.Top),
-                                )
-                                // Ruang untuk pill antrean (kini di kanan
-                                // bawah, bukan selebar layar) supaya baris
-                                // kontrol tidak ketimpa saat tidak fullscreen.
-                                // Dikurangi inset bawah + padding bawah Row
-                                // karena keduanya sudah mengangkat kolom dari
-                                // tepi bawah layar; tanpa ini ada ruang kosong
-                                // selebar itu di atas pil.
-                                .padding(
-                                    bottom = if (isFullScreen) 0.dp
-                                    else queueSheetState.collapsedBound + 8.dp - verticalPaddingDp - 24.dp,
-                                ),
-                    ) {
-                        Spacer(Modifier.weight(1f))
+                        // Panel kanan: judul, slider, tombol. Bisa
+                        // di-scroll kalau layar terlalu pendek, jadi
+                        // tidak terpotong seperti sebelumnya.
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier =
+                                Modifier
+                                    .weight(controlsWeight)
+                                    .fillMaxHeight()
+                                    .padding(start = 24.dp, end = 32.dp)
+                                    .padding(bottom = pillBottomPadding),
+                        ) {
+                            BoxWithConstraints(
+                                modifier = Modifier.weight(1f).fillMaxWidth(),
+                            ) {
+                                val contentHeight = maxHeight
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .verticalScroll(rememberScrollState())
+                                            .heightIn(min = contentHeight),
+                                ) {
+                                    Spacer(Modifier.weight(1f))
 
-                        mediaMetadata?.let {
-                            controlsContent(it)
+                                    mediaMetadata?.let {
+                                        controlsContent(it)
+                                    }
+
+                                    Spacer(Modifier.weight(1f))
+                                }
+                            }
                         }
-
-                        Spacer(Modifier.weight(1f))
                     }
                 }
             }
