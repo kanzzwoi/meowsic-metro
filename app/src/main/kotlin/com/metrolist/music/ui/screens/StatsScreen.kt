@@ -75,13 +75,11 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -218,25 +216,17 @@ fun StatsScreen(
     val statsSubtitleHeight =
         with(LocalDensity.current) { MaterialTheme.typography.bodySmall.lineHeight.toDp() }
 
-    // Tombol Bagikan (ala Metrolist v14): statistik periode ini dirender jadi
-    // kartu gambar 1080px dengan branding Meowsic, lalu dibagikan lewat
-    // share sheet. Semua teks disiapkan di sini karena stringResource tidak
-    // bisa dipanggil dari dalam coroutine.
-    val statsColors = MaterialTheme.colorScheme
-    val statsTypography = MaterialTheme.typography
-    val statsTextMeasurer = rememberTextMeasurer()
-    val statsLayoutDirection = LocalLayoutDirection.current
-    var isSharingStats by remember { mutableStateOf(false) }
-    val statsTitle = stringResource(R.string.stats)
+    // Dialog Bagikan (ala Metrolist v14): kartu statistik dirender jadi
+    // gambar 1080px, ditampilkan sebagai pratinjau dulu, baru dibagikan
+    // atau diunduh. Render + muat sampul dikerjakan dialognya sendiri.
+    var showStatsShareDialog by remember { mutableStateOf(false) }
     val statsSummary = stringResource(R.string.stats_share_summary)
     val statsPlaysLabel = stringResource(R.string.stats_share_plays)
     val statsTimeLabel = stringResource(R.string.stats_share_time)
     val statsTopSongsLabel = stringResource(R.string.stats_share_top_songs)
     val statsTopAlbumsLabel = stringResource(R.string.stats_share_top_albums)
     val statsTopArtistsLabel = stringResource(R.string.stats_share_top_artists)
-    val statsShareLabel = stringResource(R.string.share)
     val statsEmptyMessage = stringResource(R.string.stats_share_empty)
-    val statsFailedMessage = stringResource(R.string.stats_share_failed)
     val statsPeriodLabel =
         when (selectedOption) {
             OptionStats.CONTINUOUS ->
@@ -296,52 +286,23 @@ fun StatsScreen(
                 )
             }
         }
-    val shareStats: () -> Unit = {
-        if (!isSharingStats) {
-            if (shareSongItems.isEmpty() && shareAlbumItems.isEmpty() && shareArtistItems.isEmpty()) {
-                Toast.makeText(context, statsEmptyMessage, Toast.LENGTH_SHORT).show()
-            } else {
-                isSharingStats = true
-                coroutineScope.launch {
-                    try {
-                        val sections =
-                            listOfNotNull(
-                                (statsTopSongsLabel to shareSongItems).takeIf { it.second.isNotEmpty() },
-                                (statsTopAlbumsLabel to shareAlbumItems).takeIf { it.second.isNotEmpty() },
-                                (statsTopArtistsLabel to shareArtistItems).takeIf { it.second.isNotEmpty() },
-                            )
-                        val artwork =
-                            loadStatsShareArtwork(
-                                context,
-                                shareSongItems + shareAlbumItems + shareArtistItems,
-                            )
-                        val totalPlays = mostPlayedSongsStats.sumOf { it.songCountListened }
-                        val totalTimeMs = mostPlayedSongsStats.sumOf { it.timeListened ?: 0L }
-                        val bitmap =
-                            renderStatsShareImage(
-                                appName = "Meowsic",
-                                title = statsTitle,
-                                period = statsPeriodLabel,
-                                summary = statsSummary,
-                                plays = totalPlays.toString(),
-                                duration = formatStatsDuration(totalTimeMs),
-                                playsLabel = statsPlaysLabel,
-                                timeLabel = statsTimeLabel,
-                                sections = sections,
-                                artwork = artwork,
-                                colors = statsColors,
-                                typography = statsTypography,
-                                textMeasurer = statsTextMeasurer,
-                                layoutDirection = statsLayoutDirection,
-                            )
-                        shareStatsImage(context, bitmap, statsShareLabel)
-                    } catch (e: Exception) {
-                        Toast.makeText(context, statsFailedMessage, Toast.LENGTH_SHORT).show()
-                    } finally {
-                        isSharingStats = false
-                    }
-                }
-            }
+    val shareSections =
+        remember(shareSongItems, shareAlbumItems, shareArtistItems) {
+            listOfNotNull(
+                (statsTopSongsLabel to shareSongItems).takeIf { it.second.isNotEmpty() },
+                (statsTopAlbumsLabel to shareAlbumItems).takeIf { it.second.isNotEmpty() },
+                (statsTopArtistsLabel to shareArtistItems).takeIf { it.second.isNotEmpty() },
+            )
+        }
+    val shareTotalPlays =
+        remember(mostPlayedSongsStats) { mostPlayedSongsStats.sumOf { it.songCountListened } }
+    val shareTotalTimeMs =
+        remember(mostPlayedSongsStats) { mostPlayedSongsStats.sumOf { it.timeListened ?: 0L } }
+    val openStatsShare: () -> Unit = {
+        if (shareSongItems.isEmpty() && shareAlbumItems.isEmpty() && shareArtistItems.isEmpty()) {
+            Toast.makeText(context, statsEmptyMessage, Toast.LENGTH_SHORT).show()
+        } else {
+            showStatsShareDialog = true
         }
     }
 
@@ -855,7 +816,7 @@ fun StatsScreen(
                         ),
             ) {
                 ExtendedFloatingActionButton(
-                    onClick = shareStats,
+                    onClick = openStatsShare,
                     icon = {
                         Icon(
                             painter = painterResource(R.drawable.share),
@@ -984,6 +945,19 @@ fun StatsScreen(
             }
         },
     )
+
+    if (showStatsShareDialog) {
+        StatsShareDialog(
+            sections = shareSections,
+            period = statsPeriodLabel,
+            summary = statsSummary,
+            plays = shareTotalPlays.toString(),
+            duration = formatStatsDuration(shareTotalTimeMs),
+            playsLabel = statsPlaysLabel,
+            timeLabel = statsTimeLabel,
+            onDismiss = { showStatsShareDialog = false },
+        )
+    }
 }
 
 // Ukuran ubin carousel ala v14 (Dimensions.kt): dihitung dari lebar

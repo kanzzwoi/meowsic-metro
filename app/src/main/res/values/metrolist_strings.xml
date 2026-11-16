@@ -168,6 +168,9 @@
     <string name="stats_share_top_artists">Top artists</string>
     <string name="stats_share_empty">No stats to share yet</string>
     <string name="stats_share_failed">Failed to share stats</string>
+    <string name="statistics_share">Share listening statistics</string>
+    <string name="stats_share_downloaded">Statistics image saved to Downloads</string>
+    <string name="stats_share_download_failed">Failed to save statistics image</string>
     <string name="stats_share_times_played">%1$d plays</string>
     <string name="statistics_overview">Overview</string>
     <string name="statistics_activity">Activity</string>

@@ -5,9 +5,13 @@
 
 package com.metrolist.music.ui.screens
 
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
@@ -303,3 +307,55 @@ suspend fun shareStatsImage(
         context.startActivity(Intent.createChooser(share, chooserTitle))
     }
 }
+
+/**
+ * Simpan kartu statistik sebagai PNG ke folder Download/Meowsic, ala
+ * saveToPublicDocuments (MediaStore + IS_PENDING di API 29+, tulis
+ * langsung ke folder Download publik di bawah itu).
+ */
+suspend fun downloadStatsImage(
+    context: Context,
+    bitmap: ImageBitmap,
+    fileName: String,
+): Boolean =
+    withContext(Dispatchers.IO) {
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values =
+                    ContentValues().apply {
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, "$fileName.png")
+                        put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
+                        put(
+                            MediaStore.MediaColumns.RELATIVE_PATH,
+                            Environment.DIRECTORY_DOWNLOADS + "/Meowsic",
+                        )
+                        put(MediaStore.MediaColumns.IS_PENDING, 1)
+                    }
+                val uri =
+                    context.contentResolver.insert(
+                        MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                        values,
+                    ) ?: return@runCatching false
+                context.contentResolver.openOutputStream(uri)?.use { out ->
+                    bitmap.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
+                } ?: return@runCatching false
+                val complete =
+                    ContentValues().apply {
+                        put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    }
+                context.contentResolver.update(uri, complete, null, null)
+                true
+            } else {
+                val dir =
+                    File(
+                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                        "Meowsic",
+                    )
+                dir.mkdirs()
+                FileOutputStream(File(dir, "$fileName.png")).use { out ->
+                    bitmap.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
+                }
+                true
+            }
+        }.getOrDefault(false)
+    }
