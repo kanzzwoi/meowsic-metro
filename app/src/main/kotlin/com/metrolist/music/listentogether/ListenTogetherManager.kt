@@ -191,6 +191,7 @@ class ListenTogetherManager
             username: String,
             emoji: String,
             color: String,
+            border: String = "",
         ) {
             val room = roomState.value ?: return
             val myId = userId.value ?: return
@@ -200,9 +201,10 @@ class ListenTogetherManager
                     username = username,
                     emoji = emoji,
                     color = color,
+                    border = border,
                 )
             _memberProfiles.value = _memberProfiles.value + (myId to profile)
-            chatClient.publishProfile(room.roomCode, myId, username, emoji, color)
+            chatClient.publishProfile(room.roomCode, myId, username, emoji, color, border)
         }
 
         private fun connectChat(roomCode: String) {
@@ -211,14 +213,16 @@ class ListenTogetherManager
                 val prefs = context.dataStore.data.first()
                 val emoji = prefs[com.metrolist.music.constants.ListenTogetherAvatarEmojiKey] ?: "🎧"
                 val color = prefs[com.metrolist.music.constants.ListenTogetherAvatarColorKey] ?: "#7C4DFF"
+                val borderLevel = prefs[com.metrolist.music.constants.ListenTogetherAvatarBorderKey] ?: 0
+                val border = if (borderLevel > 0) borderLevel.toString() else ""
                 val myId = userId.value ?: return@launch
                 val name =
                     roomState.value?.users?.firstOrNull { it.userId == myId }?.username
                         ?: prefs[com.metrolist.music.constants.ListenTogetherUsernameKey]
                         ?: "Teman"
                 _memberProfiles.value =
-                    _memberProfiles.value + (myId to RoomChatClient.UserProfile(myId, name, emoji, color))
-                chatClient.publishProfile(roomCode, myId, name, emoji, color)
+                    _memberProfiles.value + (myId to RoomChatClient.UserProfile(myId, name, emoji, color, border))
+                chatClient.publishProfile(roomCode, myId, name, emoji, color, border)
             }
             // Resolve the relay BEFORE connecting: the client must know which
             // transport to use the moment the socket opens, otherwise two members can

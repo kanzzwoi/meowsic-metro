@@ -127,6 +127,7 @@ class RoomChatClient(
         val timestamp: Long = 0L,
         val emoji: String = "",
         val color: String = "",
+        val border: String = "",
     )
 
     /** Avatar details a member picked for themselves. */
@@ -135,6 +136,8 @@ class RoomChatClient(
         val username: String,
         val emoji: String,
         val color: String,
+        /** Level minimal border yang dipakai ("" = tanpa border). */
+        val border: String = "",
     )
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -391,8 +394,12 @@ class RoomChatClient(
                 return
             }
 
+        // Profil adalah state, bukan pesan: publish ulang (ganti border/emoji,
+        // re-announce saat socket kebuka) harus selalu diproses, jadi lewati
+        // dedup untuk kind=profile — id-nya stabil ("profile-<userId>") dan
+        // sebelumnya publish kedua selalu dibuang sebagai duplikat.
         val messageKey = payload.id.ifBlank { outer["id"]?.jsonPrimitive?.content.orEmpty() }
-        if (messageKey.isNotBlank() && !seenMessageIds.add(messageKey)) return
+        if (payload.kind != "profile" && messageKey.isNotBlank() && !seenMessageIds.add(messageKey)) return
 
         val timestamp =
             payload.timestamp.takeIf { it > 0L }
@@ -409,6 +416,7 @@ class RoomChatClient(
                     username = payload.sender_name,
                     emoji = payload.emoji,
                     color = payload.color,
+                    border = payload.border,
                 ),
             )
             return
@@ -539,6 +547,7 @@ class RoomChatClient(
         username: String,
         emoji: String,
         color: String,
+        border: String = "",
     ) {
         val topic = topicFor(roomCode)
         val payload =
@@ -550,6 +559,7 @@ class RoomChatClient(
                 put("sender_name", JsonPrimitive(username))
                 put("emoji", JsonPrimitive(emoji))
                 put("color", JsonPrimitive(color))
+                put("border", JsonPrimitive(border))
                 put("timestamp", JsonPrimitive(System.currentTimeMillis()))
             }
 

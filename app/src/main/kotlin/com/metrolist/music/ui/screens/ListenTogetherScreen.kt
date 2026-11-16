@@ -16,11 +16,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -40,6 +42,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -97,8 +100,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import com.metrolist.music.constants.AppBarHeight
+import com.metrolist.music.constants.LevelTotalExpKey
+import com.metrolist.music.constants.ListenTogetherAvatarBorderKey
 import com.metrolist.music.constants.ListenTogetherInTopBarKey
 import com.metrolist.music.constants.ListenTogetherUsernameKey
+import com.metrolist.music.level.TOGETHER_BORDER_LEVELS
+import com.metrolist.music.level.borderDrawableRes
+import com.metrolist.music.level.levelForTotalExp
 import com.metrolist.music.listentogether.AcceptedSuggestion
 import com.metrolist.music.listentogether.ConnectionState
 import com.metrolist.music.listentogether.JoinRequestPayload
@@ -154,6 +162,9 @@ fun ListenTogetherScreen(
     var savedUsername by rememberPreference(ListenTogetherUsernameKey, "")
     var myAvatarEmoji by rememberPreference(com.metrolist.music.constants.ListenTogetherAvatarEmojiKey, "🎧")
     var myAvatarColor by rememberPreference(com.metrolist.music.constants.ListenTogetherAvatarColorKey, "#7C4DFF")
+    var myAvatarBorder by rememberPreference(ListenTogetherAvatarBorderKey, 0)
+    val totalExp by rememberPreference(LevelTotalExpKey, 0L)
+    val myLevel = levelForTotalExp(totalExp)
     var roomCodeInput by rememberSaveable { mutableStateOf("") }
     var usernameInput by rememberSaveable { mutableStateOf(savedUsername) }
 
@@ -228,15 +239,19 @@ fun ListenTogetherScreen(
         ProfileEditorDialog(
             currentEmoji = myAvatarEmoji,
             currentColor = myAvatarColor,
+            currentBorder = myAvatarBorder,
+            userLevel = myLevel,
             onDismiss = { showProfileEditor = false },
-            onSave = { emoji, color ->
+            onSave = { emoji, color, border ->
                 myAvatarEmoji = emoji
                 myAvatarColor = color
+                myAvatarBorder = border
                 showProfileEditor = false
                 listenTogetherManager.publishMyProfile(
                     username = savedUsername.ifBlank { usernameInput.ifBlank { "Teman" } },
                     emoji = emoji,
                     color = color,
+                    border = if (border > 0) border.toString() else "",
                 )
             },
         )
@@ -383,6 +398,7 @@ fun ListenTogetherScreen(
                         profiles = memberProfiles,
                         ownEmoji = myAvatarEmoji,
                         ownColor = myAvatarColor,
+                        ownBorder = if (myAvatarBorder > 0) myAvatarBorder.toString() else "",
                         onEditProfile = { showProfileEditor = true },
                         onUserClick = { clickedUserId, username ->
                             if (isHost && clickedUserId != currentUserIdValue) {
@@ -825,6 +841,7 @@ private fun ConnectedUsersSection(
     profiles: Map<String, RoomChatClient.UserProfile>,
     ownEmoji: String,
     ownColor: String,
+    ownBorder: String,
     onEditProfile: () -> Unit,
     onUserClick: (String, String) -> Unit,
 ) {
@@ -860,6 +877,7 @@ private fun ConnectedUsersSection(
                     isClickable = isHost && user.userId != currentUserId,
                     emoji = profile?.emoji ?: if (user.userId == currentUserId) ownEmoji else "",
                     colorHex = profile?.color ?: if (user.userId == currentUserId) ownColor else "",
+                    border = profile?.border ?: if (user.userId == currentUserId) ownBorder else "",
                     onClick = { onUserClick(user.userId, user.username) },
                 )
             }
@@ -874,6 +892,7 @@ private fun UserAvatar(
     isClickable: Boolean,
     emoji: String,
     colorHex: String,
+    border: String,
     onClick: () -> Unit,
 ) {
     Column(
@@ -923,6 +942,16 @@ private fun UserAvatar(
                         )
                     }
                 }
+            }
+
+            // Border level (WebP 1:1) digambar di atas avatar, sedikit lebih besar
+            // supaya ring-nya melingkari avatar dan bintang di ujungnya tetap kelihatan.
+            borderDrawableRes(border)?.let { borderRes ->
+                Image(
+                    painter = painterResource(borderRes),
+                    contentDescription = null,
+                    modifier = Modifier.size(72.dp),
+                )
             }
 
             if (user.isHost || isCurrentUser) {
@@ -1566,31 +1595,100 @@ private fun ChatPanel(messages: List<RoomChatClient.ChatMessage>, expanded: Bool
 }
 
 
+/**
+ * Satu pilihan di baris "Pilih border": frame 48dp + label level di bawahnya.
+ * Yang terkunci tampil redup dan tidak bisa diketik; yang terpilih ditandai
+ * centang kecil di pojok kanan bawah.
+ */
+@Composable
+private fun BorderPickerItem(
+    label: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.width(56.dp),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(52.dp)
+                    .clickable(enabled = enabled, onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            content()
+            if (selected) {
+                Surface(
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(18.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        Icon(
+                            painter = painterResource(R.drawable.check),
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(12.dp),
+                        )
+                    }
+                }
+            }
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            maxLines = 1,
+        )
+    }
+}
+
 @Composable
 private fun ProfileEditorDialog(
     currentEmoji: String,
     currentColor: String,
+    currentBorder: Int,
+    userLevel: Int,
     onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit,
+    onSave: (String, String, Int) -> Unit,
 ) {
     val emojis = listOf("🎧", "😎", "🐱", "🐺", "🦊", "🐼", "🦄", "🌙", "⭐", "🔥", "🌊", "🍿", "🪩", "🚀", "👾", "🌸")
     val colors = listOf("#7C4DFF", "#FF5252", "#FF6E40", "#FFC400", "#69F0AE", "#18FFFF", "#40C4FF", "#448AFF", "#B388FF", "#F06292", "#AED581", "#FFAB40")
 
     var emoji by remember { mutableStateOf(currentEmoji) }
     var color by remember { mutableStateOf(currentColor) }
+    var border by remember { mutableStateOf(currentBorder) }
 
     DefaultDialog(
         onDismiss = onDismiss,
         icon = {
             Box(
-                modifier =
-                    Modifier
-                        .size(64.dp)
-                        .clip(CircleShape)
-                        .background(runCatching { Color(android.graphics.Color.parseColor(color)) }.getOrDefault(MaterialTheme.colorScheme.primary)),
+                modifier = Modifier.size(84.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(emoji, style = MaterialTheme.typography.headlineMedium)
+                Box(
+                    modifier =
+                        Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(runCatching { Color(android.graphics.Color.parseColor(color)) }.getOrDefault(MaterialTheme.colorScheme.primary)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(emoji, style = MaterialTheme.typography.headlineMedium)
+                }
+                borderDrawableRes(border)?.let { borderRes ->
+                    Image(
+                        painter = painterResource(borderRes),
+                        contentDescription = null,
+                        modifier = Modifier.size(84.dp),
+                    )
+                }
             }
         },
         title = { Text("Profil Saya", fontWeight = FontWeight.Bold) },
@@ -1598,12 +1696,55 @@ private fun ProfileEditorDialog(
             TextButton(onClick = onDismiss) {
                 Text(stringResource(android.R.string.cancel))
             }
-            TextButton(onClick = { onSave(emoji, color) }) {
+            TextButton(onClick = { onSave(emoji, color, border) }) {
                 Text("Simpan")
             }
         },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Pilih border", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(vertical = 2.dp),
+            ) {
+                item {
+                    BorderPickerItem(
+                        label = "Tanpa",
+                        selected = border == 0,
+                        enabled = true,
+                        onClick = { border = 0 },
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(48.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("✕", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+                items(TOGETHER_BORDER_LEVELS) { level ->
+                    val unlocked = level <= userLevel
+                    BorderPickerItem(
+                        label = "Lv $level",
+                        selected = border == level,
+                        enabled = unlocked,
+                        onClick = { if (unlocked) border = level },
+                    ) {
+                        borderDrawableRes(level)?.let { borderRes ->
+                            Image(
+                                painter = painterResource(borderRes),
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                alpha = if (unlocked) 1f else 0.35f,
+                            )
+                        }
+                    }
+                }
+            }
+
             Text("Pilih emoji", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             LazyVerticalGrid(
                 columns = GridCells.Fixed(8),
