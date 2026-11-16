@@ -110,16 +110,22 @@ fun BlurBackground(
         }
     }
 
-    // Penggerak rotasi ala v14: maju ~20 fps dan hanya saat diputar.
+    // Penggerak rotasi ala v14 (LiquidBackground.kt): nilainya WAKTU NYATA
+    // — frame time dikurangi origin — bukan akumulasi delta frame. Versi
+    // lama mengakumulasi delta antar-frame (~16ms) padahal tiap iterasi
+    // menunggu frame + delay 50ms (~66ms), jadi putaran berjalan ~4x lebih
+    // lambat dari v14. Karena ketiga lapis berputar dengan periode beda
+    // (130/90/70 detik), putaran yang lambat itu juga yang membuat susunan
+    // warnanya tampak beda dari Metrolist setelah lagu berjalan sebentar.
+    // Origin menjaga putaran lanjut dari posisi terakhir saat resume
+    // dari pause (v14 menyimpannya di globalLiquidRotationTimeMs).
     var rotationTimeMs by remember { mutableLongStateOf(0L) }
     LaunchedEffect(isPlaying) {
         if (!isPlaying) return@LaunchedEffect
-        var last = withFrameMillis { it }
+        val origin = withFrameMillis { it } - rotationTimeMs
         while (true) {
-            val now = withFrameMillis { it }
-            rotationTimeMs += (now - last).coerceIn(0L, 100L)
-            last = now
             delay(50)
+            withFrameMillis { now -> rotationTimeMs = now - origin }
         }
     }
 
