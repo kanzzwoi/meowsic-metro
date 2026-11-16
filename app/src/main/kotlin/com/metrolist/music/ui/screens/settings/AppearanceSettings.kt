@@ -89,6 +89,8 @@ import com.metrolist.music.constants.MiniPlayerBackgroundStyle
 import com.metrolist.music.constants.MiniPlayerBackgroundStyleKey
 import com.metrolist.music.constants.PlayerBackgroundStyle
 import com.metrolist.music.constants.PlayerBackgroundStyleKey
+import com.metrolist.music.constants.PlayerThumbnailStyle
+import com.metrolist.music.constants.PlayerThumbnailStyleKey
 import com.metrolist.music.constants.PlayerButtonsStyle
 import com.metrolist.music.constants.PlayerButtonsStyleKey
 import com.metrolist.music.constants.PureBlackMiniPlayerKey
@@ -207,6 +209,14 @@ fun AppearanceSettings(
         rememberEnumPreference(
             PlayerBackgroundStyleKey,
             defaultValue = PlayerBackgroundStyle.default,
+        )
+
+    // Gaya thumbnail full player ala Metrolist v14: kotak 1:1 rounded
+    // (COMPACT, default) atau artwork penuh jadi background (FULLSCREEN).
+    val (playerThumbnailStyle, onPlayerThumbnailStyleChange) =
+        rememberEnumPreference(
+            PlayerThumbnailStyleKey,
+            defaultValue = PlayerThumbnailStyle.COMPACT,
         )
 
     val (defaultOpenTab, onDefaultOpenTabChange) =
@@ -352,6 +362,10 @@ fun AppearanceSettings(
     }
 
     var showPlayerBackgroundDialog by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var showPlayerThumbnailStyleDialog by rememberSaveable {
         mutableStateOf(false)
     }
 
@@ -567,6 +581,25 @@ fun AppearanceSettings(
                     PlayerBackgroundStyle.DEFAULT -> stringResource(R.string.follow_theme)
                     PlayerBackgroundStyle.GRADIENT -> stringResource(R.string.gradient)
                     PlayerBackgroundStyle.BLUR -> stringResource(R.string.player_background_blur)
+                }
+            },
+        )
+    }
+
+    if (showPlayerThumbnailStyleDialog) {
+        EnumDialog(
+            onDismiss = { showPlayerThumbnailStyleDialog = false },
+            onSelect = {
+                onPlayerThumbnailStyleChange(it)
+                showPlayerThumbnailStyleDialog = false
+            },
+            title = stringResource(R.string.player_thumbnail_style),
+            current = playerThumbnailStyle,
+            values = PlayerThumbnailStyle.values().toList(),
+            valueText = {
+                when (it) {
+                    PlayerThumbnailStyle.COMPACT -> stringResource(R.string.compact_rounded)
+                    PlayerThumbnailStyle.FULLSCREEN -> stringResource(R.string.full_screen)
                 }
             },
         )
@@ -1301,6 +1334,19 @@ fun AppearanceSettings(
                             )
                         },
                         onClick = { showPlayerBackgroundDialog = true },
+                    ),
+                    Material3SettingsItem(
+                        icon = painterResource(R.drawable.fullscreen),
+                        title = { Text(stringResource(R.string.player_thumbnail_style)) },
+                        description = {
+                            Text(
+                                when (playerThumbnailStyle) {
+                                    PlayerThumbnailStyle.COMPACT -> stringResource(R.string.compact_rounded)
+                                    PlayerThumbnailStyle.FULLSCREEN -> stringResource(R.string.full_screen)
+                                },
+                            )
+                        },
+                        onClick = { showPlayerThumbnailStyleDialog = true },
                     ),
                     Material3SettingsItem(
                         icon = painterResource(R.drawable.hide_image),

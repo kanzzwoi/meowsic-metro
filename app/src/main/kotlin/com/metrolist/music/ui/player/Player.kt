@@ -162,6 +162,8 @@ import com.metrolist.music.constants.HideStatusBarOnFullscreenKey
 import com.metrolist.music.constants.KeepScreenOn
 import com.metrolist.music.constants.PlayerBackgroundStyle
 import com.metrolist.music.constants.PlayerBackgroundStyleKey
+import com.metrolist.music.constants.PlayerThumbnailStyle
+import com.metrolist.music.constants.PlayerThumbnailStyleKey
 import com.metrolist.music.constants.PlayerButtonsStyle
 import com.metrolist.music.constants.PlayerButtonsStyleKey
 import com.metrolist.music.constants.PlayerHorizontalPadding
@@ -251,6 +253,25 @@ fun BottomSheetPlayer(
     var isFullScreen by rememberSaveable {
         mutableStateOf(false)
     }
+
+    // Mode miring — dipakai juga oleh warna teks & background di bawah,
+    // jadi didefinisikan di sini (bukan di dekat layout).
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    // Thumbnail penuh ala Metrolist v14 (PlayerThumbnailStyle): artwork
+    // jadi background full-bleed. Setting = default; tap 1x di thumbnail
+    // men-toggle sementara (override, tidak mengubah setting); tap 2x
+    // cepat tetap skip detik. v14: fullscreen cuma portrait.
+    val (thumbnailStyle, _) =
+        rememberEnumPreference(
+            PlayerThumbnailStyleKey,
+            defaultValue = PlayerThumbnailStyle.COMPACT,
+        )
+    var fullThumbnailOverride by rememberSaveable {
+        mutableStateOf<Boolean?>(null)
+    }
+    val isFullThumbnail =
+        !isLandscape && (fullThumbnailOverride ?: (thumbnailStyle == PlayerThumbnailStyle.FULLSCREEN))
 
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
@@ -597,20 +618,29 @@ fun BottomSheetPlayer(
 
     val TextBackgroundColor by animateColorAsState(
         targetValue =
-            when (playerBackground) {
-                PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.onBackground
-                PlayerBackgroundStyle.BLUR -> Color.White
-                PlayerBackgroundStyle.GRADIENT -> Color.White
+            if (isFullThumbnail) {
+                // Artwork jadi background: teks putih, seperti BLUR/GRADIENT.
+                Color.White
+            } else {
+                when (playerBackground) {
+                    PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.onBackground
+                    PlayerBackgroundStyle.BLUR -> Color.White
+                    PlayerBackgroundStyle.GRADIENT -> Color.White
+                }
             },
         label = "TextBackgroundColor",
     )
 
     val icBackgroundColor by animateColorAsState(
         targetValue =
-            when (playerBackground) {
-                PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.surface
-                PlayerBackgroundStyle.BLUR -> Color.Black
-                PlayerBackgroundStyle.GRADIENT -> Color.Black
+            if (isFullThumbnail) {
+                Color.Black
+            } else {
+                when (playerBackground) {
+                    PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.surface
+                    PlayerBackgroundStyle.BLUR -> Color.Black
+                    PlayerBackgroundStyle.GRADIENT -> Color.Black
+                }
             },
         label = "icBackgroundColor",
     )
@@ -618,7 +648,8 @@ fun BottomSheetPlayer(
     val (textButtonColor, iconButtonColor) =
         when {
             playerBackground == PlayerBackgroundStyle.BLUR ||
-                playerBackground == PlayerBackgroundStyle.GRADIENT -> {
+                playerBackground == PlayerBackgroundStyle.GRADIENT ||
+                isFullThumbnail -> {
                 when (playerButtonsStyle) {
                     PlayerButtonsStyle.DEFAULT -> {
                         Pair(Color.White, Color.Black)
@@ -933,7 +964,6 @@ fun BottomSheetPlayer(
     // Mode miring: pill antrean dikecilkan (56dp, bukan 88dp) dan pindah
     // ke kolom kanan, jadi tinggi layar yang pendek tidak perlu lagi
     // dikorbankan untuk pill selebar layar.
-    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val queuePeekHeight = if (isLandscape) 56.dp else QueuePeekHeight
 
     // Lebar kolom kontrol di landscape ala v14: dua panel selebar
@@ -981,8 +1011,34 @@ fun BottomSheetPlayer(
                         .fillMaxSize()
                         .background(bottomSheetBackgroundColor),
             ) {
-                when (playerBackground) {
-                    PlayerBackgroundStyle.BLUR -> {
+                if (isFullThumbnail && !hidePlayerThumbnail && mediaMetadata?.thumbnailUrl != null) {
+                    // Thumbnail penuh ala v14: artwork mentah (tanpa
+                    // blur/gradient) jadi background full-bleed; judul,
+                    // lirik & tombol tampil di atasnya. Scrim bawah supaya
+                    // tetap terbaca di atas foto yang terang.
+                    Box(modifier = Modifier.fillMaxSize().alpha(backgroundAlpha)) {
+                        ThumbnailImage(
+                            artworkUri = mediaMetadata?.thumbnailUrl,
+                            cropArtwork = true,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                        Box(
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(
+                                                Color.Transparent,
+                                                Color.Black.copy(alpha = 0.45f),
+                                            ),
+                                        ),
+                                    ),
+                        )
+                    }
+                } else {
+                    when (playerBackground) {
+                        PlayerBackgroundStyle.BLUR -> {
                         // Kunci fade pada thumbnailUrl (bukan hanya target), agar
                         // transisi tidak menggantung ketika thumbnailUrl null
                         // sesaat setelah ganti lagu. key() memaksa gambar baru
@@ -1054,6 +1110,7 @@ fun BottomSheetPlayer(
 
                     else -> {
                         PlayerBackgroundStyle.DEFAULT
+                    }
                     }
                 }
             }
@@ -1958,6 +2015,7 @@ fun BottomSheetPlayer(
                                         mediaMetadata = mediaMetadata,
                                         showLyrics = showLyrics,
                                         positionProvider = { effectivePosition },
+                                        hasLyricsBackground = false,
                                     )
                                 } else {
                                     Thumbnail(
@@ -1966,6 +2024,8 @@ fun BottomSheetPlayer(
                                         isPlayerExpanded = isExpandedProvider,
                                         isLandscape = true,
                                         isListenTogetherGuest = isListenTogetherGuest,
+                                        isFullThumbnail = false,
+                                        onToggleFullThumbnail = {},
                                         onCollapse = { state.collapseSoft() },
                                     )
                                 }
@@ -2047,6 +2107,7 @@ fun BottomSheetPlayer(
                                     mediaMetadata = mediaMetadata,
                                     showLyrics = showLyrics,
                                     positionProvider = { effectivePosition },
+                                    hasLyricsBackground = isFullThumbnail,
                                 )
                             } else {
                                 Thumbnail(
@@ -2054,6 +2115,8 @@ fun BottomSheetPlayer(
                                     modifier = Modifier.nestedScroll(state.preUpPostDownNestedScrollConnection),
                                     isPlayerExpanded = isExpandedProvider,
                                     isListenTogetherGuest = isListenTogetherGuest,
+                                    isFullThumbnail = isFullThumbnail,
+                                    onToggleFullThumbnail = { fullThumbnailOverride = !isFullThumbnail },
                                     onCollapse = { state.collapseSoft() },
                                 )
                             }
@@ -2069,6 +2132,7 @@ fun BottomSheetPlayer(
                         ActiveLyricLine(
                             positionProvider = { effectivePosition },
                             textColor = TextBackgroundColor,
+                            hasBackground = isFullThumbnail,
                         )
                     }
 
@@ -2130,6 +2194,7 @@ fun InlineLyricsView(
     mediaMetadata: MediaMetadata?,
     showLyrics: Boolean,
     positionProvider: () -> Long,
+    hasLyricsBackground: Boolean = false,
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val currentLyrics by playerConnection.currentLyrics.collectAsStateWithLifecycle(initialValue = null)
@@ -2202,6 +2267,7 @@ fun InlineLyricsView(
                         sliderPositionProvider = positionProvider,
                         modifier = Modifier.padding(horizontal = 24.dp),
                         showLyrics = showLyrics,
+                        hasLyricsBackground = hasLyricsBackground,
                     )
                 }
                 ProvideTextStyle(

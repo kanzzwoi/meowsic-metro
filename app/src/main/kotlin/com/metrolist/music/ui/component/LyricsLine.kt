@@ -21,9 +21,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.scale
@@ -143,7 +146,11 @@ internal fun LyricsLine(
     onSizeChanged: (Int) -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // Pil gelap ketat di belakang teks saat lirik tampil di atas artwork
+    // penuh (thumbnail fullscreen). Tanpa ini teks di atas foto terang
+    // tidak terbaca. Pil mengikuti lebar teks (bukan panel selebar baris).
+    hasBackground: Boolean = false,
 ) {
     val density = LocalDensity.current
     
@@ -207,7 +214,10 @@ internal fun LyricsLine(
     }) {
         @Composable
         fun LyricContent() {
-            Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = agentAlignment) {
+            Column(
+                modifier = if (hasBackground) Modifier.wrapContentWidth() else Modifier.fillMaxWidth(),
+                horizontalAlignment = agentAlignment,
+            ) {
                 val inactiveAlpha = if (item.isBackground) 0.08f else 0.2f
                 val activeAlpha = 1f
                 val focusedAlpha = if (item.isBackground) 0.5f else 0.3f
@@ -277,13 +287,14 @@ internal fun LyricsLine(
                         expressiveAccent = expressiveAccent,
                         isBackground = item.isBackground,
                         focusedAlpha = focusedAlpha,
-                        alignment = agentTextAlign
+                        alignment = agentTextAlign,
+                        wrapContentWidth = hasBackground
                     )
                 } else {
                     Text(
                         text = mainText ?: "",
                         style = lyricStyle.copy(color = if (isActiveLine) expressiveAccent else lineColor),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = if (hasBackground) Modifier.wrapContentWidth() else Modifier.fillMaxWidth()
                     )
                 }
                 
@@ -314,16 +325,35 @@ internal fun LyricsLine(
             }
         }
 
+        // Pil ketat (ala ActiveLyricLine v14, padding dalam lebih kecil
+        // karena teks daftar besar): warna & sudut sama, lebar mengikuti
+        // teks. Tanpa pil, teks di atas artwork penuh tidak terbaca.
+        @Composable
+        fun PillWrappedLyricContent() {
+            if (hasBackground) {
+                Surface(
+                    color = lerp(MaterialTheme.colorScheme.secondaryContainer, Color.Black, 0.25f).copy(alpha = 0.88f),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Box(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+                        LyricContent()
+                    }
+                }
+            } else {
+                LyricContent()
+            }
+        }
+
         if (item.isBackground) {
             AnimatedVisibility(
                 visible = bgVisible,
                 enter = fadeIn(tween(durationMillis = 250, delayMillis = 100)),
                 exit = fadeOut(tween(250))
             ) {
-                LyricContent()
+                PillWrappedLyricContent()
             }
         } else {
-            LyricContent()
+            PillWrappedLyricContent()
         }
     }
 }
@@ -341,7 +371,12 @@ private fun WordLevelLyrics(
     expressiveAccent: Color,
     isBackground: Boolean,
     focusedAlpha: Float,
-    alignment: TextAlign
+    alignment: TextAlign,
+    // Saat pil aktif: ukur teks selebar baris terpanjang (bukan selebar
+    // layar) supaya pil mengikuti teks. minWidth 0 = lebar hasil ukur
+    // adalah baris terpanjang; posisi relatif tiap baris (rata kiri /
+    // tengah / kanan) tetap sama karena diukur dalam kotak itu.
+    wrapContentWidth: Boolean = false,
 ) {
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
@@ -502,13 +537,18 @@ private fun WordLevelLyrics(
         map
     }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+    BoxWithConstraints(modifier = if (wrapContentWidth) Modifier.wrapContentWidth() else Modifier.fillMaxWidth()) {
         val maxWidthPx = constraints.maxWidth
-        val layoutResult = remember(mainText, maxWidthPx, lyricStyle) {
+        val layoutResult = remember(mainText, maxWidthPx, lyricStyle, wrapContentWidth) {
             textMeasurer.measure(
                 text = mainText,
                 style = lyricStyle,
-                constraints = Constraints(minWidth = maxWidthPx, maxWidth = maxWidthPx),
+                constraints =
+                    if (wrapContentWidth) {
+                        Constraints(maxWidth = maxWidthPx)
+                    } else {
+                        Constraints(minWidth = maxWidthPx, maxWidth = maxWidthPx)
+                    },
                 softWrap = true
             )
         }
@@ -523,7 +563,13 @@ private fun WordLevelLyrics(
         val drawWholeLine = remember(mainText) { mainText.containsRtl() || mainText.containsJoinedIndic() }
         
         Canvas(modifier = Modifier
-            .fillMaxWidth()
+            .then(
+                if (wrapContentWidth) {
+                    Modifier.width(with(density) { layoutResult.size.width.toDp() })
+                } else {
+                    Modifier.fillMaxWidth()
+                }
+            )
             .height(with(density) { layoutResult.size.height.toDp() })
             .graphicsLayer(
                 clip = false,

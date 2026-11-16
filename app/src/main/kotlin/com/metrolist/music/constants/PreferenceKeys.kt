@@ -462,11 +462,23 @@ enum class PlayerBackgroundStyle {
     }
 }
 
+/**
+ * Gaya thumbnail di full player, ala Metrolist v14
+ * (PlayerThumbnailStyle): COMPACT = kotak 1:1 rounded, FULLSCREEN =
+ * artwork jadi background full-bleed. Setting ini = default; tap 1x di
+ * thumbnail men-toggle sementara (override, tidak mengubah setting).
+ */
+enum class PlayerThumbnailStyle {
+    COMPACT,
+    FULLSCREEN,
+}
+
 val TopSize = stringPreferencesKey("topSize")
 val HistoryDuration = floatPreferencesKey("historyDuration")
 
 val PlayerButtonsStyleKey = stringPreferencesKey("player_buttons_style")
 val PlayerBackgroundStyleKey = stringPreferencesKey("playerBackgroundStyle")
+val PlayerThumbnailStyleKey = stringPreferencesKey("playerThumbnailStyle")
 val ShowLyricsKey = booleanPreferencesKey("showLyrics")
 val LyricsTextPositionKey = stringPreferencesKey("lyricsTextPosition")
 val LyricsClickKey = booleanPreferencesKey("lyricsClick")

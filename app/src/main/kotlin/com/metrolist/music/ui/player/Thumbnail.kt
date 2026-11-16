@@ -208,6 +208,8 @@ fun Thumbnail(
     isPlayerExpanded: () -> Boolean = { true },
     isLandscape: Boolean = false,
     isListenTogetherGuest: Boolean = false,
+    isFullThumbnail: Boolean = false,
+    onToggleFullThumbnail: () -> Unit = {},
     onCollapse: () -> Unit = {},
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -404,6 +406,8 @@ fun Thumbnail(
                                 item = item,
                                 dimensions = dimensions,
                                 hidePlayerThumbnail = hidePlayerThumbnail,
+                                isFullThumbnail = isFullThumbnail,
+                                onToggleFullThumbnail = onToggleFullThumbnail,
                                 // Full player selalu Crop ala v14 (artwork
                                 // nge-fill kotak 1:1, tanpa bar hitam).
                                 // Setting CropAlbumArtKey tetap berlaku untuk
@@ -520,6 +524,8 @@ private fun ThumbnailItem(
     item: MediaItem,
     dimensions: ThumbnailDimensions,
     hidePlayerThumbnail: Boolean,
+    isFullThumbnail: Boolean = false,
+    onToggleFullThumbnail: () -> Unit = {},
     cropAlbumArt: Boolean,
     textBackgroundColor: Color,
     layoutDirection: LayoutDirection,
@@ -554,6 +560,7 @@ private fun ThumbnailItem(
             }
             .pointerInput(Unit) {
                 detectTapGestures(
+                    onTap = { onToggleFullThumbnail() },
                     onDoubleTap = { offset ->
                         if (isListenTogetherGuest) return@detectTapGestures
 
@@ -586,11 +593,20 @@ private fun ThumbnailItem(
         contentAlignment = Alignment.Center
     ) {
         Box(
-            modifier = Modifier
-                .size(dimensions.thumbnailSize)
-                .clip(RoundedCornerShape(dimensions.cornerRadius))
+            modifier =
+                if (isFullThumbnail) {
+                    Modifier.size(dimensions.thumbnailSize)
+                } else {
+                    Modifier
+                        .size(dimensions.thumbnailSize)
+                        .clip(RoundedCornerShape(dimensions.cornerRadius))
+                },
         ) {
-            if (hidePlayerThumbnail) {
+            if (isFullThumbnail) {
+                // Artwork sudah tampil sebagai background full-bleed;
+                // di sini tidak digambar lagi supaya tidak ada jahitan
+                // crop yang berbeda dengan background.
+            } else if (hidePlayerThumbnail) {
                 HiddenThumbnailPlaceholder(textBackgroundColor = textBackgroundColor)
             } else {
                 val artworkUriToUse = if (item.mediaId == currentMediaId && !currentMediaThumbnail.isNullOrBlank()) {
@@ -656,7 +672,7 @@ private fun HiddenThumbnailPlaceholder(
  * Actual thumbnail image with caching and hardware layer rendering.
  */
 @Composable
-private fun ThumbnailImage(
+fun ThumbnailImage(
     artworkUri: String?,
     cropArtwork: Boolean,
     modifier: Modifier = Modifier

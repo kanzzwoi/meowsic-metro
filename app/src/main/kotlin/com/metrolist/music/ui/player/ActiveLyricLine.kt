@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,6 +34,7 @@ import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -73,11 +75,18 @@ import kotlinx.coroutines.isActive
  * Baris sembunyi sendiri saat jeda antar-baris, sebelum baris pertama, dan
  * sesudah baris terakhir — supaya judul tidak loncat, tinggi 2 baris
  * dicadangkan dan visibilitas dianimasikan.
+ *
+ * [hasBackground]: pil gelap di belakang teks, ala Metrolist v14
+ * (ActiveLyricsLine hasBackground — dipakai saat thumbnail penuh, di mana
+ * teks tampil di atas artwork). Pilnya sengaja dibuat ketat (padding
+ * dalam 16/8dp, sudut shapes.large), bukan panel lebar — teks putih,
+ * lebar mengikuti isi, tinggi dicadangkan 2 baris supaya tidak loncat.
  */
 @Composable
 fun ActiveLyricLine(
     positionProvider: () -> Long,
     textColor: Color,
+    hasBackground: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -176,27 +185,47 @@ fun ActiveLyricLine(
                     .fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            AnimatedContent(
-                targetState = currentLine to lineEndTime,
-                transitionSpec = {
-                    // Baris baru masuk redup + sedikit mengecil, lalu tajam.
-                    (fadeIn(animationSpec = tween(400)) + scaleIn(initialScale = 0.96f, animationSpec = tween(400))) togetherWith
-                        (fadeOut(animationSpec = tween(400)) + scaleOut(targetScale = 0.96f, animationSpec = tween(400)))
-                },
-                contentAlignment = Alignment.Center,
-                label = "activeLyricLineSwitch",
-                modifier =
-                    Modifier
-                        .sizeIn(minHeight = reservedLineHeight)
-                        .wrapContentHeight(Alignment.CenterVertically),
-            ) { (line, _) ->
-                if (line != null) {
-                    Text(
-                        text = rememberSweptLyrics(line, lyricsPosition, textColor),
-                        style = style,
-                        maxLines = 2,
-                    )
+            val baseTextColor = if (hasBackground) Color.White else textColor
+            val lyricsContent = @Composable {
+                AnimatedContent(
+                    targetState = currentLine to lineEndTime,
+                    transitionSpec = {
+                        // Baris baru masuk redup + sedikit mengecil, lalu tajam.
+                        (fadeIn(animationSpec = tween(400)) + scaleIn(initialScale = 0.96f, animationSpec = tween(400))) togetherWith
+                            (fadeOut(animationSpec = tween(400)) + scaleOut(targetScale = 0.96f, animationSpec = tween(400)))
+                    },
+                    contentAlignment = Alignment.Center,
+                    label = "activeLyricLineSwitch",
+                    modifier =
+                        Modifier
+                            .sizeIn(minHeight = reservedLineHeight)
+                            .wrapContentHeight(Alignment.CenterVertically),
+                ) { (line, _) ->
+                    if (line != null) {
+                        Text(
+                            text = rememberSweptLyrics(line, lyricsPosition, baseTextColor),
+                            style = style,
+                            maxLines = 2,
+                        )
+                    }
                 }
+            }
+
+            if (hasBackground) {
+                Surface(
+                    color = lerp(MaterialTheme.colorScheme.secondaryContainer, Color.Black, 0.25f).copy(alpha = 0.88f),
+                    shape = MaterialTheme.shapes.large,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                ) {
+                    Box(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        lyricsContent()
+                    }
+                }
+            } else {
+                lyricsContent()
             }
         }
     }
