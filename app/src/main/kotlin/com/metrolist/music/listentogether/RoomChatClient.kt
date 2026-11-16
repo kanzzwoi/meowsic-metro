@@ -138,6 +138,8 @@ class RoomChatClient(
         val color: String,
         /** Level minimal border yang dipakai ("" = tanpa border). */
         val border: String = "",
+        /** Waktu publish profil ini; yang terbaru yang menang. */
+        val timestamp: Long = 0L,
     )
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -394,12 +396,14 @@ class RoomChatClient(
                 return
             }
 
-        // Profil adalah state, bukan pesan: publish ulang (ganti border/emoji,
-        // re-announce saat socket kebuka) harus selalu diproses, jadi lewati
-        // dedup untuk kind=profile — id-nya stabil ("profile-<userId>") dan
-        // sebelumnya publish kedua selalu dibuang sebagai duplikat.
+        // Id unik per publish: profil adalah state yang diterbitkan ulang tiap
+        // ganti border/emoji. Dengan id stabil ("profile-<userId>") publish
+        // kedua selalu dibuang dedup — di handleIncoming, di loadHistory, dan
+        // di startPolling (ketiganya dedup pakai id ini). Timestamp bikin tiap
+        // publish jadi pesan yang berbeda, jadi semuanya terkirim, dan replay
+        // diterapkan urut — yang terbaru yang menang.
         val messageKey = payload.id.ifBlank { outer["id"]?.jsonPrimitive?.content.orEmpty() }
-        if (payload.kind != "profile" && messageKey.isNotBlank() && !seenMessageIds.add(messageKey)) return
+        if (messageKey.isNotBlank() && !seenMessageIds.add(messageKey)) return
 
         val timestamp =
             payload.timestamp.takeIf { it > 0L }
@@ -417,6 +421,7 @@ class RoomChatClient(
                     emoji = payload.emoji,
                     color = payload.color,
                     border = payload.border,
+                    timestamp = timestamp,
                 ),
             )
             return
@@ -554,7 +559,7 @@ class RoomChatClient(
             buildJsonObject {
                 put("topic", JsonPrimitive(topic))
                 put("kind", JsonPrimitive("profile"))
-                put("id", JsonPrimitive("profile-$userId"))
+                put("id", JsonPrimitive("profile-$userId-${System.currentTimeMillis()}"))
                 put("sender_id", JsonPrimitive(userId))
                 put("sender_name", JsonPrimitive(username))
                 put("emoji", JsonPrimitive(emoji))

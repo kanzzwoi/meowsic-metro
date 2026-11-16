@@ -202,6 +202,7 @@ class ListenTogetherManager
                     emoji = emoji,
                     color = color,
                     border = border,
+                    timestamp = System.currentTimeMillis(),
                 )
             _memberProfiles.value = _memberProfiles.value + (myId to profile)
             chatClient.publishProfile(room.roomCode, myId, username, emoji, color, border)
@@ -221,7 +222,7 @@ class ListenTogetherManager
                         ?: prefs[com.metrolist.music.constants.ListenTogetherUsernameKey]
                         ?: "Teman"
                 _memberProfiles.value =
-                    _memberProfiles.value + (myId to RoomChatClient.UserProfile(myId, name, emoji, color, border))
+                    _memberProfiles.value + (myId to RoomChatClient.UserProfile(myId, name, emoji, color, border, System.currentTimeMillis()))
                 chatClient.publishProfile(roomCode, myId, name, emoji, color, border)
             }
             // Resolve the relay BEFORE connecting: the client must know which
@@ -259,7 +260,13 @@ class ListenTogetherManager
                 },
                 onError = { error -> _chatError.value = error },
                 onProfile = { profile ->
-                    _memberProfiles.value = _memberProfiles.value + (profile.userId to profile)
+                    // Profil bisa datang dari dua transport (relay + ntfy) dan dari
+                    // replay history: yang lebih lama tidak boleh menimpa yang baru
+                    // (mis. profil lama tanpa border menimpa border yang baru dipilih).
+                    val current = _memberProfiles.value[profile.userId]
+                    if (current == null || profile.timestamp >= current.timestamp) {
+                        _memberProfiles.value = _memberProfiles.value + (profile.userId to profile)
+                    }
                 },
             )
         }
