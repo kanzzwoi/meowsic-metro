@@ -41,15 +41,21 @@ object LyricsProviderRegistry {
         return providers.filter { it in providerNames }.joinToString(",")
     }
 
+    // Urutan default = urutan v14 (LyricsProvider.userConfigurable):
+    // LYPRIO, BETTERLYRICS, LRCRED, UNISON, LRCLIB, KUGOU, PAXSENIX.
+    // LYPRIO tidak ada padanannya di Meowsic, jadi dilewati. LyricsPlus
+    // (Binimum) dan QQMusic cuma ada di Meowsic, ditaruh setelah ketujuh
+    // provider v14, sebelum fallback YouTube — sama seperti v14 yang
+    // menaruh YouTubeSubtitle/YouTube paling akhir.
     fun getDefaultProviderOrder(): List<String> = listOf(
-        "Paxsenix",
         "BetterLyrics",
-        "Unison",
-        "QQMusic",
         "LrcRed",
-        "LyricsPlus",
+        "Unison",
         "LrcLib",
         "KuGou",
+        "Paxsenix",
+        "LyricsPlus",
+        "QQMusic",
         "YouTubeSubtitle",
         "YouTube",
     )

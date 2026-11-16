@@ -422,7 +422,7 @@ fun BottomSheetPlayer(
         // Lirik sudah ada (dari cache): langsung pakai, tanpa penukaran diam-diam.
         if (cachedForCurrent != null) return@LaunchedEffect
 
-        // Belum ada lirik: tampilkan hasil TERCEPAT apa pun levelnya.
+        // Belum ada lirik: ambil dari provider sesuai urutan (ala v14).
         val startedAt = System.currentTimeMillis()
         val fetched = entryPoint.lyricsHelper().getLyrics(currentMeta)
         com.metrolist.music.lyrics.LyricsStats.lastTrackId = currentMeta.id

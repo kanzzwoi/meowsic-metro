@@ -1440,4 +1440,34 @@ object LyricsUtils {
                 lyrics.contains(PAXSENIX_AGENT_LINE_REGEX) ||
                 lyrics.contains(PAXSENIX_BG_LINE_REGEX)
     }
+
+    /**
+     * Port dari v14 (LyricsRepository.usableProviderLyrics): hasil provider
+     * dianggap bisa dipakai kalau ada minimal satu baris teks asli dan tidak
+     * semuanya baris placeholder "test/sample line".
+     */
+    fun usableProviderLyrics(entries: List<LyricsEntry>): Boolean {
+        val text = entries.map { it.text.trim() }.filter(String::isNotBlank)
+        return text.isNotEmpty() && !text.all { PLACEHOLDER_LYRIC.matches(it) }
+    }
+
+    private val PLACEHOLDER_LYRIC = Regex(
+        "(?:test|sample|placeholder) (?:line|lyrics?)(?: \\d+)?[.!]?",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /**
+     * Port dari v14 (LyricsUtils.hasPlaybackTiming / lyricsTimingKind): lirik
+     * punya timing putar kalau ada timing per kata (end > start) atau waktu
+     * barisnya memang berbeda-beda, bukan semua 0 / sama. Model Meowsic tidak
+     * punya endTime per baris dan isLineTimed seperti v14, jadi dua hal itu
+     * tidak dicek di sini.
+     */
+    fun hasPlaybackTiming(lines: List<LyricsEntry>): Boolean {
+        if (lines.any { entry -> entry.words.orEmpty().any { it.endTime > it.startTime } }) return true
+        val timed = lines.filter { it.text.isNotBlank() || !it.words.isNullOrEmpty() }
+        if (timed.isEmpty()) return false
+        return if (timed.size == 1) timed.single().time > 0L
+        else timed.any { it.time != timed.first().time }
+    }
 }
