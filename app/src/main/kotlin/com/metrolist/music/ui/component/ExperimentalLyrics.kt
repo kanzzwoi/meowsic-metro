@@ -698,10 +698,15 @@ fun ExperimentalLyrics(
                  }, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp)) { TextPlaceholder() } } }
              }
         } else {
+            // Ala v14 (LyricsView.kt): fade dibatasi max 1/4 tinggi wadah.
+            // Tanpa batas ini, di landscape (~360dp) fade 130+160dp menelan
+            // ~80% panel — baris aktif + terjemahannya ikut pudar.
+            val fadeTop = minOf(LYRICS_FADE_TOP_DP, maxHeight / 4)
+            val fadeBottom = minOf(LYRICS_FADE_BOTTOM_DP, maxHeight / 4)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .fadingEdge(top = LYRICS_FADE_TOP_DP, bottom = LYRICS_FADE_BOTTOM_DP)
+                    .fadingEdge(top = fadeTop, bottom = fadeBottom)
                     .clipToBounds()
                     .nestedScroll(remember {
                         object : NestedScrollConnection {
