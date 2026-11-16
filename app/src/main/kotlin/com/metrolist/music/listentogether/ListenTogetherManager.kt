@@ -12,6 +12,7 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.WatchEndpoint
+import com.metrolist.music.constants.LevelTotalExpKey
 import com.metrolist.music.constants.ListenTogetherSyncVolumeKey
 import com.metrolist.music.db.MusicDatabase
 import com.metrolist.music.db.entities.ChatCacheEntity
@@ -19,6 +20,7 @@ import com.metrolist.music.db.entities.LOCAL_CHAT_RETENTION_MS
 import com.metrolist.music.extensions.currentMetadata
 import com.metrolist.music.extensions.metadata
 import com.metrolist.music.extensions.toMediaItem
+import com.metrolist.music.level.levelForTotalExp
 import com.metrolist.music.models.MediaMetadata
 import com.metrolist.music.models.MediaMetadata.Album
 import com.metrolist.music.models.MediaMetadata.Artist
@@ -193,6 +195,7 @@ class ListenTogetherManager
             color: String,
             border: String = "",
             pfp: String = "",
+            level: String = "",
         ) {
             val room = roomState.value ?: return
             val myId = userId.value ?: return
@@ -204,10 +207,11 @@ class ListenTogetherManager
                     color = color,
                     border = border,
                     pfp = pfp,
+                    level = level,
                     timestamp = System.currentTimeMillis(),
                 )
             _memberProfiles.value = _memberProfiles.value + (myId to profile)
-            chatClient.publishProfile(room.roomCode, myId, username, emoji, color, border, pfp)
+            chatClient.publishProfile(room.roomCode, myId, username, emoji, color, border, pfp, level)
         }
 
         private fun connectChat(roomCode: String) {
@@ -219,14 +223,15 @@ class ListenTogetherManager
                 val borderLevel = prefs[com.metrolist.music.constants.ListenTogetherAvatarBorderKey] ?: 0
                 val border = if (borderLevel > 0) borderLevel.toString() else ""
                 val pfp = prefs[com.metrolist.music.constants.ListenTogetherAvatarPfpKey] ?: ""
+                val level = levelForTotalExp(prefs[LevelTotalExpKey] ?: 0L).toString()
                 val myId = userId.value ?: return@launch
                 val name =
                     roomState.value?.users?.firstOrNull { it.userId == myId }?.username
                         ?: prefs[com.metrolist.music.constants.ListenTogetherUsernameKey]
                         ?: "Teman"
                 _memberProfiles.value =
-                    _memberProfiles.value + (myId to RoomChatClient.UserProfile(myId, name, emoji, color, border, pfp, System.currentTimeMillis()))
-                chatClient.publishProfile(roomCode, myId, name, emoji, color, border, pfp)
+                    _memberProfiles.value + (myId to RoomChatClient.UserProfile(myId, name, emoji, color, border, pfp, level, System.currentTimeMillis()))
+                chatClient.publishProfile(roomCode, myId, name, emoji, color, border, pfp, level)
             }
             // Resolve the relay BEFORE connecting: the client must know which
             // transport to use the moment the socket opens, otherwise two members can

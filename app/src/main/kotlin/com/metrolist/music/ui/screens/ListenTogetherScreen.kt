@@ -111,6 +111,7 @@ import com.metrolist.music.level.TOGETHER_BORDER_LEVELS
 import com.metrolist.music.level.borderDrawableRes
 import com.metrolist.music.level.levelForTotalExp
 import com.metrolist.music.level.pfpDrawableRes
+import com.metrolist.music.level.tierForLevel
 import com.metrolist.music.listentogether.AcceptedSuggestion
 import com.metrolist.music.listentogether.ConnectionState
 import com.metrolist.music.listentogether.JoinRequestPayload
@@ -263,6 +264,7 @@ fun ListenTogetherScreen(
                     color = color,
                     border = if (border > 0) border.toString() else "",
                     pfp = pfp,
+                    level = myLevel.toString(),
                 )
             },
         )
@@ -411,6 +413,7 @@ fun ListenTogetherScreen(
                         ownColor = myAvatarColor,
                         ownBorder = if (myAvatarBorder > 0) myAvatarBorder.toString() else "",
                         ownPfp = myAvatarPfp,
+                        ownLevel = myLevel.toString(),
                         onEditProfile = { showProfileEditor = true },
                         onUserClick = { clickedUserId, username ->
                             if (isHost && clickedUserId != currentUserIdValue) {
@@ -458,7 +461,7 @@ fun ListenTogetherScreen(
                     }
                 }
 
-                item { ChatPanel(messages = chatMessages, expanded = chatExpanded, onToggle = { chatExpanded = !chatExpanded }, input = chatInput, onInputChange = { chatInput = it }, onSend = { val m = chatInput.trim().take(RoomChatClient.MAX_CHAT_LENGTH); if (m.isNotBlank()) { listenTogetherManager.sendChatMessage(m); chatInput = "" } }, error = chatError, listState = chatListState, currentUserId = currentUserIdValue) }
+                item { ChatPanel(messages = chatMessages, expanded = chatExpanded, onToggle = { chatExpanded = !chatExpanded }, input = chatInput, onInputChange = { chatInput = it }, onSend = { val m = chatInput.trim().take(RoomChatClient.MAX_CHAT_LENGTH); if (m.isNotBlank()) { listenTogetherManager.sendChatMessage(m); chatInput = "" } }, error = chatError, listState = chatListState, currentUserId = currentUserIdValue, profiles = memberProfiles) }
                 // Leave room button
                 item {
                     Box(
@@ -855,6 +858,7 @@ private fun ConnectedUsersSection(
     ownColor: String,
     ownBorder: String,
     ownPfp: String,
+    ownLevel: String,
     onEditProfile: () -> Unit,
     onUserClick: (String, String) -> Unit,
 ) {
@@ -892,6 +896,7 @@ private fun ConnectedUsersSection(
                     colorHex = profile?.color ?: if (user.userId == currentUserId) ownColor else "",
                     border = profile?.border ?: if (user.userId == currentUserId) ownBorder else "",
                     pfp = profile?.pfp ?: if (user.userId == currentUserId) ownPfp else "",
+                    level = profile?.level ?: if (user.userId == currentUserId) ownLevel else "",
                     onClick = { onUserClick(user.userId, user.username) },
                 )
             }
@@ -908,6 +913,7 @@ private fun UserAvatar(
     colorHex: String,
     border: String,
     pfp: String,
+    level: String,
     onClick: () -> Unit,
 ) {
     Column(
@@ -1012,15 +1018,29 @@ private fun UserAvatar(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Text(
-            text = user.username,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (isCurrentUser) FontWeight.Bold else FontWeight.Medium,
-            color = if (user.isHost) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-        )
+        // Badge tier kecil di kiri nama (16dp); sembunyi kalau level belum diketahui.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            level.takeIf { it.isNotBlank() }?.toIntOrNull()?.let { lvl ->
+                Image(
+                    painter = painterResource(tierForLevel(lvl).badgeRes),
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+            Text(
+                text = user.username,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (isCurrentUser) FontWeight.Bold else FontWeight.Medium,
+                color = if (user.isHost) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+        }
 
         if (user.isHost) {
             Text(
@@ -1572,7 +1592,7 @@ private fun SettingsLinkCard(onClick: () -> Unit) {
 
 
 @Composable
-private fun ChatPanel(messages: List<RoomChatClient.ChatMessage>, expanded: Boolean, onToggle: () -> Unit, input: String, onInputChange: (String) -> Unit, onSend: () -> Unit, error: String?, listState: LazyListState, currentUserId: String) {
+private fun ChatPanel(messages: List<RoomChatClient.ChatMessage>, expanded: Boolean, onToggle: () -> Unit, input: String, onInputChange: (String) -> Unit, onSend: () -> Unit, error: String?, listState: LazyListState, currentUserId: String, profiles: Map<String, RoomChatClient.UserProfile>) {
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle), verticalAlignment = Alignment.CenterVertically) {
@@ -1588,7 +1608,7 @@ private fun ChatPanel(messages: List<RoomChatClient.ChatMessage>, expanded: Bool
                 Box(modifier = Modifier.fillMaxWidth().height(if (messages.isEmpty()) 80.dp else 220.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerLowest).padding(8.dp)) {
                     if (messages.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Belum ada pesan", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     else LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
-                        items(messages) { msg -> val isMe = msg.senderId == currentUserId; val time = remember(msg.timestamp) { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(msg.timestamp)) }; Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start) { Surface(shape = RoundedCornerShape(16.dp), color = if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth(0.78f)) { Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) { if (!isMe) Text(msg.senderName, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); Text(msg.text, style = MaterialTheme.typography.bodyMedium); Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.End)) } } } }
+                        items(messages) { msg -> val isMe = msg.senderId == currentUserId; val time = remember(msg.timestamp) { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(msg.timestamp)) }; Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start) { Surface(shape = RoundedCornerShape(16.dp), color = if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth(0.78f)) { Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) { if (!isMe) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) { profiles[msg.senderId]?.level?.takeIf { it.isNotBlank() }?.toIntOrNull()?.let { lvl -> Image(painter = painterResource(tierForLevel(lvl).badgeRes), contentDescription = null, modifier = Modifier.size(14.dp)) }; Text(msg.senderName, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) }; Text(msg.text, style = MaterialTheme.typography.bodyMedium); Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.End)) } } } }
                     }
                 }
                 Spacer(Modifier.height(10.dp))

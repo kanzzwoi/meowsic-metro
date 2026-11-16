@@ -129,6 +129,7 @@ class RoomChatClient(
         val color: String = "",
         val border: String = "",
         val pfp: String = "",
+        val level: String = "",
     )
 
     /** Avatar details a member picked for themselves. */
@@ -141,6 +142,8 @@ class RoomChatClient(
         val border: String = "",
         /** Id foto profil rahasia ("" = tanpa foto profil). */
         val pfp: String = "",
+        /** Level member saat publish ("" = tidak diketahui). */
+        val level: String = "",
         /** Waktu publish profil ini; yang terbaru yang menang. */
         val timestamp: Long = 0L,
     )
@@ -425,6 +428,7 @@ class RoomChatClient(
                     color = payload.color,
                     border = payload.border,
                     pfp = payload.pfp,
+                    level = payload.level,
                     timestamp = timestamp,
                 ),
             )
@@ -558,6 +562,7 @@ class RoomChatClient(
         color: String,
         border: String = "",
         pfp: String = "",
+        level: String = "",
     ) {
         val topic = topicFor(roomCode)
         val payload =
@@ -571,6 +576,7 @@ class RoomChatClient(
                 put("color", JsonPrimitive(color))
                 put("border", JsonPrimitive(border))
                 put("pfp", JsonPrimitive(pfp))
+                put("level", JsonPrimitive(level))
                 put("timestamp", JsonPrimitive(System.currentTimeMillis()))
             }
 
