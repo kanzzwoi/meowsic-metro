@@ -143,7 +143,7 @@ fun ActiveLyricLine(
         Box(
             modifier =
                 Modifier
-                    .padding(top = 16.dp)
+                    .padding(top = 16.dp, bottom = 12.dp)
                     .fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
