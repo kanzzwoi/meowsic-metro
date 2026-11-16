@@ -192,6 +192,7 @@ class ListenTogetherManager
             emoji: String,
             color: String,
             border: String = "",
+            pfp: String = "",
         ) {
             val room = roomState.value ?: return
             val myId = userId.value ?: return
@@ -202,10 +203,11 @@ class ListenTogetherManager
                     emoji = emoji,
                     color = color,
                     border = border,
+                    pfp = pfp,
                     timestamp = System.currentTimeMillis(),
                 )
             _memberProfiles.value = _memberProfiles.value + (myId to profile)
-            chatClient.publishProfile(room.roomCode, myId, username, emoji, color, border)
+            chatClient.publishProfile(room.roomCode, myId, username, emoji, color, border, pfp)
         }
 
         private fun connectChat(roomCode: String) {
@@ -216,14 +218,15 @@ class ListenTogetherManager
                 val color = prefs[com.metrolist.music.constants.ListenTogetherAvatarColorKey] ?: "#7C4DFF"
                 val borderLevel = prefs[com.metrolist.music.constants.ListenTogetherAvatarBorderKey] ?: 0
                 val border = if (borderLevel > 0) borderLevel.toString() else ""
+                val pfp = prefs[com.metrolist.music.constants.ListenTogetherAvatarPfpKey] ?: ""
                 val myId = userId.value ?: return@launch
                 val name =
                     roomState.value?.users?.firstOrNull { it.userId == myId }?.username
                         ?: prefs[com.metrolist.music.constants.ListenTogetherUsernameKey]
                         ?: "Teman"
                 _memberProfiles.value =
-                    _memberProfiles.value + (myId to RoomChatClient.UserProfile(myId, name, emoji, color, border, System.currentTimeMillis()))
-                chatClient.publishProfile(roomCode, myId, name, emoji, color, border)
+                    _memberProfiles.value + (myId to RoomChatClient.UserProfile(myId, name, emoji, color, border, pfp, System.currentTimeMillis()))
+                chatClient.publishProfile(roomCode, myId, name, emoji, color, border, pfp)
             }
             // Resolve the relay BEFORE connecting: the client must know which
             // transport to use the moment the socket opens, otherwise two members can

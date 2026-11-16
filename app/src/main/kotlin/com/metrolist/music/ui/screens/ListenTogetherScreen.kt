@@ -102,11 +102,15 @@ import java.util.Locale
 import com.metrolist.music.constants.AppBarHeight
 import com.metrolist.music.constants.LevelTotalExpKey
 import com.metrolist.music.constants.ListenTogetherAvatarBorderKey
+import com.metrolist.music.constants.ListenTogetherAvatarPfpKey
 import com.metrolist.music.constants.ListenTogetherInTopBarKey
 import com.metrolist.music.constants.ListenTogetherUsernameKey
+import com.metrolist.music.constants.SecretPfpUnlockedKey
+import com.metrolist.music.level.SECRET_PFPS
 import com.metrolist.music.level.TOGETHER_BORDER_LEVELS
 import com.metrolist.music.level.borderDrawableRes
 import com.metrolist.music.level.levelForTotalExp
+import com.metrolist.music.level.pfpDrawableRes
 import com.metrolist.music.listentogether.AcceptedSuggestion
 import com.metrolist.music.listentogether.ConnectionState
 import com.metrolist.music.listentogether.JoinRequestPayload
@@ -163,6 +167,8 @@ fun ListenTogetherScreen(
     var myAvatarEmoji by rememberPreference(com.metrolist.music.constants.ListenTogetherAvatarEmojiKey, "🎧")
     var myAvatarColor by rememberPreference(com.metrolist.music.constants.ListenTogetherAvatarColorKey, "#7C4DFF")
     var myAvatarBorder by rememberPreference(ListenTogetherAvatarBorderKey, 0)
+    var myAvatarPfp by rememberPreference(ListenTogetherAvatarPfpKey, "")
+    val secretPfpUnlocked by rememberPreference(SecretPfpUnlockedKey, false)
     val totalExp by rememberPreference(LevelTotalExpKey, 0L)
     val myLevel = levelForTotalExp(totalExp)
     var roomCodeInput by rememberSaveable { mutableStateOf("") }
@@ -240,19 +246,23 @@ fun ListenTogetherScreen(
             currentEmoji = myAvatarEmoji,
             currentColor = myAvatarColor,
             currentBorder = myAvatarBorder,
+            currentPfp = myAvatarPfp,
+            secretPfpUnlocked = secretPfpUnlocked,
             userLevel = myLevel,
             username = savedUsername.ifBlank { usernameInput.ifBlank { "Teman" } },
             onDismiss = { showProfileEditor = false },
-            onSave = { emoji, color, border ->
+            onSave = { emoji, color, border, pfp ->
                 myAvatarEmoji = emoji
                 myAvatarColor = color
                 myAvatarBorder = border
+                myAvatarPfp = pfp
                 showProfileEditor = false
                 listenTogetherManager.publishMyProfile(
                     username = savedUsername.ifBlank { usernameInput.ifBlank { "Teman" } },
                     emoji = emoji,
                     color = color,
                     border = if (border > 0) border.toString() else "",
+                    pfp = pfp,
                 )
             },
         )
@@ -400,6 +410,7 @@ fun ListenTogetherScreen(
                         ownEmoji = myAvatarEmoji,
                         ownColor = myAvatarColor,
                         ownBorder = if (myAvatarBorder > 0) myAvatarBorder.toString() else "",
+                        ownPfp = myAvatarPfp,
                         onEditProfile = { showProfileEditor = true },
                         onUserClick = { clickedUserId, username ->
                             if (isHost && clickedUserId != currentUserIdValue) {
@@ -843,6 +854,7 @@ private fun ConnectedUsersSection(
     ownEmoji: String,
     ownColor: String,
     ownBorder: String,
+    ownPfp: String,
     onEditProfile: () -> Unit,
     onUserClick: (String, String) -> Unit,
 ) {
@@ -879,6 +891,7 @@ private fun ConnectedUsersSection(
                     emoji = profile?.emoji ?: if (user.userId == currentUserId) ownEmoji else "",
                     colorHex = profile?.color ?: if (user.userId == currentUserId) ownColor else "",
                     border = profile?.border ?: if (user.userId == currentUserId) ownBorder else "",
+                    pfp = profile?.pfp ?: if (user.userId == currentUserId) ownPfp else "",
                     onClick = { onUserClick(user.userId, user.username) },
                 )
             }
@@ -894,6 +907,7 @@ private fun UserAvatar(
     emoji: String,
     colorHex: String,
     border: String,
+    pfp: String,
     onClick: () -> Unit,
 ) {
     Column(
@@ -943,6 +957,19 @@ private fun UserAvatar(
                         )
                     }
                 }
+            }
+
+            // Foto profil rahasia menimpa warna + emoji (border tetap di atas).
+            pfpDrawableRes(pfp)?.let { pfpRes ->
+                Image(
+                    painter = painterResource(pfpRes),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier =
+                        Modifier
+                            .size(56.dp)
+                            .clip(CircleShape),
+                )
             }
 
             // Border level (WebP 1:1) digambar di atas avatar, sedikit lebih besar
@@ -1655,10 +1682,12 @@ private fun ProfileEditorDialog(
     currentEmoji: String,
     currentColor: String,
     currentBorder: Int,
+    currentPfp: String,
+    secretPfpUnlocked: Boolean,
     userLevel: Int,
     username: String,
     onDismiss: () -> Unit,
-    onSave: (String, String, Int) -> Unit,
+    onSave: (String, String, Int, String) -> Unit,
 ) {
     val emojis = listOf("🎧", "😎", "🐱", "🐺", "🦊", "🐼", "🦄", "🌙", "⭐", "🔥", "🌊", "🍿", "🪩", "🚀", "👾", "🌸", "🐸", "🗿", "👽", "🧚", "🦋", "🧸", "🩲")
     val colors = listOf("#7C4DFF", "#FF5252", "#FF6E40", "#FFC400", "#69F0AE", "#18FFFF", "#40C4FF", "#448AFF", "#B388FF", "#F06292", "#AED581", "#FFAB40")
@@ -1668,6 +1697,7 @@ private fun ProfileEditorDialog(
     var emoji by remember { mutableStateOf(currentEmoji) }
     var color by remember { mutableStateOf(currentColor) }
     var border by remember { mutableStateOf(currentBorder) }
+    var pfp by remember { mutableStateOf(currentPfp) }
 
     DefaultDialog(
         onDismiss = onDismiss,
@@ -1686,6 +1716,15 @@ private fun ProfileEditorDialog(
                 ) {
                     Text(emoji.ifBlank { initial }, style = MaterialTheme.typography.headlineMedium)
                 }
+                // Foto profil rahasia menimpa warna + emoji di preview.
+                pfpDrawableRes(pfp)?.let { pfpRes ->
+                    Image(
+                        painter = painterResource(pfpRes),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(64.dp).clip(CircleShape),
+                    )
+                }
                 borderDrawableRes(border)?.let { borderRes ->
                     Image(
                         painter = painterResource(borderRes),
@@ -1700,7 +1739,7 @@ private fun ProfileEditorDialog(
             TextButton(onClick = onDismiss) {
                 Text(stringResource(android.R.string.cancel))
             }
-            TextButton(onClick = { onSave(emoji, color, border) }) {
+            TextButton(onClick = { onSave(emoji, color, border, pfp) }) {
                 Text("Simpan")
             }
         },
@@ -1795,6 +1834,53 @@ private fun ProfileEditorDialog(
                     ) {
                         if (item == color) {
                             Box(contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.check), null, tint = Color.White, modifier = Modifier.size(20.dp)) }
+                        }
+                    }
+                }
+            }
+
+            // Foto profil rahasia: hanya muncul kalau easter egg di Tentang sudah kebuka.
+            // Dipilih, foto ini menimpa warna + emoji di avatar (border tetap di atas).
+            if (secretPfpUnlocked) {
+                Text("Foto profil rahasia", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 2.dp),
+                ) {
+                    item {
+                        BorderPickerItem(
+                            label = "Tanpa",
+                            selected = pfp.isBlank(),
+                            enabled = true,
+                            onClick = { pfp = "" },
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(48.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text("✕", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                    items(SECRET_PFPS) { (id, res, label) ->
+                        BorderPickerItem(
+                            label = label,
+                            selected = pfp == id,
+                            enabled = true,
+                            onClick = { pfp = id },
+                        ) {
+                            Image(
+                                painter = painterResource(res),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier =
+                                    Modifier
+                                        .size(48.dp)
+                                        .clip(CircleShape),
+                            )
                         }
                     }
                 }

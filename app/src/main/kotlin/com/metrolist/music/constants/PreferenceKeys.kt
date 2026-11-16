@@ -207,6 +207,10 @@ val ListenTogetherAvatarEmojiKey = stringPreferencesKey("listenTogetherAvatarEmo
 val ListenTogetherAvatarColorKey = stringPreferencesKey("listenTogetherAvatarColor")
 /** Border profil Together yang dipilih: level minimal bordernya (1/10/20/.../100), 0 = tanpa border. */
 val ListenTogetherAvatarBorderKey = intPreferencesKey("listenTogetherAvatarBorder")
+/** Foto profil rahasia Together yang dipilih: id "1".."5" (lihat SECRET_PFPS), "" = tanpa foto profil. */
+val ListenTogetherAvatarPfpKey = stringPreferencesKey("listenTogetherAvatarPfp")
+/** Foto profil rahasia sudah kebuka (easter egg 10x ketuk di Tentang). */
+val SecretPfpUnlockedKey = booleanPreferencesKey("secretPfpUnlocked")
 val ListenTogetherAutoApprovalKey = booleanPreferencesKey("listenTogetherAutoApproval")
 val ListenTogetherAutoApproveSuggestionsKey = booleanPreferencesKey("listenTogetherAutoApproveSuggestions")
 val ListenTogetherSyncVolumeKey = booleanPreferencesKey("listenTogetherSyncVolume")

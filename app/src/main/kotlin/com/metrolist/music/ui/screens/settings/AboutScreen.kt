@@ -3,6 +3,7 @@
  */
 package com.metrolist.music.ui.screens.settings
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,9 +59,11 @@ import com.metrolist.music.BuildConfig
 import com.metrolist.music.LocalPlayerAwareWindowInsets
 import com.metrolist.music.LocalPlayerConnection
 import com.metrolist.music.R
+import com.metrolist.music.constants.SecretPfpUnlockedKey
 import com.metrolist.music.playback.queues.YouTubeQueue
 import com.metrolist.music.ui.component.IconButton
 import com.metrolist.music.ui.utils.backToMain
+import com.metrolist.music.utils.rememberPreference
 
 @Composable
 private fun KanzAvatar(
@@ -99,6 +102,11 @@ fun AboutScreen(
     val playerConnection = LocalPlayerConnection.current
     val snackbarHostState = remember { SnackbarHostState() }
     val windowInsets = LocalPlayerAwareWindowInsets.current
+
+    // Easter egg: ketuk "TERIMAKASIH SUDAH BERKUNJUNG" 10x untuk membuka foto
+    // profil rahasia di edit profil Together. Sekali kebuka, tersimpan.
+    var secretPfpUnlocked by rememberPreference(SecretPfpUnlockedKey, false)
+    var thanksClickCount by remember { mutableIntStateOf(0) }
 
     Box(Modifier.fillMaxSize()) {
         Column(
@@ -183,7 +191,22 @@ fun AboutScreen(
 
                     Spacer(Modifier.height(16.dp))
 
-                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (!secretPfpUnlocked) {
+                                        thanksClickCount++
+                                        if (thanksClickCount >= 10) {
+                                            thanksClickCount = 0
+                                            secretPfpUnlocked = true
+                                        }
+                                    }
+                                },
+                    ) {
                         Text(
                             "TERIMAKASIH SUDAH BERKUNJUNG",
                             fontWeight = FontWeight.ExtraBold,
