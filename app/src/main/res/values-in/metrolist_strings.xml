@@ -806,6 +806,7 @@
     <string name="stats_share_time">Waktu mendengarkan</string>
     <string name="stats_share_top_songs">Lagu teratas</string>
     <string name="stats_share_top_albums">Album teratas</string>
+    <string name="stats_share_top_artists">Artis teratas</string>
     <string name="stats_share_empty">Belum ada statistik untuk dibagikan</string>
     <string name="stats_share_failed">Gagal membagikan statistik</string>
     <string name="stats_share_times_played">%1$d kali diputar</string>

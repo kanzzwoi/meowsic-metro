@@ -211,6 +211,7 @@ fun StatsScreen(
     val statsTimeLabel = stringResource(R.string.stats_share_time)
     val statsTopSongsLabel = stringResource(R.string.stats_share_top_songs)
     val statsTopAlbumsLabel = stringResource(R.string.stats_share_top_albums)
+    val statsTopArtistsLabel = stringResource(R.string.stats_share_top_artists)
     val statsShareLabel = stringResource(R.string.share)
     val statsEmptyMessage = stringResource(R.string.stats_share_empty)
     val statsFailedMessage = stringResource(R.string.stats_share_failed)
@@ -259,9 +260,23 @@ fun StatsScreen(
                 )
             }
         }
+    val shareArtistItems =
+        remember(mostPlayedArtists) {
+            mostPlayedArtists.take(3).map { artist ->
+                val times =
+                    context.getString(R.string.stats_share_times_played, artist.songCount)
+                StatsShareItem(
+                    id = artist.id,
+                    title = artist.artist.name,
+                    subtitle = times,
+                    thumbnailUrl = artist.artist.thumbnailUrl,
+                    circular = true,
+                )
+            }
+        }
     val shareStats: () -> Unit = {
         if (!isSharingStats) {
-            if (shareSongItems.isEmpty() && shareAlbumItems.isEmpty()) {
+            if (shareSongItems.isEmpty() && shareAlbumItems.isEmpty() && shareArtistItems.isEmpty()) {
                 Toast.makeText(context, statsEmptyMessage, Toast.LENGTH_SHORT).show()
             } else {
                 isSharingStats = true
@@ -271,9 +286,13 @@ fun StatsScreen(
                             listOfNotNull(
                                 (statsTopSongsLabel to shareSongItems).takeIf { it.second.isNotEmpty() },
                                 (statsTopAlbumsLabel to shareAlbumItems).takeIf { it.second.isNotEmpty() },
+                                (statsTopArtistsLabel to shareArtistItems).takeIf { it.second.isNotEmpty() },
                             )
                         val artwork =
-                            loadStatsShareArtwork(context, shareSongItems + shareAlbumItems)
+                            loadStatsShareArtwork(
+                                context,
+                                shareSongItems + shareAlbumItems + shareArtistItems,
+                            )
                         val totalPlays = mostPlayedSongsStats.sumOf { it.songCountListened }
                         val totalTimeMs = mostPlayedSongsStats.sumOf { it.timeListened ?: 0L }
                         val bitmap =

@@ -8,6 +8,7 @@ package com.metrolist.music.ui.screens
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Typography
@@ -42,10 +43,15 @@ import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Satu baris di gambar statistik yang dibagikan (ala Metrolist v14).
@@ -55,30 +61,44 @@ data class StatsShareItem(
     val title: String,
     val subtitle: String,
     val thumbnailUrl: String?,
+    /** Sampul bulat ala v14 (artis); lagu/album pakai sudut membulat 12dp. */
+    val circular: Boolean = false,
 )
 
-/** Muat sampul lagu/album untuk gambar share (256px, sekali jalan per item). */
+/**
+ * Muat sampul lagu/album/artis untuk gambar share (256px). Kunci map-nya
+ * URL sampul — persis seperti v14 (StatisticsShareDialog) — karena render
+ * mencari sampul lewat thumbnailUrl. Dulu kuncinya id item, jadi tidak
+ * pernah ketemu dan semua sampul kosong.
+ */
 suspend fun loadStatsShareArtwork(
     context: Context,
     items: List<StatsShareItem>,
-): Map<String, ImageBitmap> {
-    val artwork = mutableMapOf<String, ImageBitmap>()
-    for (item in items) {
-        val url = item.thumbnailUrl ?: continue
-        val bmp =
-            runCatching {
-                val request =
-                    ImageRequest.Builder(context)
-                        .data(url)
-                        .size(256, 256)
-                        .allowHardware(false)
-                        .build()
-                context.imageLoader.execute(request).image?.toBitmap()
-            }.getOrNull()
-        bmp?.let { artwork[item.id] = it.asImageBitmap() }
+): Map<String, ImageBitmap> =
+    coroutineScope {
+        items
+            .mapNotNull { it.thumbnailUrl }
+            .distinct()
+            .map { url ->
+                async {
+                    val bmp =
+                        runCatching {
+                            val request =
+                                ImageRequest.Builder(context)
+                                    .data(url)
+                                    .size(256, 256)
+                                    .allowHardware(false)
+                                    .build()
+                            withTimeoutOrNull(10_000.milliseconds) {
+                                context.imageLoader.execute(request).image?.toBitmap()
+                            }
+                        }.getOrNull()
+                    bmp?.let { url to it.asImageBitmap() }
+                }
+            }.awaitAll()
+            .filterNotNull()
+            .toMap()
     }
-    return artwork
-}
 
 /**
  * Render kartu statistik 1080px untuk dibagikan, port dari Metrolist v14
@@ -217,11 +237,12 @@ fun renderStatsShareImage(
                 textAt(rank, padding + inset, y + (rowHeight - rank.size.height) / 2f)
                 translate(x(imageStart, artworkSize), imageTop) {
                     val outline =
-                        artworkShape.createOutline(
-                            Size(artworkSize.toFloat(), artworkSize.toFloat()),
-                            layoutDirection,
-                            this,
-                        )
+                        (if (items[index].circular) CircleShape else artworkShape)
+                            .createOutline(
+                                Size(artworkSize.toFloat(), artworkSize.toFloat()),
+                                layoutDirection,
+                                this,
+                            )
                     val path = Path().apply { addOutline(outline) }
                     clipPath(path) {
                         drawRect(colors.secondaryContainer)
