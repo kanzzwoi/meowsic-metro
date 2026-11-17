@@ -159,13 +159,13 @@ fun AccountSettingsDialog(
                             onTap = { onDismiss() }
                         )
                     },
-            contentAlignment = Alignment.TopCenter,
+            contentAlignment = Alignment.Center,
         ) {
             Surface(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(top = 72.dp, start = 16.dp, end = 16.dp)
+                        .padding(16.dp)
                         .clip(RoundedCornerShape(28.dp)),
                 shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surface,
