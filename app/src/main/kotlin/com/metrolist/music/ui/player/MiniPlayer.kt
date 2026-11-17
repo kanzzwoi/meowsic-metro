@@ -200,6 +200,8 @@ private fun NewMiniPlayer(
     )
     val context = LocalContext.current
     var gradientColors by remember { mutableStateOf<List<Color>>(emptyList()) }
+    // Warna aksen artwork untuk ring progres (null = belum diekstrak).
+    var artworkAccentColor by remember { mutableStateOf<Color?>(null) }
     val isSystemInDarkTheme = isSystemInDarkTheme()
     val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
     val useDarkTheme =
@@ -280,42 +282,49 @@ private fun NewMiniPlayer(
         }
     }
 
+    // Palet artwork dipakai dua hal: latar GRADIENT dan warna aksen
+    // indikator progres (lingkaran detik di sekeliling thumbnail).
+    // Dulu palet cuma diekstrak kalau latar GRADIENT; sekarang selalu,
+    // supaya ring progres warnanya ikut lagu meski tema dinamis mati.
     LaunchedEffect(mediaMetadata?.id, miniPlayerBackground) {
         gradientColors = emptyList()
-        if (miniPlayerBackground == MiniPlayerBackgroundStyle.GRADIENT) {
-            val url = mediaMetadata?.thumbnailUrl
-            if (url != null) {
-                withContext(Dispatchers.IO) {
-                    val request = ImageRequest.Builder(context)
-                        .data(url)
-                        .size(100, 100)
-                        .allowHardware(false)
-                        .build()
-                    val result = runCatching { context.imageLoader.execute(request) }.getOrNull()
-                    val bitmap = result?.image?.toBitmap()
-                    if (bitmap != null) {
-                        val palette = withContext(Dispatchers.Default) {
-                            Palette.from(bitmap)
-                                .maximumColorCount(8)
-                                .resizeBitmapArea(100 * 100)
-                                .generate()
+        artworkAccentColor = null
+        val url = mediaMetadata?.thumbnailUrl
+        if (url != null) {
+            withContext(Dispatchers.IO) {
+                val request = ImageRequest.Builder(context)
+                    .data(url)
+                    .size(100, 100)
+                    .allowHardware(false)
+                    .build()
+                val result = runCatching { context.imageLoader.execute(request) }.getOrNull()
+                val bitmap = result?.image?.toBitmap()
+                if (bitmap != null) {
+                    val palette = withContext(Dispatchers.Default) {
+                        Palette.from(bitmap)
+                            .maximumColorCount(8)
+                            .resizeBitmapArea(100 * 100)
+                            .generate()
+                    }
+                    val accent = PlayerColorExtractor.extractAccentColor(
+                        palette = palette,
+                        fallbackColor = 0xFF000000.toInt(),
+                    )
+                    val extracted =
+                        if (miniPlayerBackground == MiniPlayerBackgroundStyle.GRADIENT) {
+                            PlayerColorExtractor.extractGradientColors(
+                                palette = palette,
+                                fallbackColor = 0xFF000000.toInt(),
+                            )
+                        } else {
+                            emptyList()
                         }
-                        val extracted = PlayerColorExtractor.extractGradientColors(
-                            palette = palette,
-                            fallbackColor = 0xFF000000.toInt(),
-                        )
-                        withContext(Dispatchers.Main) {
-                            gradientColors = extracted
-                        }
-                    } else {
-                        withContext(Dispatchers.Main) {
-                            gradientColors = emptyList()
-                        }
+                    withContext(Dispatchers.Main) {
+                        artworkAccentColor = accent
+                        gradientColors = extracted
                     }
                 }
             }
-        } else {
-            gradientColors = emptyList()
         }
     }
 
@@ -332,6 +341,10 @@ private fun NewMiniPlayer(
             miniPlayerBackground == MiniPlayerBackgroundStyle.GRADIENT)
 
     val primaryColor = if (forceLightColors) Color.White else MaterialTheme.colorScheme.primary
+    // Ring progres pakai warna artwork (dinamis per lagu), bukan warna tema —
+    // jadi tetap berwarna meski tema dinamis dimatikan. Fallback ke warna
+    // tema kalau artwork belum ada / palet gagal diekstrak.
+    val progressColor = artworkAccentColor ?: primaryColor
     val outlineColor = if (forceLightColors) Color.White else MaterialTheme.colorScheme.outline
     val onSurfaceColor = if (forceLightColors) Color.White else MaterialTheme.colorScheme.onSurface
     val errorColor = if (forceLightColors) Color(0xFFFF6B6B) else MaterialTheme.colorScheme.error
@@ -467,7 +480,7 @@ private fun NewMiniPlayer(
                     castHandler = castHandler,
                     playerConnection = playerConnection,
                     mediaMetadata = mediaMetadata,
-                    primaryColor = primaryColor,
+                    progressColor = progressColor,
                     outlineColor = outlineColor,
                     listenTogetherManager = listenTogetherManager,
                 )
@@ -527,7 +540,7 @@ private fun NewMiniPlayerPlayButton(
     castHandler: CastConnectionHandler?,
     playerConnection: PlayerConnection,
     mediaMetadata: MediaMetadata?,
-    primaryColor: Color,
+    progressColor: Color,
     outlineColor: Color,
     listenTogetherManager: ListenTogetherManager?,
 ) {
@@ -567,7 +580,7 @@ private fun NewMiniPlayerPlayButton(
                     )
                     // Draw progress
                     drawArc(
-                        color = primaryColor,
+                        color = progressColor,
                         startAngle = startAngle,
                         sweepAngle = sweepAngle,
                         useCenter = false,

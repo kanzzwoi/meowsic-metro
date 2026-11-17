@@ -9,6 +9,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.palette.graphics.Palette
 
 object PlayerColorExtractor {
+    /**
+     * Warna aksen dari artwork (swatch teratas) — dipakai untuk indikator
+     * progres mini player supaya warnanya ikut lagu, bukan warna tema.
+     */
+    fun extractAccentColor(
+        palette: Palette,
+        fallbackColor: Int,
+    ): Color = Color(palette.rankedColors(1, fallbackColor).first())
+
     fun extractGradientColors(
         palette: Palette,
         fallbackColor: Int,
