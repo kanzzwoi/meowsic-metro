@@ -147,7 +147,6 @@ import com.metrolist.music.constants.MediaSessionConstants.CommandDismissPlayer
 import com.metrolist.music.constants.MediaSessionConstants.CommandToggleLike
 import com.metrolist.music.constants.MediaSessionConstants.CommandToggleRepeatMode
 import com.metrolist.music.constants.MediaSessionConstants.CommandToggleShuffle
-import com.metrolist.music.constants.MediaSessionConstants.CommandToggleStartRadio
 import com.metrolist.music.constants.PauseListenHistoryKey
 import com.metrolist.music.constants.PauseOnMute
 import com.metrolist.music.constants.PersistentQueueKey
@@ -1638,13 +1637,6 @@ class MusicService :
                     .setDisplayName(getString(R.string.action_dismiss))
                     .setIconResId(R.drawable.delete)
                     .setSessionCommand(CommandDismissPlayer)
-                    .setEnabled(currentSong.value != null)
-                    .build(),
-                CommandButton
-                    .Builder()
-                    .setDisplayName(getString(R.string.start_radio))
-                    .setIconResId(R.drawable.radio)
-                    .setSessionCommand(CommandToggleStartRadio)
                     .setEnabled(currentSong.value != null)
                     .build(),
                 CommandButton
