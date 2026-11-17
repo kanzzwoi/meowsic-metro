@@ -180,6 +180,15 @@ class RoomChatClient(
     private var onProfile: ((UserProfile) -> Unit)? = null
 
     /**
+     * Dipanggil saat socket chat tersambung (kembali) dan subscribe sudah
+     * terkirim. Tanpa ini, pesan error "terputus" yang sekali muncul tidak
+     * pernah hilang walau socket sudah pulih lewat retry 3 detik — karena
+     * satu-satunya tempat error dibersihkan adalah disconnectChat (keluar room).
+     */
+    @Volatile
+    private var onConnected: (() -> Unit)? = null
+
+    /**
      * Subscribe to a room topic.
      *
      * Messages are published to BOTH the self-hosted relay and ntfy, and both
@@ -192,10 +201,12 @@ class RoomChatClient(
         onMessage: (ChatMessage) -> Unit,
         onError: ((String) -> Unit)? = null,
         onProfile: ((UserProfile) -> Unit)? = null,
+        onConnected: (() -> Unit)? = null,
     ) {
         this.onMessage = onMessage
         this.onError = onError
         this.onProfile = onProfile
+        this.onConnected = onConnected
         val topic = topicFor(roomCode)
         if (currentTopic == topic && webSocket != null) return
         disconnect()
@@ -240,8 +251,14 @@ class RoomChatClient(
                 .build()
 
         // Socket baru = belum subscribe; tahan publish sampai onOpen.
+        // Antrean TIDAK dibersihkan di sini: retry (socket gagal lalu
+        // dibuka lagi untuk topic yang sama) harus mengirim publish yang
+        // sudah tertahan (pesan chat / announce profil), bukan membuangnya.
+        // Bersih-bersih antrean sudah ditangani disconnect() saat ganti
+        // topic atau keluar room, jadi publish basi tidak akan bocor ke
+        // room lain. Sebelumnya clear() di sini yang bikin profil (border,
+        // pfp, level) hilang kalau socket sempat gagal sebelum onOpen.
         relaySubscribed = false
-        pendingRelayPublishes.clear()
 
         webSocket =
             client.newWebSocket(
@@ -278,6 +295,9 @@ class RoomChatClient(
                                 Timber.tag(TAG).w(e, "Relay flush failed")
                             }
                         }
+                        // Socket sudah tersambung (kembali): beri tahu
+                        // pemakai supaya pesan "terputus" dibersihkan.
+                        onConnected?.invoke()
                     }
 
                     override fun onMessage(
@@ -322,6 +342,10 @@ class RoomChatClient(
                         response: Response,
                     ) {
                         Timber.tag(TAG).d("Free-service socket open for $topic")
+                        // Hanya jadi sinyal "tersambung" kalau memang tidak
+                        // ada relay; kalau relay ada, yang menentukan adalah
+                        // onOpen socket relay (di atas).
+                        if (activeRelay() == null) onConnected?.invoke()
                     }
 
                     override fun onMessage(

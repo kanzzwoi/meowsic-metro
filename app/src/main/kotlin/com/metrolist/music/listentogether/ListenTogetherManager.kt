@@ -271,6 +271,7 @@ class ListenTogetherManager
                     cacheMessage(roomCode, message)
                 },
                 onError = { error -> _chatError.value = error },
+                onConnected = { _chatError.value = null },
                 onProfile = { profile ->
                     // Profil bisa datang dari dua transport (relay + ntfy) dan dari
                     // replay history: yang lebih lama tidak boleh menimpa yang baru
