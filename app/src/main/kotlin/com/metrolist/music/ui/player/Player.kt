@@ -410,7 +410,7 @@ fun BottomSheetPlayer(
         onDispose { lifecycle.removeObserver(observer) }
     }
     val preferredLyricsProviders = remember { setOf("BetterLyrics", "Unison", "LyricsPlus") }
-    LaunchedEffect(mediaMetadata?.id, lyricsForFetch) {
+    LaunchedEffect(mediaMetadata?.id, lyricsForFetch, appInForeground) {
         val currentMeta = mediaMetadata ?: return@LaunchedEffect
         val cachedForCurrent = lyricsForFetch?.takeIf { it.id == currentMeta.id }
         val entryPoint =
@@ -434,6 +434,13 @@ fun BottomSheetPlayer(
         }
         if (cachedUsable != null) return@LaunchedEffect
 
+        // Lirik yang gagal di-fetch di background (mis. skip lewat notifikasi
+        // saat app tidak aktif) jangan di-fetch ulang di background juga —
+        // efek ini jalan lagi saat app kembali foreground (appInForeground
+        // jadi key) dan fetch diulang di sana. Tanpa ini, hasil NOT_FOUND
+        // dari background nempel terus walau provider sebenarnya punya lirik.
+        if (!appInForeground && cachedForCurrent?.lyrics == LyricsEntity.LYRICS_NOT_FOUND) return@LaunchedEffect
+
         // Belum ada lirik: ambil dari provider sesuai urutan (ala v14).
         val startedAt = System.currentTimeMillis()
         val fetched = entryPoint.lyricsHelper().getLyrics(currentMeta)
@@ -444,6 +451,14 @@ fun BottomSheetPlayer(
                 (System.currentTimeMillis() - startedAt) / 1000.0,
                 if (WORD_TIMING_REGEX.containsMatchIn(fetched.lyrics)) "per kata" else "per baris",
             ) + (com.metrolist.music.lyrics.LyricsStats.detail?.let { " [$it]" } ?: "")
+        // Catat hasil fetch ke playback.log: lirik yang kadang muncul kadang
+        // tidak itu soal timing — dari log ini kelihatan provider mana yang
+        // dicoba, berapa detik masing-masing, dan apakah cap total yang
+        // memotong pencarian. Tanpa ini penyebabnya cuma bisa ditebak.
+        com.metrolist.music.playback.PlaybackLog.log(
+            "lyrics",
+            "fetch ${currentMeta.id} ${com.metrolist.music.lyrics.LyricsStats.last}",
+        )
         // Kegagalan JANGAN disimpan: dulu LYRICS_NOT_FOUND ditulis permanen
         // sehingga lagu yang sekali gagal terus "tidak ditemukan" walau nanti
         // providernya sudah punya. Sekarang hanya ditampilkan sementara.
@@ -476,7 +491,10 @@ fun BottomSheetPlayer(
             withContext(Dispatchers.IO) {
                 runCatching { database.lyrics(nextMeta.id).first() }.getOrNull()
             }
-        if (existing != null) return@LaunchedEffect
+        // Baris NOT_FOUND yang terlanjur tersimpan bukan alasan untuk skip:
+        // lagu itu harus dicoba lagi (provider bisa saja sudah punya liriknya
+        // sekarang). Hanya baris lirik yang valid yang menghentikan prefetch.
+        if (existing != null && existing.lyrics != LyricsEntity.LYRICS_NOT_FOUND) return@LaunchedEffect
         delay(600)
         val entryPoint =
             EntryPointAccessors.fromApplication(

@@ -27,7 +27,11 @@ import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import javax.inject.Inject
 
-private const val MAX_LYRICS_FETCH_MS = 6_000L
+// Total cap dinaikkan 6 -> 10 dtk: pencarian sekuensial 9 provider di data
+// seluler yang lambat bisa kehabisan waktu sebelum sampai ke provider yang
+// punya liriknya (mis. LrcLib/QQMusic di urutan belakang), sementara Cari
+// (paralel, tanpa cap) menemukannya. 10 dtk masih di bawah 12 dtk yang lama.
+private const val MAX_LYRICS_FETCH_MS = 10_000L
 private const val PER_PROVIDER_TIMEOUT_MS = 10_000L
 private const val PROVIDER_NONE = ""
 
