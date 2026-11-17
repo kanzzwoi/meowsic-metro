@@ -26,6 +26,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -271,23 +272,33 @@ fun Queue(
             if (true) {
                 // Pil tembus pandang: Antrian, Timer, Lirik, Lainnya.
                 // Insets ditaruh di luar pil supaya label tidak ketutup nav bar.
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(
-                                start = if (isLandscape) 24.dp else 20.dp,
-                                end = if (isLandscape) 32.dp else 20.dp,
-                                top = 0.dp,
-                                bottom = 8.dp,
-                            ),
+                // Landscape: pil cuma selebar setengah layar (kolom kontrol),
+                // jadi di HP yang lebih sempit padding mengecil supaya
+                // keempat tombol tidak kejepit dan label tidak kepotong.
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp)
+                    val narrow = isLandscape && maxWidth < 380.dp
+                    val outerStart = if (isLandscape) (if (narrow) 12.dp else 24.dp) else 20.dp
+                    val outerEnd = if (isLandscape) (if (narrow) 16.dp else 32.dp) else 20.dp
+                    val rowSidePadding = if (narrow) 8.dp else 20.dp
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    start = outerStart,
+                                    end = outerEnd,
+                                    top = 0.dp,
+                                    bottom = 8.dp,
+                                ),
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = rowSidePadding)
                             .clip(RoundedCornerShape(40.dp))
                             .background(Color.White.copy(alpha = 0.18f))
                             .border(
@@ -362,6 +373,7 @@ fun Queue(
                             },
                         )
                     }
+                }
                 }
             } else {
                 // Old design

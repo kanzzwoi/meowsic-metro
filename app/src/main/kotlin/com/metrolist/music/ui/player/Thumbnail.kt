@@ -63,6 +63,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -463,75 +464,91 @@ private fun ThumbnailHeader(
     val listenTogetherManager = LocalListenTogetherManager.current
     val listenTogetherRoleState = listenTogetherManager?.role?.collectAsStateWithLifecycle(initialValue = RoomRole.NONE)
     val isListenTogetherGuest = listenTogetherRoleState?.value == RoomRole.GUEST
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+    // Header menyesuaikan lebar layar: di HP sempit tombol + padding
+    // mengecil supaya judul panjang ("Hosting Listen Together") tidak
+    // mepet ke tombol pojok. Padding judul dihitung dari zona tombol
+    // (padding luar + ukuran tombol + jarak); sebelumnya 48.dp tetap
+    // padahal zona tombol 56.dp, jadi judul panjang bisa jalan sampai
+    // ke bawah tombol.
+    BoxWithConstraints(
+        modifier = modifier.fillMaxWidth()
     ) {
-        // Tombol panah bawah ala Metrolist v14 (kiri atas): tutup player.
+        val compact = maxWidth < 360.dp
+        val outerPadding = if (compact) 12.dp else 16.dp
+        val buttonSize = if (compact) 36.dp else 40.dp
+        val titlePadding = outerPadding + buttonSize + 8.dp
         Box(
             modifier = Modifier
-                .align(Alignment.CenterStart)
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(textColor.copy(alpha = 0.15f))
-                .clickable { onCollapse() },
-            contentAlignment = Alignment.Center,
+                .fillMaxWidth()
+                .padding(horizontal = outerPadding, vertical = 8.dp)
         ) {
-            Icon(
-                painter = painterResource(R.drawable.expand_more),
-                contentDescription = null,
-                tint = textColor,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-        // Tombol thumbnail penuh (kanan atas): ganti mode thumbnail,
-        // ikon dari SVG kiriman user, putih, lingkaran kayak chevron.
-        // Tombol ini yang gantiin tap artwork (tap sering tidak
-        // ke-tangkap karena rebutan dengan deteksi double-tap seek).
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.15f))
-                .clickable { onToggleFullThumbnail() },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.thumbnail_fullscreen),
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .align(Alignment.Center)
-                .padding(horizontal = 48.dp)
-        ) {
-            // Listen Together indicator
-            if (listenTogetherRoleState?.value != RoomRole.NONE) {
-                Text(
-                    text = if (listenTogetherRoleState?.value == RoomRole.HOST) "Hosting Listen Together" else "Listening Together",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = textColor
+            // Tombol panah bawah ala Metrolist v14 (kiri atas): tutup player.
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .size(buttonSize)
+                    .clip(CircleShape)
+                    .background(textColor.copy(alpha = 0.15f))
+                    .clickable { onCollapse() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.expand_more),
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(20.dp),
                 )
             }
-            // Hanya judul antrean/album; "Sedang Diputar" dihapus.
-            val playingFrom = queueTitle ?: albumTitle
-            if (!playingFrom.isNullOrBlank()) {
-                if (listenTogetherRoleState?.value != RoomRole.NONE) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-                Text(
-                    text = playingFrom,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = textColor.copy(alpha = 0.8f),
-                    maxLines = 1,
-                    modifier = Modifier.basicMarquee()
+            // Tombol thumbnail penuh (kanan atas): ganti mode thumbnail,
+            // ikon dari SVG kiriman user, putih, lingkaran kayak chevron.
+            // Tombol ini yang gantiin tap artwork (tap sering tidak
+            // ke-tangkap karena rebutan dengan deteksi double-tap seek).
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(buttonSize)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.15f))
+                    .clickable { onToggleFullThumbnail() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.thumbnail_fullscreen),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp),
                 )
+            }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(horizontal = titlePadding)
+            ) {
+                // Listen Together indicator
+                if (listenTogetherRoleState?.value != RoomRole.NONE) {
+                    Text(
+                        text = if (listenTogetherRoleState?.value == RoomRole.HOST) "Hosting Listen Together" else "Listening Together",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = textColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                // Hanya judul antrean/album; "Sedang Diputar" dihapus.
+                val playingFrom = queueTitle ?: albumTitle
+                if (!playingFrom.isNullOrBlank()) {
+                    if (listenTogetherRoleState?.value != RoomRole.NONE) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                    Text(
+                        text = playingFrom,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = textColor.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        modifier = Modifier.basicMarquee()
+                    )
+                }
             }
         }
     }
