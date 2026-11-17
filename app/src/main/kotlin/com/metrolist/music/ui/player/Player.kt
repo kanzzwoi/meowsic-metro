@@ -423,10 +423,14 @@ fun BottomSheetPlayer(
         // kecuali toggle per kata nyala dan cache-nya cuma per baris (ala v14:
         // cache cuma dipakai kalau tingkat timingnya sudah sesuai).
         val cachedUsable = cachedForCurrent?.takeIf {
-            !preferWordSyncedLyrics ||
-                com.metrolist.music.lyrics.LyricsUtils.lyricsTimingKind(
-                    com.metrolist.music.lyrics.LyricsUtils.parseLyrics(it.lyrics),
-                ) >= com.metrolist.music.lyrics.LyricsTimingKind.WORD_SYNCED
+            // Baris "tidak ditemukan" yang terlanjur tersimpan (mis. dari
+            // prefetch yang gagal) BUKAN cache yang valid: lagu harus
+            // di-fetch ulang, bukan langsung dianggap tidak ada lirik.
+            it.lyrics != LyricsEntity.LYRICS_NOT_FOUND &&
+                (!preferWordSyncedLyrics ||
+                    com.metrolist.music.lyrics.LyricsUtils.lyricsTimingKind(
+                        com.metrolist.music.lyrics.LyricsUtils.parseLyrics(it.lyrics),
+                    ) >= com.metrolist.music.lyrics.LyricsTimingKind.WORD_SYNCED)
         }
         if (cachedUsable != null) return@LaunchedEffect
 
@@ -482,6 +486,10 @@ fun BottomSheetPlayer(
         if (!appInForeground) return@LaunchedEffect
         val fetched = entryPoint.lyricsHelper().getLyrics(nextMeta)
         if (fetched.provider in nonCachedLyricsProviders) return@LaunchedEffect
+        // Kegagalan JANGAN disimpan — sama kayak fetch utama di atas:
+        // sekali "tidak ditemukan" tertulis permanen, lagu itu tidak akan
+        // pernah di-fetch ulang walau providernya sudah punya liriknya.
+        if (fetched.lyrics == LyricsEntity.LYRICS_NOT_FOUND || fetched.provider.isBlank()) return@LaunchedEffect
         withContext(Dispatchers.IO) {
             database.upsertLyricsKeepingTranslation(
                 LyricsEntity(nextMeta.id, fetched.lyrics, fetched.provider),
