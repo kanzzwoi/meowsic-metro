@@ -318,11 +318,23 @@ fun ExperimentalLyrics(
     }
 
     var activeLineIndices by remember { mutableStateOf(emptySet<Int>()) }
-    var scrollTargetIndex by rememberSaveable { mutableIntStateOf(-1) }
+    // Ala v14 (LyricsView.kt: initialPlaybackListIndex +
+    // rememberLazyListState(initialFirstVisibleItemIndex)): jangkar awal
+    // langsung di baris yang sedang dinyanyikan, dihitung saat komposisi
+    // — bukan di LaunchedEffect setelah frame pertama. Sebelumnya jangkar
+    // mulai dari 0/-1, jadi buka lirik nampilin atas lagu dulu baru
+    // ngescroll ke bawah (kadang dengan animasi 750ms).
+    val liveLineAtOpen = remember(lines) {
+        val livePosition =
+            runCatching { playerConnection.player.currentPosition }.getOrDefault(0L) +
+                (currentSong?.song?.lyricsOffset ?: 0)
+        findCurrentLineIndex(lines, livePosition)
+    }
+    var scrollTargetIndex by remember(lines) { mutableIntStateOf(liveLineAtOpen) }
     var previousScrollActiveIndices by remember { mutableStateOf(emptySet<Int>()) }
-    
+
     var currentPositionState by remember { mutableLongStateOf(0L) }
-    var deferredCurrentLineIndex by rememberSaveable { mutableIntStateOf(0) }
+    var deferredCurrentLineIndex by remember(lines) { mutableIntStateOf(liveLineAtOpen.coerceAtLeast(0)) }
     var lastPreviewTime by rememberSaveable { mutableLongStateOf(0L) }
     var isSeeking by remember { mutableStateOf(false) }
     var showProgressDialog by remember { mutableStateOf(false) }
@@ -479,8 +491,15 @@ fun ExperimentalLyrics(
     LaunchedEffect(lyrics, lines) {
         isAutoScrollEnabled = true
         userManualOffset = 0f
-        scrollTargetIndex = -1
-        deferredCurrentLineIndex = 0
+        // Jangkar ulang langsung ke baris yang sedang dinyanyikan (bukan
+        // -1/0): kalau lirik ke-load ulang saat tampilan terbuka, daftar
+        // tidak jatuh ke atas lagu lalu ngescroll turun dengan animasi.
+        val livePosition =
+            runCatching { playerConnection.player.currentPosition }.getOrDefault(0L) +
+                (currentSong?.song?.lyricsOffset ?: 0)
+        val liveLine = findCurrentLineIndex(lines, livePosition)
+        scrollTargetIndex = liveLine
+        deferredCurrentLineIndex = liveLine.coerceAtLeast(0)
         isSelectionModeActive = false
         selectedIndices.clear()
         previousScrollActiveIndices = emptySet()

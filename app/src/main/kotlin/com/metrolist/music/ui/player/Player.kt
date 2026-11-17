@@ -26,8 +26,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -2017,13 +2015,11 @@ fun BottomSheetPlayer(
                             AnimatedContent(
                                 targetState = showInlineLyrics,
                                 label = "Lyrics",
-                                // Fade + scale kecil 400ms ala perpindahan baris
-                                // lirik v14: crossfade polos (default 220ms) terasa
-                                // patah karena konten lirik berat di frame pertama.
-                                transitionSpec = {
-                                    (fadeIn(animationSpec = tween(400)) + scaleIn(initialScale = 0.96f, animationSpec = tween(400))) togetherWith
-                                        (fadeOut(animationSpec = tween(400)) + scaleOut(targetScale = 0.96f, animationSpec = tween(400)))
-                                },
+                                // Ala v14 (PlayerLayout.kt): crossfade polos di
+                                // wadah ukuran tetap — tanpa scale. Scale
+                                // me-raster ulang konten lirik yang berat di
+                                // tiap frame transisi, itu yang bikin patah.
+                                transitionSpec = { fadeIn() togetherWith fadeOut() },
                             ) { showLyrics ->
                                 if (showLyrics) {
                                     InlineLyricsView(
@@ -2094,8 +2090,7 @@ fun BottomSheetPlayer(
                     modifier =
                         Modifier
                             .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
-                            .padding(bottom = bottomPadding)
-                            .animateContentSize(),
+                            .padding(bottom = bottomPadding),
                 ) {
                     Box(
                         contentAlignment = Alignment.Center,
@@ -2108,13 +2103,11 @@ fun BottomSheetPlayer(
                         AnimatedContent(
                             targetState = showInlineLyrics,
                             label = "Lyrics",
-                            // Fade + scale kecil 400ms ala perpindahan baris
-                            // lirik v14: crossfade polos (default 220ms) terasa
-                            // patah karena konten lirik berat di frame pertama.
-                            transitionSpec = {
-                                (fadeIn(animationSpec = tween(400)) + scaleIn(initialScale = 0.96f, animationSpec = tween(400))) togetherWith
-                                    (fadeOut(animationSpec = tween(400)) + scaleOut(targetScale = 0.96f, animationSpec = tween(400)))
-                            },
+                            // Ala v14 (PlayerLayout.kt): crossfade polos di
+                            // wadah ukuran tetap — tanpa scale. Scale
+                            // me-raster ulang konten lirik yang berat di
+                            // tiap frame transisi, itu yang bikin patah.
+                            transitionSpec = { fadeIn() togetherWith fadeOut() },
                         ) { showLyrics ->
                             if (showLyrics) {
                                 InlineLyricsView(
