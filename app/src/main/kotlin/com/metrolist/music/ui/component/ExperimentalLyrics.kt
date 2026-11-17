@@ -344,7 +344,6 @@ fun ExperimentalLyrics(
     var isSelectionModeActive by rememberSaveable { mutableStateOf(false) }
     val selectedIndices = remember { mutableStateListOf<Int>() }
     var showMaxSelectionToast by remember { mutableStateOf(false) }
-    val isLyricsProviderShown = lyricsEntity != null && lyricsEntity.provider != "Unknown" && lyricsEntity.provider != "Manual" && !isSelectionModeActive
     var isAutoScrollEnabled by rememberSaveable { mutableStateOf(true) }
 
     BackHandler(enabled = isSelectionModeActive) {
@@ -769,25 +768,6 @@ fun ExperimentalLyrics(
             ) {
                 val lyricsOffsetVal = (currentSong?.song?.lyricsOffset ?: 0).toLong()
                 val currentEffectivePosition = currentPositionState + lyricsOffsetVal
-                
-                if (isLyricsProviderShown) {
-                    val targetProviderBase = anchorY + (positions[0] ?: 0f) - with(density) { 32.dp.toPx() }
-                    val animatedProviderBase by animateFloatAsState(
-                        targetValue = targetProviderBase,
-                        animationSpec = if (isInitialLayout || !isAutoScrollEnabled) snap()
-                        else {
-                            tween(750, 0, FastOutSlowInEasing)
-                        },
-                        label = "lyricsProviderOffset"
-                    )
-                    Text(
-                        // Hanya nama provider yang dipakai — rincian waktu
-                        // per provider terlalu ramai dan mengganggu.
-                        text = stringResource(R.string.lyrics_from_provider, lyricsEntity.provider),
-                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        modifier = Modifier.fillMaxWidth().offset { IntOffset(0, (animatedProviderBase + userManualOffset).roundToInt()) }.padding(horizontal = 24.dp, vertical = 4.dp)
-                    )
-                }
 
                 mergedLyricsList.forEachIndexed { listIndex, listItem ->
                     key(listItem) {

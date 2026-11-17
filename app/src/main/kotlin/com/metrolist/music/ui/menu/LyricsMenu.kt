@@ -688,5 +688,23 @@ fun LyricsMenu(
                 }
             )
         }
+
+        // Sumber lirik — dulu melayang di atas baris pertama daftar lirik,
+        // sekarang pindah ke bawah menu ini.
+        item {
+            val providerName = lyricsProvider()?.provider
+            if (!providerName.isNullOrBlank() && providerName != "Unknown" && providerName != "Manual") {
+                Text(
+                    text = stringResource(R.string.lyrics_from_provider, providerName),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp, bottom = 8.dp),
+                )
+            }
+        }
     }
 }
