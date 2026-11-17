@@ -2588,6 +2588,19 @@ class MusicService :
         // onPlaybackStateChanged; keduanya saling bertabrakan sampai perilaku
         // "Ulang" dan "Ulang 1" tertukar. Sekarang dihapus total - semakin
         // sedikit kode yang menyentuh repeat, semakin kecil kemungkinan bug.
+        //
+        // Satu-satunya pengecualian: pindah lagu MANUAL mematikan repeat.
+        // Alasannya SEEK (tombol next/prev, ketuk lagu di antrean) atau
+        // PLAYLIST_CHANGED (mulai antrean baru) — tidak pernah AUTO (lagu
+        // habis sendiri) atau REPEAT (loop), jadi repeat-all tetap jalan
+        // saat lagu habis sendiri dan repeat-one tetap mengulang.
+        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK ||
+            reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED
+        ) {
+            if (player.repeatMode != REPEAT_MODE_OFF) {
+                player.repeatMode = REPEAT_MODE_OFF
+            }
+        }
         previousMediaItemIndex = player.currentMediaItemIndex
 
         lastPlaybackSpeed = -1.0f // force update song
