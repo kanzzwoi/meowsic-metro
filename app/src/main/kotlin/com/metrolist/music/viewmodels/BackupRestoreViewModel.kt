@@ -28,6 +28,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import com.metrolist.music.constants.DataSyncIdKey
 import com.metrolist.music.constants.InnerTubeAuthUserKey
 import com.metrolist.music.constants.InnerTubeCookieKey
+import com.metrolist.music.constants.LevelTotalExpKey
 import com.metrolist.music.constants.VisitorDataKey
 import com.metrolist.music.db.InternalDatabase
 import com.metrolist.music.db.MusicDatabase
@@ -268,53 +269,51 @@ class BackupRestoreViewModel @Inject constructor(
 
                 if (dbSwapSucceeded) {
                     if (foundSettings) {
-                        // If auth data needs clearing, strip auth keys from the temp file
-                        // before copying to actualSettings. This avoids issues with
-                        // DataStore's in-memory cache being stale after a raw file swap.
-                        if (clearAuthData) {
-                            runCatching {
-                                // Open a temporary DataStore for the staged settings file
-                                // to remove auth keys before promoting it to the live path.
-                                val settingsBaseName = SETTINGS_FILENAME.removeSuffix(".preferences_pb")
-                                val stageSettings = File(
-                                    context.filesDir,
-                                    "datastore/${settingsBaseName}.stage.preferences_pb",
-                                )
-                                stageSettings.delete()
-                                tempSettings.copyTo(stageSettings, overwrite = true)
+                        // Level SELALU dihapus dari hasil restore: total EXP itu
+                        // progres perangkat, bukan akun. Kalau ikut ke-restore,
+                        // file backup jadi jalan pintas level instan buat siapa
+                        // pun yang pegang file-nya. Auth tetap ikut kecuali
+                        // clearAuthData diminta — buka via DataStore staging
+                        // supaya cache DataStore tidak basi setelah swap file.
+                        runCatching {
+                            // Open a temporary DataStore for the staged settings file
+                            // to remove keys before promoting it to the live path.
+                            val settingsBaseName = SETTINGS_FILENAME.removeSuffix(".preferences_pb")
+                            val stageSettings = File(
+                                context.filesDir,
+                                "datastore/${settingsBaseName}.stage.preferences_pb",
+                            )
+                            stageSettings.delete()
+                            tempSettings.copyTo(stageSettings, overwrite = true)
 
-                                val stageDataStore =
-                                    androidx.datastore.preferences.core.PreferenceDataStoreFactory.create {
-                                        stageSettings
-                                    }
-                                kotlinx.coroutines.runBlocking {
-                                    stageDataStore.edit { prefs ->
+                            val stageDataStore =
+                                androidx.datastore.preferences.core.PreferenceDataStoreFactory.create {
+                                    stageSettings
+                                }
+                            kotlinx.coroutines.runBlocking {
+                                stageDataStore.edit { prefs ->
+                                    prefs.remove(LevelTotalExpKey)
+                                    if (clearAuthData) {
                                         prefs.remove(InnerTubeCookieKey)
                                         prefs.remove(VisitorDataKey)
                                         prefs.remove(DataSyncIdKey)
                                         prefs.remove(InnerTubeAuthUserKey)
                                     }
                                 }
-
-                                val actualSettings = File(
-                                    context.filesDir,
-                                    "datastore/$SETTINGS_FILENAME",
-                                )
-                                stageSettings.copyTo(actualSettings, overwrite = true)
-                                stageSettings.delete()
-                            }.onFailure {
-                                Timber.tag("RESTORE").e(it, "Failed to clear auth from restored settings")
-                                kotlinx.coroutines.withContext(Dispatchers.Main) {
-                                    Toast.makeText(context, R.string.restore_failed, Toast.LENGTH_SHORT).show()
-                                }
-                                return@launch
                             }
-                        } else {
+
                             val actualSettings = File(
                                 context.filesDir,
                                 "datastore/$SETTINGS_FILENAME",
                             )
-                            tempSettings.copyTo(actualSettings, overwrite = true)
+                            stageSettings.copyTo(actualSettings, overwrite = true)
+                            stageSettings.delete()
+                        }.onFailure {
+                            Timber.tag("RESTORE").e(it, "Failed to strip level from restored settings")
+                            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                Toast.makeText(context, R.string.restore_failed, Toast.LENGTH_SHORT).show()
+                            }
+                            return@launch
                         }
                     }
 
