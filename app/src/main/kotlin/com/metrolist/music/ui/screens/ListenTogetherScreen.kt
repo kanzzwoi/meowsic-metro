@@ -183,6 +183,7 @@ fun ListenTogetherScreen(
     var selectedUsername by rememberSaveable { mutableStateOf<String?>(null) }
     var showProfileEditor by rememberSaveable { mutableStateOf(false) }
     var chatExpanded by rememberSaveable { mutableStateOf(false) }
+    var listRequestExpanded by rememberSaveable { mutableStateOf(false) }
     var showSuggestDialog by rememberSaveable { mutableStateOf(false) }
     var chatInput by rememberSaveable { mutableStateOf("") }
     val chatMessages by listenTogetherManager.chatMessages.collectAsStateWithLifecycle()
@@ -450,7 +451,11 @@ fun ListenTogetherScreen(
                 // host dan semua member, jadi pengusul tahu lagunya masuk.
                 if (acceptedSuggestions.isNotEmpty()) {
                     item {
-                        AcceptedSuggestionsSection(suggestions = acceptedSuggestions)
+                        AcceptedSuggestionsSection(
+                            suggestions = acceptedSuggestions,
+                            expanded = listRequestExpanded,
+                            onToggle = { listRequestExpanded = !listRequestExpanded },
+                        )
                     }
                 }
 
@@ -1233,58 +1238,94 @@ private fun PendingSuggestionsSection(
 }
 
 @Composable
-private fun AcceptedSuggestionsSection(suggestions: List<AcceptedSuggestion>) {
-    Column(
+private fun AcceptedSuggestionsSection(
+    suggestions: List<AcceptedSuggestion>,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    // List Request dilipat seperti panel Obrolan: cuma header + jumlah
+    // yang kelihatan, daftar lagunya baru muncul kalau dipencet —
+    // supaya layar room nggak memanjang ke bawah kalau request banyak.
+    Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
-        Text(
-            text = "List Request",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-
-        suggestions.forEachIndexed { index, suggestion ->
-            if (index > 0) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            }
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 10.dp),
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.check),
+                    painter = painterResource(R.drawable.queue_music),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(20.dp),
                 )
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = suggestion.track.title,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    val byline =
-                        if (suggestion.fromUsername.isNotBlank()) {
-                            "${suggestion.track.artist} • Dari ${suggestion.fromUsername}"
-                        } else {
-                            suggestion.track.artist
-                        }
-                    if (byline.isNotBlank()) {
-                        Text(
-                            text = byline,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "List Request",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "${suggestions.size}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.width(6.dp))
+                Icon(
+                    painter = painterResource(if (expanded) R.drawable.expand_less else R.drawable.expand_more),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            if (expanded) {
+                Spacer(modifier = Modifier.height(12.dp))
+                suggestions.forEachIndexed { index, suggestion ->
+                    if (index > 0) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 10.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.check),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp),
                         )
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = suggestion.track.title,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            val byline =
+                                if (suggestion.fromUsername.isNotBlank()) {
+                                    "${suggestion.track.artist} • Dari ${suggestion.fromUsername}"
+                                } else {
+                                    suggestion.track.artist
+                                }
+                            if (byline.isNotBlank()) {
+                                Text(
+                                    text = byline,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
                     }
                 }
             }
