@@ -365,7 +365,7 @@ fun BottomSheetPlayer(
     // panel lirik dibuka, jadi fetch-nya cuma jalan di kondisi itu.
     val database = LocalDatabase.current
     val lyricsForFetch by playerConnection.currentLyrics.collectAsStateWithLifecycle(initialValue = null)
-    val preferWordSyncedLyrics by rememberPreference(PreferWordSyncedLyricsKey, false)
+    val preferWordSyncedLyrics by rememberPreference(PreferWordSyncedLyricsKey, true)
     val queueWindowsForLyrics by playerConnection.queueWindows.collectAsStateWithLifecycle(initialValue = emptyList())
     val currentWindowIndexForLyrics by playerConnection.currentWindowIndex.collectAsStateWithLifecycle(initialValue = -1)
     val nextMetadataForLyrics =

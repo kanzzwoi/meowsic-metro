@@ -68,9 +68,10 @@ constructor(
         currentLyricsJob?.cancel()
 
         // Port dari v14 (preferWordSyncedLyrics): kalau toggle nyala, yang
-        // dicari lirik per kata; kalau mati, cukup per baris (default v14).
+        // dicari lirik per kata; kalau mati, cukup per baris. Default Meowsic
+        // nyala (beda dari v14) supaya lirik per kata yang dicari dulu.
         val preferWordSynced = context.dataStore.data
-            .map { it[PreferWordSyncedLyricsKey] ?: false }
+            .map { it[PreferWordSyncedLyricsKey] ?: true }
             .first()
         val preferredTiming =
             if (preferWordSynced) LyricsTimingKind.WORD_SYNCED else LyricsTimingKind.LINE_SYNCED

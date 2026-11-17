@@ -125,7 +125,7 @@ fun ContentSettings(
     val (enableLrclib, onEnableLrclibChange) = rememberPreference(key = EnableLrcLibKey, defaultValue = true)
     val (enableBetterLyrics, onEnableBetterLyricsChange) = rememberPreference(key = EnableBetterLyricsKey, defaultValue = true)
     val (enableLyricsPlus, onEnableLyricsPlusChange) = rememberPreference(key = EnableLyricsPlus, defaultValue = true)
-    val (preferWordSyncedLyrics, onPreferWordSyncedLyricsChange) = rememberPreference(key = PreferWordSyncedLyricsKey, defaultValue = false)
+    val (preferWordSyncedLyrics, onPreferWordSyncedLyricsChange) = rememberPreference(key = PreferWordSyncedLyricsKey, defaultValue = true)
     val (lyricsProviderOrder, onLyricsProviderOrderChange) = rememberPreference(
         key = LyricsProviderOrderKey,
         defaultValue = LyricsProviderRegistry.serializeProviderOrder(LyricsProviderRegistry.getDefaultProviderOrder())
