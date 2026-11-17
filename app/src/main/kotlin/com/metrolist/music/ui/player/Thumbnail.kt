@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -68,6 +69,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -304,8 +306,13 @@ fun Thumbnail(
     var showSeekEffect by remember { mutableStateOf(false) }
     var seekDirection by remember { mutableStateOf("") }
 
+    // Modifier dari pemanggil (nestedScroll sheet / animateContentSize)
+    // TIDAK dipasang di kotak luar lagi: kotak luar membungkus header
+    // juga, dan gesture sheet (drag untuk tutup player) ikut menelan
+    // tap di header. Modifier itu dipindah ke kotak artwork saja (di
+    // bawah), supaya header bebas dari rebutan gesture.
     Box(
-        modifier = modifier
+        modifier = Modifier
             .graphicsLayer {
                 // Use hardware layer for entire Thumbnail to ensure smooth 120Hz animations
                 compositingStrategy = CompositingStrategy.Offscreen
@@ -359,11 +366,11 @@ fun Thumbnail(
                 // < lebar (bar hitam di kiri-kanan artwork).
                 BoxWithConstraints(
                     contentAlignment = Alignment.Center,
-                    modifier = if (isLandscape) {
+                    modifier = (if (isLandscape) {
                         Modifier.weight(1f, false)
                     } else {
                         Modifier.fillMaxWidth().aspectRatio(1f)
-                    }
+                    }).then(modifier)
                 ) {
                     // Calculate dimensions once per size change, considering landscape mode
                     val dimensions = remember(maxWidth, maxHeight, isLandscape) {
@@ -471,33 +478,53 @@ private fun ThumbnailHeader(
     // padahal zona tombol 56.dp, jadi judul panjang bisa jalan sampai
     // ke bawah tombol.
     BoxWithConstraints(
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth().zIndex(1f)
     ) {
         val compact = maxWidth < 360.dp
         val outerPadding = if (compact) 12.dp else 16.dp
         val buttonSize = if (compact) 36.dp else 40.dp
         val titlePadding = outerPadding + buttonSize + 8.dp
+        // Lantai tinggi baris: 64.dp (target sentuh 48.dp + padding 8+8).
+        // Tanpa ini tinggi baris ikut judul: judul 1 baris di HP kecil
+        // bikin baris cuma 52.dp, jarak tombol ke artwork tinggal ~8.dp
+        // dan tombol kelihatan tenggelam — padahal di HP utama (judul 2
+        // baris, 68.dp) jaraknya 14.dp dan kelihatan lega. Lantai ini yang
+        // bikin jarak tombol-artwork SAMA di tiap HP, berapa pun judulnya.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 64.dp)
                 .padding(horizontal = outerPadding, vertical = 8.dp)
         ) {
             // Tombol panah bawah ala Metrolist v14 (kiri atas): tutup player.
+            // Target sentuh 48.dp (standar Material): lingkaran visual tetap
+            // 40/36.dp, tapi area yang bisa dipencet 48.dp. Target 36.dp di
+            // dalam sheet yang bisa di-drag gampang "kalah" sama deteksi drag
+            // (tap goyang dikit langsung dianggap drag, kliknya batal) —
+            // itu yang bikin tombol susah dipencet dan tap-nya jatuh ke
+            // artwork (double-tap detector artwork menelan tap tunggal,
+            // tap beruntun malah ke-swipe jadi ganti lagu).
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .size(buttonSize)
-                    .clip(CircleShape)
-                    .background(textColor.copy(alpha = 0.15f))
+                    .size(48.dp)
                     .clickable { onCollapse() },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.expand_more),
-                    contentDescription = null,
-                    tint = textColor,
-                    modifier = Modifier.size(20.dp),
-                )
+                Box(
+                    modifier = Modifier
+                        .size(buttonSize)
+                        .clip(CircleShape)
+                        .background(textColor.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.expand_more),
+                        contentDescription = null,
+                        tint = textColor,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
             }
             // Tombol thumbnail penuh (kanan atas): ganti mode thumbnail,
             // ikon dari SVG kiriman user, putih, lingkaran kayak chevron.
@@ -506,18 +533,24 @@ private fun ThumbnailHeader(
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .size(buttonSize)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.15f))
+                    .size(48.dp)
                     .clickable { onToggleFullThumbnail() },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.thumbnail_fullscreen),
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp),
-                )
+                Box(
+                    modifier = Modifier
+                        .size(buttonSize)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.thumbnail_fullscreen),
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
             }
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
