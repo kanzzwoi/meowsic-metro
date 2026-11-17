@@ -44,6 +44,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
@@ -71,7 +72,11 @@ import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun AlarmSettingsSection(showTitle: Boolean = true) {
+fun AlarmSettingsSection(
+    showTitle: Boolean = true,
+    highlightItemId: String? = null,
+    onItemPlaced: ((anchorId: String, coords: LayoutCoordinates) -> Unit)? = null,
+) {
     val context = LocalContext.current
     val locale = LocalLocale.current.platformLocale
     val database = LocalDatabase.current
@@ -101,6 +106,8 @@ fun AlarmSettingsSection(showTitle: Boolean = true) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !canScheduleExact) {
             add(
                 Material3SettingsItem(
+                    anchorId = "alarm_exact_permission",
+                    isHighlighted = (highlightItemId == "alarm_exact_permission"),
                     icon = painterResource(R.drawable.warning),
                     title = { Text(stringResource(R.string.alarm_exact_permission_title)) },
                     description = { Text(stringResource(R.string.alarm_exact_permission_desc)) },
@@ -118,6 +125,8 @@ fun AlarmSettingsSection(showTitle: Boolean = true) {
         if (!ignoringBatteryOptimization) {
             add(
                 Material3SettingsItem(
+                    anchorId = "alarm_battery_optimization",
+                    isHighlighted = (highlightItemId == "alarm_battery_optimization"),
                     icon = painterResource(R.drawable.warning),
                     title = { Text(stringResource(R.string.alarm_battery_optimization_title)) },
                     description = { Text(stringResource(R.string.alarm_battery_optimization_desc)) },
@@ -176,9 +185,13 @@ fun AlarmSettingsSection(showTitle: Boolean = true) {
 
     Material3SettingsGroup(
         title = if (showTitle) stringResource(R.string.alarm) else null,
+        anchorId = "alarm",
+        onItemPlaced = onItemPlaced,
         items = buildList {
             add(
                 Material3SettingsItem(
+                    anchorId = "alarm_add",
+                    isHighlighted = (highlightItemId == "alarm_add"),
                     icon = painterResource(R.drawable.add_circle),
                     title = { Text(stringResource(R.string.alarm_add)) },
                     onClick = {
@@ -191,6 +204,8 @@ fun AlarmSettingsSection(showTitle: Boolean = true) {
             if (alarms.isEmpty()) {
                 add(
                     Material3SettingsItem(
+                        anchorId = "alarm_empty",
+                        isHighlighted = (highlightItemId == "alarm_empty"),
                         icon = painterResource(R.drawable.bedtime),
                         title = { Text(stringResource(R.string.alarm_empty)) }
                     )
@@ -220,6 +235,8 @@ fun AlarmSettingsSection(showTitle: Boolean = true) {
                         }
 
                         Material3SettingsItem(
+                            anchorId = "alarm_${alarm.id}",
+                            isHighlighted = (highlightItemId == "alarm_${alarm.id}"),
                             icon = painterResource(R.drawable.bedtime),
                             title = {
                                 Text(

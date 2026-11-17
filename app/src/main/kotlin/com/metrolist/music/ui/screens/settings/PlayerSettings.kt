@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
@@ -93,8 +95,15 @@ import com.metrolist.music.ui.utils.getLoudnessLevelLabel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerSettings(
-    navController: NavController
+    navController: NavController,
+    highlightItemId: String? = null,
+    highlightGroupId: String? = null,
+    openDialog: String? = null,
 ) {
+    val scrollState = rememberScrollState()
+    val itemOffsets = remember { SettingsItemOffsets() }
+    val columnTop = remember { floatArrayOf(0f) }
+    SettingsHighlightEffect(scrollState, highlightItemId, highlightGroupId, itemOffsets, openDialog)
     val (audioQuality, onAudioQualityChange) = rememberEnumPreference(
         AudioQualityKey,
         defaultValue = AudioQuality.AUTO
@@ -272,7 +281,7 @@ fun PlayerSettings(
                     WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
                 )
             )
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState).onGloballyPositioned { columnTop[0] = it.boundsInWindow().top }
             .padding(horizontal = 16.dp)
     ) {
         Spacer(
@@ -284,9 +293,13 @@ fun PlayerSettings(
         )
 
         Material3SettingsGroup(
+            anchorId = "player",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             title = stringResource(R.string.player),
             items = buildList {
                 add(Material3SettingsItem(
+                    anchorId = "audio_quality",
+                    isHighlighted = (highlightItemId == "audio_quality"),
                     icon = painterResource(R.drawable.graphic_eq),
                     title = { Text(stringResource(R.string.audio_quality)) },
                     description = {
@@ -301,6 +314,8 @@ fun PlayerSettings(
                     onClick = { showAudioQualityDialog = true }
                 ))
                 add(Material3SettingsItem(
+                    anchorId = "crossfade",
+                    isHighlighted = (highlightItemId == "crossfade"),
                     icon = painterResource(R.drawable.linear_scale),
                     title = { Text(stringResource(R.string.crossfade)) },
                     description = { Text(stringResource(R.string.crossfade_desc)) },
@@ -323,6 +338,8 @@ fun PlayerSettings(
                 ))
                 if (crossfadeEnabled) {
                     add(Material3SettingsItem(
+                    anchorId = "crossfade_duration",
+                    isHighlighted = (highlightItemId == "crossfade_duration"),
                         icon = painterResource(R.drawable.timer),
                         title = { Text(stringResource(R.string.crossfade_duration)) },
                         description = {
@@ -338,6 +355,8 @@ fun PlayerSettings(
                         }
                     ))
                     add(Material3SettingsItem(
+                    anchorId = "crossfade_gapless",
+                    isHighlighted = (highlightItemId == "crossfade_gapless"),
                         icon = painterResource(R.drawable.album),
                         title = { Text(stringResource(R.string.crossfade_gapless)) },
                         description = { Text(stringResource(R.string.crossfade_gapless_desc)) },
@@ -360,6 +379,8 @@ fun PlayerSettings(
                     ))
                 }
                 add(Material3SettingsItem(
+                    anchorId = "history_duration",
+                    isHighlighted = (highlightItemId == "history_duration"),
                     icon = painterResource(R.drawable.history),
                     title = { Text(stringResource(R.string.history_duration)) },
                     description = {
@@ -374,6 +395,8 @@ fun PlayerSettings(
                     }
                 ))
                 add(Material3SettingsItem(
+                    anchorId = "skip_silence",
+                    isHighlighted = (highlightItemId == "skip_silence"),
                     icon = painterResource(R.drawable.fast_forward),
                     title = { Text(stringResource(R.string.skip_silence)) },
                     description = { Text(stringResource(R.string.skip_silence_desc)) },
@@ -395,6 +418,8 @@ fun PlayerSettings(
                     onClick = { onSkipSilenceChange(!skipSilence) }
                 ))
                 add(Material3SettingsItem(
+                    anchorId = "skip_silence_instant",
+                    isHighlighted = (highlightItemId == "skip_silence_instant"),
                     icon = painterResource(R.drawable.skip_next),
                     title = { Text(stringResource(R.string.skip_silence_instant)) },
                     description = { Text(stringResource(R.string.skip_silence_instant_desc)) },
@@ -417,6 +442,8 @@ fun PlayerSettings(
                     onClick = { if (skipSilence) onSkipSilenceInstantChange(!skipSilenceInstant) }
                 ))
                 add(Material3SettingsItem(
+                    anchorId = "audio_normalization",
+                    isHighlighted = (highlightItemId == "audio_normalization"),
                     icon = painterResource(R.drawable.volume_up),
                     title = { Text(stringResource(R.string.audio_normalization)) },
                     trailingContent = {
@@ -438,6 +465,8 @@ fun PlayerSettings(
                 ))
                 if (audioNormalization) {
                     add(Material3SettingsItem(
+                    anchorId = "loudness_level",
+                    isHighlighted = (highlightItemId == "loudness_level"),
                         icon = painterResource(R.drawable.volume_up),
                         title = { Text(stringResource(R.string.loudness_level)) },
                         description = {
@@ -447,6 +476,8 @@ fun PlayerSettings(
                     ))
                 }
                 add(Material3SettingsItem(
+                    anchorId = "audio_offload",
+                    isHighlighted = (highlightItemId == "audio_offload"),
                     icon = painterResource(R.drawable.graphic_eq),
                     title = { Text(stringResource(R.string.audio_offload)) },
                     description = {
@@ -474,6 +505,8 @@ fun PlayerSettings(
                     onClick = { if (!crossfadeEnabled) onAudioOffloadChange(!audioOffload) }
                 ))
                 add(Material3SettingsItem(
+                    anchorId = "varispeed",
+                    isHighlighted = (highlightItemId == "varispeed"),
                     icon = painterResource(R.drawable.graphic_eq),
                     title = { Text(stringResource(R.string.varispeed)) },
                     description = {
@@ -499,6 +532,8 @@ fun PlayerSettings(
                     onClick = { onVarispeedChange(!varispeed) }
                 ))
                 add(Material3SettingsItem(
+                    anchorId = "audio_track_playback_params",
+                    isHighlighted = (highlightItemId == "audio_track_playback_params"),
                     icon = painterResource(R.drawable.speed),
                     title = { Text(stringResource(R.string.audio_track_playback_params)) },
                     description = {
@@ -524,6 +559,8 @@ fun PlayerSettings(
                 // Only show Cast setting in GMS builds (not in F-Droid/FOSS)
                 if (BuildConfig.CAST_AVAILABLE) {
                     add(Material3SettingsItem(
+                    anchorId = "google_cast",
+                    isHighlighted = (highlightItemId == "google_cast"),
                         icon = painterResource(R.drawable.cast),
                         title = { Text(stringResource(R.string.google_cast)) },
                         description = { Text(stringResource(R.string.google_cast_description)) },
@@ -546,6 +583,8 @@ fun PlayerSettings(
                     ))
                 }
                 add(Material3SettingsItem(
+                    anchorId = "seek_seconds_addup",
+                    isHighlighted = (highlightItemId == "seek_seconds_addup"),
                     icon = painterResource(R.drawable.arrow_forward),
                     title = { Text(stringResource(R.string.seek_seconds_addup)) },
                     description = { Text(stringResource(R.string.seek_seconds_addup_description)) },
@@ -631,10 +670,14 @@ fun PlayerSettings(
         }
 
         Material3SettingsGroup(
+            anchorId = "sleep_timer",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             title = stringResource(R.string.sleep_timer),
             items = buildList {
                 add(
                     Material3SettingsItem(
+                        anchorId = "enable_automatic_sleeptimer",
+                        isHighlighted = (highlightItemId == "enable_automatic_sleeptimer"),
                         icon = painterResource(R.drawable.time_auto),
                         title = { Text(stringResource(R.string.enable_automatic_sleeptimer)) },
                         description = { Text(stringResource(R.string.sleeptimer_description)) },
@@ -659,6 +702,8 @@ fun PlayerSettings(
 
                     add(
                         Material3SettingsItem(
+                            anchorId = "sleep_timer_repeat",
+                            isHighlighted = (highlightItemId == "sleep_timer_repeat"),
                             icon = painterResource(R.drawable.baseline_event_repeat_24),
                             title = { Text(stringResource(R.string.sleep_timer_repeat)) },
                             description = {
@@ -688,6 +733,8 @@ fun PlayerSettings(
 
                 add(
                     Material3SettingsItem(
+                        anchorId = "sleep_timer_stop_after_current_song",
+                        isHighlighted = (highlightItemId == "sleep_timer_stop_after_current_song"),
                         icon = painterResource(R.drawable.more_time),
                         title = { Text(stringResource(R.string.sleep_timer_stop_after_current_song_title)) },
                         description = { Text(stringResource(R.string.sleep_timer_stop_after_current_song_description)) },
@@ -712,6 +759,8 @@ fun PlayerSettings(
 
                 add(
                     Material3SettingsItem(
+                        anchorId = "sleep_timer_fade_out",
+                        isHighlighted = (highlightItemId == "sleep_timer_fade_out"),
                         icon = painterResource(R.drawable.timer_arrow_down),
                         title = { Text(stringResource(R.string.sleep_timer_fade_out_title)) },
                         description = { Text(stringResource(R.string.sleep_timer_fade_out_description)) },
@@ -739,14 +788,21 @@ fun PlayerSettings(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        AlarmSettingsSection()
+        AlarmSettingsSection(
+            highlightItemId = highlightItemId,
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
+        )
 
         Spacer(modifier = Modifier.height(27.dp))
 
         Material3SettingsGroup(
+            anchorId = "queue",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             title = stringResource(R.string.queue),
             items = listOf(
                 Material3SettingsItem(
+                    anchorId = "persistent_queue",
+                    isHighlighted = (highlightItemId == "persistent_queue"),
                     icon = painterResource(R.drawable.queue_music),
                     title = { Text(stringResource(R.string.persistent_queue)) },
                     description = { Text(stringResource(R.string.persistent_queue_desc)) },
@@ -768,6 +824,8 @@ fun PlayerSettings(
                     onClick = { onPersistentQueueChange(!persistentQueue) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "auto_load_more",
+                    isHighlighted = (highlightItemId == "auto_load_more"),
                     icon = painterResource(R.drawable.playlist_add),
                     title = { Text(stringResource(R.string.auto_load_more)) },
                     description = { Text(stringResource(R.string.auto_load_more_desc)) },
@@ -789,6 +847,8 @@ fun PlayerSettings(
                     onClick = { onAutoLoadMoreChange(!autoLoadMore) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "auto_radio_queue",
+                    isHighlighted = (highlightItemId == "auto_radio_queue"),
                     icon = painterResource(R.drawable.radio),
                     title = { Text(stringResource(R.string.auto_radio_queue)) },
                     description = { Text(stringResource(R.string.auto_radio_queue_desc)) },
@@ -810,6 +870,8 @@ fun PlayerSettings(
                     onClick = { onAutoRadioQueueChange(!autoRadioQueue) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "autoplay",
+                    isHighlighted = (highlightItemId == "autoplay"),
                     icon = painterResource(R.drawable.skip_next),
                     title = { Text(stringResource(R.string.autoplay)) },
                     description = { Text(stringResource(R.string.autoplay_desc)) },
@@ -831,6 +893,8 @@ fun PlayerSettings(
                     onClick = { onAutoplayChange(!autoplay) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "disable_load_more_when_repeat_all",
+                    isHighlighted = (highlightItemId == "disable_load_more_when_repeat_all"),
                     icon = painterResource(R.drawable.repeat),
                     title = { Text(stringResource(R.string.disable_load_more_when_repeat_all)) },
                     description = { Text(stringResource(R.string.disable_load_more_when_repeat_all_desc)) },
@@ -852,6 +916,8 @@ fun PlayerSettings(
                     onClick = { onDisableLoadMoreWhenRepeatAllChange(!disableLoadMoreWhenRepeatAll) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "auto_download_on_like",
+                    isHighlighted = (highlightItemId == "auto_download_on_like"),
                     icon = painterResource(R.drawable.download),
                     title = { Text(stringResource(R.string.auto_download_on_like)) },
                     description = { Text(stringResource(R.string.auto_download_on_like_desc)) },
@@ -873,6 +939,8 @@ fun PlayerSettings(
                     onClick = { onAutoDownloadOnLikeChange(!autoDownloadOnLike) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "enable_similar_content",
+                    isHighlighted = (highlightItemId == "enable_similar_content"),
                     icon = painterResource(R.drawable.similar),
                     title = { Text(stringResource(R.string.enable_similar_content)) },
                     description = { Text(stringResource(R.string.similar_content_desc)) },
@@ -894,6 +962,8 @@ fun PlayerSettings(
                     onClick = { similarContentEnabledChange(!similarContentEnabled) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "persistent_shuffle",
+                    isHighlighted = (highlightItemId == "persistent_shuffle"),
                     icon = painterResource(R.drawable.shuffle),
                     title = { Text(stringResource(R.string.persistent_shuffle_title)) },
                     description = { Text(stringResource(R.string.persistent_shuffle_desc)) },
@@ -915,6 +985,8 @@ fun PlayerSettings(
                     onClick = { onPersistentShuffleAcrossQueuesChange(!persistentShuffleAcrossQueues) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "remember_shuffle_and_repeat",
+                    isHighlighted = (highlightItemId == "remember_shuffle_and_repeat"),
                     icon = painterResource(R.drawable.shuffle),
                     title = { Text(stringResource(R.string.remember_shuffle_and_repeat)) },
                     description = { Text(stringResource(R.string.remember_shuffle_and_repeat_desc)) },
@@ -936,6 +1008,8 @@ fun PlayerSettings(
                     onClick = { onRememberShuffleAndRepeatChange(!rememberShuffleAndRepeat) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "shuffle_playlist_first",
+                    isHighlighted = (highlightItemId == "shuffle_playlist_first"),
                     icon = painterResource(R.drawable.shuffle),
                     title = { Text(stringResource(R.string.shuffle_playlist_first)) },
                     description = { Text(stringResource(R.string.shuffle_playlist_first_desc)) },
@@ -957,6 +1031,8 @@ fun PlayerSettings(
                     onClick = { onShufflePlaylistFirstChange(!shufflePlaylistFirst) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "prevent_duplicate_tracks_in_queue",
+                    isHighlighted = (highlightItemId == "prevent_duplicate_tracks_in_queue"),
                     icon = painterResource(R.drawable.queue_music),
                     title = { Text(stringResource(R.string.prevent_duplicate_tracks_in_queue)) },
                     description = { Text(stringResource(R.string.prevent_duplicate_tracks_in_queue_desc)) },
@@ -978,6 +1054,8 @@ fun PlayerSettings(
                     onClick = { onPreventDuplicateTracksInQueueChange(!preventDuplicateTracksInQueue) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "auto_skip_next_on_error",
+                    isHighlighted = (highlightItemId == "auto_skip_next_on_error"),
                     icon = painterResource(R.drawable.skip_next),
                     title = { Text(stringResource(R.string.auto_skip_next_on_error)) },
                     description = { Text(stringResource(R.string.auto_skip_next_on_error_desc)) },
@@ -1004,9 +1082,13 @@ fun PlayerSettings(
         Spacer(modifier = Modifier.height(27.dp))
 
         Material3SettingsGroup(
+            anchorId = "misc",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             title = stringResource(R.string.misc),
             items = listOf(
                 Material3SettingsItem(
+                    anchorId = "stop_music_on_task_clear",
+                    isHighlighted = (highlightItemId == "stop_music_on_task_clear"),
                     icon = painterResource(R.drawable.clear_all),
                     title = { Text(stringResource(R.string.stop_music_on_task_clear)) },
                     trailingContent = {
@@ -1027,6 +1109,8 @@ fun PlayerSettings(
                     onClick = { onStopMusicOnTaskClearChange(!stopMusicOnTaskClear) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "pause_on_mute",
+                    isHighlighted = (highlightItemId == "pause_on_mute"),
                     icon = painterResource(R.drawable.volume_off_pause),
                     title = { Text(stringResource(R.string.pause_music_when_media_is_muted)) },
                     trailingContent = {
@@ -1047,6 +1131,8 @@ fun PlayerSettings(
                     onClick = { onPauseOnMuteChange(!pauseOnMute) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "resume_on_bluetooth_connect",
+                    isHighlighted = (highlightItemId == "resume_on_bluetooth_connect"),
                     icon = painterResource(R.drawable.bluetooth),
                     title = { Text(stringResource(R.string.resume_on_bluetooth_connect)) },
                     trailingContent = {
@@ -1067,6 +1153,8 @@ fun PlayerSettings(
                     onClick = { onResumeOnBluetoothConnectChange(!resumeOnBluetoothConnect) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "keep_screen_on",
+                    isHighlighted = (highlightItemId == "keep_screen_on"),
                     icon = painterResource(R.drawable.screenshot),
                     title = { Text(stringResource(R.string.keep_screen_on_when_player_is_expanded)) },
                     trailingContent = {

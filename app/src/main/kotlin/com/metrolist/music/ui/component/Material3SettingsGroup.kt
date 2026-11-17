@@ -34,22 +34,40 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 
 /**
  * A Material 3 Expressive style settings group component
  * @param title The title of the settings group
  * @param items List of settings items to display
+ * @param anchorId Stable id for this group, recorded via [onItemPlaced] so a
+ *   screen can scroll to the group (search fallback when the exact item is
+ *   hidden by a condition). See SettingsSearch.kt.
+ * @param onItemPlaced Called with an item/group anchor id and its coordinates
+ *   whenever it is placed, for scroll-to-item from settings search.
  */
 @Composable
 fun Material3SettingsGroup(
     title: String? = null,
     items: List<Material3SettingsItem>,
-    useLowContrast: Boolean = false
+    useLowContrast: Boolean = false,
+    anchorId: String? = null,
+    onItemPlaced: ((anchorId: String, coords: LayoutCoordinates) -> Unit)? = null,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .then(
+                if (anchorId != null && onItemPlaced != null) {
+                    Modifier.onGloballyPositioned { coords ->
+                        onItemPlaced(anchorId, coords)
+                    }
+                } else {
+                    Modifier
+                },
+            ),
     ) {
         // Section title
         title?.let {
@@ -77,10 +95,23 @@ fun Material3SettingsGroup(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .animateContentSize(),
+                        .animateContentSize()
+                        .then(
+                            if (item.anchorId != null && onItemPlaced != null) {
+                                Modifier.onGloballyPositioned { coords ->
+                                    onItemPlaced(item.anchorId, coords)
+                                }
+                            } else {
+                                Modifier
+                            },
+                        ),
                     shape = shape,
                     colors = CardDefaults.cardColors(
-                        containerColor = if (!useLowContrast) {
+                        containerColor = if (item.isHighlighted) {
+                            // Search target: unmistakable primary tint + border,
+                            // same idea as Metrolist's highlighted search item.
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                        } else if (!useLowContrast) {
                             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                         } else {
                             MaterialTheme.colorScheme.surfaceContainerLow
@@ -90,7 +121,11 @@ fun Material3SettingsGroup(
                     // di atas wallpaper yang tembus lewat isiannya yang transparan.
                     // (Blur-behind sistem nggak jalan di Android 10, jadi efek
                     // frosted-nya dari isi transparan + stroke ini.)
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f)),
+                    border = if (item.isHighlighted) {
+                        BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+                    } else {
+                        BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
+                    },
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Material3SettingsItemRow(item = item)
@@ -223,5 +258,11 @@ data class Material3SettingsItem(
     val showBadge: Boolean = false,
     val isHighlighted: Boolean = false,
     val enabled: Boolean = true,
+    /**
+     * Stable id for settings search: the screen records this item's position
+     * so a search result can scroll to it and highlight it (Metrolist's
+     * highlightedItemId). Null = not searchable / not anchored.
+     */
+    val anchorId: String? = null,
     val onClick: (() -> Unit)? = null
 )

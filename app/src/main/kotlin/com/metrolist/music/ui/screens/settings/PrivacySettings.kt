@@ -28,6 +28,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -48,8 +50,15 @@ import com.metrolist.music.utils.rememberPreference
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrivacySettings(
-    navController: NavController
+    navController: NavController,
+    highlightItemId: String? = null,
+    highlightGroupId: String? = null,
+    openDialog: String? = null,
 ) {
+    val scrollState = rememberScrollState()
+    val itemOffsets = remember { SettingsItemOffsets() }
+    val columnTop = remember { floatArrayOf(0f) }
+    SettingsHighlightEffect(scrollState, highlightItemId, highlightGroupId, itemOffsets, openDialog)
     val database = LocalDatabase.current
     val (pauseListenHistory, onPauseListenHistoryChange) = rememberPreference(
         key = PauseListenHistoryKey,
@@ -141,7 +150,8 @@ fun PrivacySettings(
                     WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
                 )
             )
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
+            .onGloballyPositioned { columnTop[0] = it.boundsInWindow().top }
             .padding(horizontal = 16.dp)
     ) {
         Spacer(
@@ -154,8 +164,12 @@ fun PrivacySettings(
 
         Material3SettingsGroup(
             title = stringResource(R.string.listen_history),
+            anchorId = "listen_history",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items = listOf(
                 Material3SettingsItem(
+                    anchorId = "pause_listen_history",
+                    isHighlighted = (highlightItemId == "pause_listen_history"),
                     icon = painterResource(R.drawable.history),
                     title = { Text(stringResource(R.string.pause_listen_history)) },
                     trailingContent = {
@@ -176,6 +190,8 @@ fun PrivacySettings(
                     onClick = { onPauseListenHistoryChange(!pauseListenHistory) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "clear_listen_history",
+                    isHighlighted = (highlightItemId == "clear_listen_history"),
                     icon = painterResource(R.drawable.delete_history),
                     title = { Text(stringResource(R.string.clear_listen_history)) },
                     onClick = { showClearListenHistoryDialog = true }
@@ -187,8 +203,12 @@ fun PrivacySettings(
 
         Material3SettingsGroup(
             title = stringResource(R.string.search_history),
+            anchorId = "search_history",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items = listOf(
                 Material3SettingsItem(
+                    anchorId = "pause_search_history",
+                    isHighlighted = (highlightItemId == "pause_search_history"),
                     icon = painterResource(R.drawable.search_off),
                     title = { Text(stringResource(R.string.pause_search_history)) },
                     trailingContent = {
@@ -209,6 +229,8 @@ fun PrivacySettings(
                     onClick = { onPauseSearchHistoryChange(!pauseSearchHistory) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "clear_search_history",
+                    isHighlighted = (highlightItemId == "clear_search_history"),
                     icon = painterResource(R.drawable.clear_all),
                     title = { Text(stringResource(R.string.clear_search_history)) },
                     onClick = { showClearSearchHistoryDialog = true }
@@ -220,8 +242,12 @@ fun PrivacySettings(
 
         Material3SettingsGroup(
             title = stringResource(R.string.misc),
+            anchorId = "misc",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items = listOf(
                 Material3SettingsItem(
+                    anchorId = "disable_screenshot",
+                    isHighlighted = (highlightItemId == "disable_screenshot"),
                     icon = painterResource(R.drawable.screenshot),
                     title = { Text(stringResource(R.string.disable_screenshot)) },
                     description = { Text(stringResource(R.string.disable_screenshot_desc)) },

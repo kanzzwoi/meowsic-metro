@@ -374,36 +374,109 @@ fun NavGraphBuilder.navigationBuilder(
         SettingsScreen(navController, latestVersionName)
     }
 
-    composable("settings/appearance") {
-        AppearanceSettings(navController, snackbarHostState)
+    composable(
+        route = "settings/appearance?item={item}&dialog={dialog}&group={group}",
+        arguments = listOf(
+            navArgument("item") { type = NavType.StringType; nullable = true; defaultValue = null },
+            navArgument("dialog") { type = NavType.StringType; nullable = true; defaultValue = null },
+            navArgument("group") { type = NavType.StringType; nullable = true; defaultValue = null },
+        ),
+    ) { backStackEntry ->
+        AppearanceSettings(
+            navController,
+            snackbarHostState,
+            highlightItemId = backStackEntry.arguments?.getString("item"),
+            highlightGroupId = backStackEntry.arguments?.getString("group"),
+            openDialog = backStackEntry.arguments?.getString("dialog"),
+        )
     }
 
     composable("settings/appearance/theme") {
         ThemeScreen(navController)
     }
 
-    composable("settings/content") {
-        ContentSettings(navController)
+    composable(
+        route = "settings/content?item={item}&dialog={dialog}&group={group}",
+        arguments = listOf(
+            navArgument("item") { type = NavType.StringType; nullable = true; defaultValue = null },
+            navArgument("dialog") { type = NavType.StringType; nullable = true; defaultValue = null },
+            navArgument("group") { type = NavType.StringType; nullable = true; defaultValue = null },
+        ),
+    ) { backStackEntry ->
+        ContentSettings(
+            navController,
+            highlightItemId = backStackEntry.arguments?.getString("item"),
+            highlightGroupId = backStackEntry.arguments?.getString("group"),
+            openDialog = backStackEntry.arguments?.getString("dialog"),
+        )
     }
 
     composable("settings/content/romanization") {
         RomanizationSettings(navController)
     }
 
-    composable("settings/ai") {
-        AiSettings(navController)
+    composable(
+        route = "settings/ai?item={item}&dialog={dialog}&group={group}",
+        arguments = listOf(
+            navArgument("item") { type = NavType.StringType; nullable = true; defaultValue = null },
+            navArgument("dialog") { type = NavType.StringType; nullable = true; defaultValue = null },
+            navArgument("group") { type = NavType.StringType; nullable = true; defaultValue = null },
+        ),
+    ) { backStackEntry ->
+        AiSettings(
+            navController,
+            highlightItemId = backStackEntry.arguments?.getString("item"),
+            highlightGroupId = backStackEntry.arguments?.getString("group"),
+            openDialog = backStackEntry.arguments?.getString("dialog"),
+        )
     }
 
-    composable("settings/player") {
-        PlayerSettings(navController)
+    composable(
+        route = "settings/player?item={item}&dialog={dialog}&group={group}",
+        arguments = listOf(
+            navArgument("item") { type = NavType.StringType; nullable = true; defaultValue = null },
+            navArgument("dialog") { type = NavType.StringType; nullable = true; defaultValue = null },
+            navArgument("group") { type = NavType.StringType; nullable = true; defaultValue = null },
+        ),
+    ) { backStackEntry ->
+        PlayerSettings(
+            navController,
+            highlightItemId = backStackEntry.arguments?.getString("item"),
+            highlightGroupId = backStackEntry.arguments?.getString("group"),
+            openDialog = backStackEntry.arguments?.getString("dialog"),
+        )
     }
 
-    composable("settings/storage") {
-        StorageSettings(navController)
+    composable(
+        route = "settings/storage?item={item}&dialog={dialog}&group={group}",
+        arguments = listOf(
+            navArgument("item") { type = NavType.StringType; nullable = true; defaultValue = null },
+            navArgument("dialog") { type = NavType.StringType; nullable = true; defaultValue = null },
+            navArgument("group") { type = NavType.StringType; nullable = true; defaultValue = null },
+        ),
+    ) { backStackEntry ->
+        StorageSettings(
+            navController,
+            highlightItemId = backStackEntry.arguments?.getString("item"),
+            highlightGroupId = backStackEntry.arguments?.getString("group"),
+            openDialog = backStackEntry.arguments?.getString("dialog"),
+        )
     }
 
-    composable("settings/privacy") {
-        PrivacySettings(navController)
+    composable(
+        route = "settings/privacy?item={item}&dialog={dialog}&group={group}",
+        arguments = listOf(
+            navArgument("item") { type = NavType.StringType; nullable = true; defaultValue = null },
+            navArgument("dialog") { type = NavType.StringType; nullable = true; defaultValue = null },
+            navArgument("group") { type = NavType.StringType; nullable = true; defaultValue = null },
+        ),
+    ) { backStackEntry ->
+        PrivacySettings(
+            navController,
+            highlightItemId = backStackEntry.arguments?.getString("item"),
+            highlightGroupId = backStackEntry.arguments?.getString("group"),
+            openDialog = backStackEntry.arguments?.getString("dialog"),
+        )
     }
 
     composable("settings/backup_restore") {

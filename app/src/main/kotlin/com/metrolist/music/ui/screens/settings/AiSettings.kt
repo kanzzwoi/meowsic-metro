@@ -30,9 +30,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -68,7 +71,16 @@ import com.metrolist.music.utils.rememberPreference
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AiSettings(navController: NavController) {
+fun AiSettings(
+    navController: NavController,
+    highlightItemId: String? = null,
+    highlightGroupId: String? = null,
+    openDialog: String? = null,
+) {
+    val scrollState = rememberScrollState()
+    val itemOffsets = remember { SettingsItemOffsets() }
+    val columnTop = remember { floatArrayOf(0f) }
+    SettingsHighlightEffect(scrollState, highlightItemId, highlightGroupId, itemOffsets, openDialog)
     var aiProvider by rememberPreference(AiProviderKey, "Google")
     var openRouterApiKey by rememberPreference(OpenRouterApiKey, "")
     var openRouterBaseUrl by rememberPreference(OpenRouterBaseUrlKey, "https://openrouter.ai/api/v1/chat/completions")
@@ -505,7 +517,7 @@ fun AiSettings(navController: NavController) {
                 LocalPlayerAwareWindowInsets.current.only(
                     WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
                 ),
-            ).verticalScroll(rememberScrollState())
+            ).verticalScroll(scrollState).onGloballyPositioned { columnTop[0] = it.boundsInWindow().top }
             .padding(horizontal = 16.dp),
     ) {
         Spacer(
@@ -518,9 +530,13 @@ fun AiSettings(navController: NavController) {
 
         Material3SettingsGroup(
             title = stringResource(R.string.ai_provider),
+            anchorId = "ai_provider_group",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items =
                 listOf(
                     Material3SettingsItem(
+                        anchorId = "ai_provider",
+                        isHighlighted = (highlightItemId == "ai_provider"),
                         icon = painterResource(R.drawable.explore_outlined),
                         title = { Text(stringResource(R.string.ai_provider)) },
                         description = { Text(aiProvider) },
@@ -537,6 +553,8 @@ fun AiSettings(navController: NavController) {
                     ),
                     if (aiProvider == "Custom") {
                         Material3SettingsItem(
+                            anchorId = "ai_base_url",
+                            isHighlighted = (highlightItemId == "ai_base_url"),
                             icon = painterResource(R.drawable.link),
                             title = { Text(stringResource(R.string.ai_base_url)) },
                             description = { Text(openRouterBaseUrl.ifBlank { stringResource(R.string.not_set) }) },
@@ -552,11 +570,15 @@ fun AiSettings(navController: NavController) {
 
         Material3SettingsGroup(
             title = stringResource(R.string.ai_setup_guide),
+            anchorId = "ai_setup",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items =
                 buildList {
                     if (aiProvider == "DeepL") {
                         add(
                             Material3SettingsItem(
+                                anchorId = "deepl_api_key",
+                                isHighlighted = (highlightItemId == "deepl_api_key"),
                                 icon = painterResource(R.drawable.key),
                                 title = { Text("DeepL ${stringResource(R.string.ai_api_key)}") },
                                 description = {
@@ -573,6 +595,8 @@ fun AiSettings(navController: NavController) {
                         )
                         add(
                             Material3SettingsItem(
+                                anchorId = "deepl_formality",
+                                isHighlighted = (highlightItemId == "deepl_formality"),
                                 icon = painterResource(R.drawable.tune),
                                 title = { Text(stringResource(R.string.ai_deepl_formality)) },
                                 description = {
@@ -593,6 +617,8 @@ fun AiSettings(navController: NavController) {
                         // tidak ada yang perlu diisi di sini.
                         add(
                             Material3SettingsItem(
+                                anchorId = "ai_api_key",
+                                isHighlighted = (highlightItemId == "ai_api_key"),
                                 icon = painterResource(R.drawable.key),
                                 title = { Text(stringResource(R.string.ai_api_key)) },
                                 description = {
@@ -609,6 +635,8 @@ fun AiSettings(navController: NavController) {
                         )
                         add(
                             Material3SettingsItem(
+                                anchorId = "ai_model",
+                                isHighlighted = (highlightItemId == "ai_model"),
                                 icon = painterResource(R.drawable.discover_tune),
                                 title = { Text(stringResource(R.string.ai_model)) },
                                 description = { Text(openRouterModel.ifBlank { stringResource(R.string.not_set) }) },
@@ -623,11 +651,15 @@ fun AiSettings(navController: NavController) {
 
         Material3SettingsGroup(
             title = stringResource(R.string.ai_translation_mode),
+            anchorId = "ai_translation",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items =
                 buildList {
                     if (aiProvider != "DeepL" && aiProvider != "Google") {
                         add(
                             Material3SettingsItem(
+                                anchorId = "ai_translation_mode",
+                                isHighlighted = (highlightItemId == "ai_translation_mode"),
                                 icon = painterResource(R.drawable.translate),
                                 title = { Text(stringResource(R.string.ai_translation_mode)) },
                                 description = {
@@ -653,6 +685,8 @@ fun AiSettings(navController: NavController) {
                         )
                         add(
                             Material3SettingsItem(
+                                anchorId = "ai_system_prompt",
+                                isHighlighted = (highlightItemId == "ai_system_prompt"),
                                 icon = painterResource(R.drawable.edit),
                                 title = { Text(stringResource(R.string.ai_system_prompt)) },
                                 description = {
@@ -672,6 +706,8 @@ fun AiSettings(navController: NavController) {
                     }
                     add(
                         Material3SettingsItem(
+                            anchorId = "ai_target_language",
+                            isHighlighted = (highlightItemId == "ai_target_language"),
                             icon = painterResource(R.drawable.language),
                             title = { Text(stringResource(R.string.ai_target_language)) },
                             description = { Text(LanguageCodeToName[translateLanguage] ?: translateLanguage) },

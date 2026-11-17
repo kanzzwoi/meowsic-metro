@@ -10,6 +10,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -47,6 +48,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -101,8 +104,15 @@ import java.net.Proxy
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContentSettings(
-    navController: NavController
+    navController: NavController,
+    highlightItemId: String? = null,
+    highlightGroupId: String? = null,
+    openDialog: String? = null,
 ) {
+    val scrollState = rememberScrollState()
+    val itemOffsets = remember { SettingsItemOffsets() }
+    val columnTop = remember { floatArrayOf(0f) }
+    SettingsHighlightEffect(scrollState, highlightItemId, highlightGroupId, itemOffsets, openDialog)
     val context = LocalContext.current
     val database = LocalDatabase.current
     // Used only before Android 13
@@ -176,7 +186,7 @@ fun ContentSettings(
         )
 
     var showProxyConfigurationDialog by rememberSaveable {
-        mutableStateOf(false)
+        mutableStateOf(openDialog == "configure_proxy")
     }
 
     if (showProxyConfigurationDialog) {
@@ -199,79 +209,109 @@ fun ContentSettings(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    ExposedDropdownMenuBox(
-                        expanded = expandedDropdown,
-                        onExpandedChange = { expandedDropdown = !expandedDropdown },
-                        modifier = Modifier.fillMaxWidth()
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { itemOffsets.record("proxy_type", it.boundsInWindow().top, columnTop[0], scrollState.value) }
                     ) {
-                        OutlinedTextField(
-                            value = proxyType.name,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text(stringResource(R.string.proxy_type)) },
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDropdown)
-                            },
-                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                            modifier = Modifier
-                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                                .fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
+                        ExposedDropdownMenuBox(
                             expanded = expandedDropdown,
-                            onDismissRequest = { expandedDropdown = false }
+                            onExpandedChange = { expandedDropdown = !expandedDropdown },
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            listOf(Proxy.Type.HTTP, Proxy.Type.SOCKS).forEach { type ->
-                                DropdownMenuItem(
-                                    text = { Text(type.name) },
-                                    onClick = {
-                                        onProxyTypeChange(type)
-                                        expandedDropdown = false
-                                    }
-                                )
+                            OutlinedTextField(
+                                value = proxyType.name,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text(stringResource(R.string.proxy_type)) },
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDropdown)
+                                },
+                                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                                modifier = Modifier
+                                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                                    .fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expandedDropdown,
+                                onDismissRequest = { expandedDropdown = false }
+                            ) {
+                                listOf(Proxy.Type.HTTP, Proxy.Type.SOCKS).forEach { type ->
+                                    DropdownMenuItem(
+                                        text = { Text(type.name) },
+                                        onClick = {
+                                            onProxyTypeChange(type)
+                                            expandedDropdown = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
 
-                    OutlinedTextField(
-                        value = tempProxyUrl,
-                        onValueChange = { tempProxyUrl = it },
-                        label = { Text(stringResource(R.string.proxy_url)) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { itemOffsets.record("proxy_url", it.boundsInWindow().top, columnTop[0], scrollState.value) }
                     ) {
-                        Text(stringResource(R.string.enable_authentication))
-                        Switch(
-                            checked = authEnabled,
-                            onCheckedChange = {
-                                authEnabled = it
-                                if (!it) {
-                                    tempProxyUsername = ""
-                                    tempProxyPassword = ""
-                                }
-                            }
+                        OutlinedTextField(
+                            value = tempProxyUrl,
+                            onValueChange = { tempProxyUrl = it },
+                            label = { Text(stringResource(R.string.proxy_url)) },
+                            modifier = Modifier.fillMaxWidth()
                         )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { itemOffsets.record("enable_authentication", it.boundsInWindow().top, columnTop[0], scrollState.value) }
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(stringResource(R.string.enable_authentication))
+                            Switch(
+                                checked = authEnabled,
+                                onCheckedChange = {
+                                    authEnabled = it
+                                    if (!it) {
+                                        tempProxyUsername = ""
+                                        tempProxyPassword = ""
+                                    }
+                                }
+                            )
+                        }
                     }
 
                     AnimatedVisibility(visible = authEnabled) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(
-                                value = tempProxyUsername,
-                                onValueChange = { tempProxyUsername = it },
-                                label = { Text(stringResource(R.string.proxy_username)) },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            OutlinedTextField(
-                                value = tempProxyPassword,
-                                onValueChange = { tempProxyPassword = it },
-                                label = { Text(stringResource(R.string.proxy_password)) },
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .onGloballyPositioned { itemOffsets.record("proxy_username", it.boundsInWindow().top, columnTop[0], scrollState.value) }
+                            ) {
+                                OutlinedTextField(
+                                    value = tempProxyUsername,
+                                    onValueChange = { tempProxyUsername = it },
+                                    label = { Text(stringResource(R.string.proxy_username)) },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .onGloballyPositioned { itemOffsets.record("proxy_password", it.boundsInWindow().top, columnTop[0], scrollState.value) }
+                            ) {
+                                OutlinedTextField(
+                                    value = tempProxyPassword,
+                                    onValueChange = { tempProxyPassword = it },
+                                    label = { Text(stringResource(R.string.proxy_password)) },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
                         }
                     }
                 }
@@ -359,7 +399,7 @@ fun ContentSettings(
     }
 
     var showProviderSelectionDialog by rememberSaveable {
-        mutableStateOf(false)
+        mutableStateOf(openDialog == "provider_selection")
     }
 
     if (showProviderSelectionDialog) {
@@ -373,150 +413,180 @@ fun ContentSettings(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { itemOffsets.record("enable_lrclib", it.boundsInWindow().top, columnTop[0], scrollState.value) }
                     ) {
-                        Column(
-                            modifier = Modifier.weight(1f)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(stringResource(R.string.enable_lrclib))
-                            Text(
-                                text = stringResource(R.string.enable_lrclib_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = enableLrclib,
-                            onCheckedChange = onEnableLrclibChange,
-                            thumbContent = {
-                                Icon(
-                                    painter = painterResource(
-                                        id = if (enableLrclib) R.drawable.check else R.drawable.close
-                                    ),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(stringResource(R.string.enable_lrclib))
+                                Text(
+                                    text = stringResource(R.string.enable_lrclib_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                        )
+                            Switch(
+                                checked = enableLrclib,
+                                onCheckedChange = onEnableLrclibChange,
+                                thumbContent = {
+                                    Icon(
+                                        painter = painterResource(
+                                            id = if (enableLrclib) R.drawable.check else R.drawable.close
+                                        ),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(SwitchDefaults.IconSize)
+                                    )
+                                }
+                            )
+                        }
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { itemOffsets.record("enable_kugou", it.boundsInWindow().top, columnTop[0], scrollState.value) }
                     ) {
-                        Column(
-                            modifier = Modifier.weight(1f)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(stringResource(R.string.enable_kugou))
-                            Text(
-                                text = stringResource(R.string.enable_kugou_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = enableKugou,
-                            onCheckedChange = onEnableKugouChange,
-                            thumbContent = {
-                                Icon(
-                                    painter = painterResource(
-                                        id = if (enableKugou) R.drawable.check else R.drawable.close
-                                    ),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(stringResource(R.string.enable_kugou))
+                                Text(
+                                    text = stringResource(R.string.enable_kugou_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                        )
+                            Switch(
+                                checked = enableKugou,
+                                onCheckedChange = onEnableKugouChange,
+                                thumbContent = {
+                                    Icon(
+                                        painter = painterResource(
+                                            id = if (enableKugou) R.drawable.check else R.drawable.close
+                                        ),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(SwitchDefaults.IconSize)
+                                    )
+                                }
+                            )
+                        }
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { itemOffsets.record("enable_better_lyrics", it.boundsInWindow().top, columnTop[0], scrollState.value) }
                     ) {
-                        Column(
-                            modifier = Modifier.weight(1f)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(stringResource(R.string.enable_better_lyrics))
-                            Text(
-                                text = stringResource(R.string.enable_better_lyrics_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = enableBetterLyrics,
-                            onCheckedChange = onEnableBetterLyricsChange,
-                            thumbContent = {
-                                Icon(
-                                    painter = painterResource(
-                                        id = if (enableBetterLyrics) R.drawable.check else R.drawable.close
-                                    ),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(stringResource(R.string.enable_better_lyrics))
+                                Text(
+                                    text = stringResource(R.string.enable_better_lyrics_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                        )
+                            Switch(
+                                checked = enableBetterLyrics,
+                                onCheckedChange = onEnableBetterLyricsChange,
+                                thumbContent = {
+                                    Icon(
+                                        painter = painterResource(
+                                            id = if (enableBetterLyrics) R.drawable.check else R.drawable.close
+                                        ),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(SwitchDefaults.IconSize)
+                                    )
+                                }
+                            )
+                        }
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { itemOffsets.record("prefer_word_synced_lyrics", it.boundsInWindow().top, columnTop[0], scrollState.value) }
                     ) {
-                        Column(
-                            modifier = Modifier.weight(1f)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(stringResource(R.string.prefer_word_synced_lyrics))
-                            Text(
-                                text = stringResource(R.string.prefer_word_synced_lyrics_description),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = preferWordSyncedLyrics,
-                            onCheckedChange = onPreferWordSyncedLyricsChange,
-                            thumbContent = {
-                                Icon(
-                                    painter = painterResource(
-                                        id = if (preferWordSyncedLyrics) R.drawable.check else R.drawable.close
-                                    ),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(stringResource(R.string.prefer_word_synced_lyrics))
+                                Text(
+                                    text = stringResource(R.string.prefer_word_synced_lyrics_description),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                        )
+                            Switch(
+                                checked = preferWordSyncedLyrics,
+                                onCheckedChange = onPreferWordSyncedLyricsChange,
+                                thumbContent = {
+                                    Icon(
+                                        painter = painterResource(
+                                            id = if (preferWordSyncedLyrics) R.drawable.check else R.drawable.close
+                                        ),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(SwitchDefaults.IconSize)
+                                    )
+                                }
+                            )
+                        }
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { itemOffsets.record("enable_lyricsplus", it.boundsInWindow().top, columnTop[0], scrollState.value) }
                     ) {
-                        Column(
-                            modifier = Modifier.weight(1f)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(stringResource(R.string.enable_lyricsplus))
-                            Text(
-                                text = stringResource(R.string.enable_lyricsplus_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = enableLyricsPlus,
-                            onCheckedChange = onEnableLyricsPlusChange,
-                            thumbContent = {
-                                Icon(
-                                    painter = painterResource(
-                                        id = if (enableLyricsPlus) R.drawable.check else R.drawable.close
-                                    ),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(stringResource(R.string.enable_lyricsplus))
+                                Text(
+                                    text = stringResource(R.string.enable_lyricsplus_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                        )
+                            Switch(
+                                checked = enableLyricsPlus,
+                                onCheckedChange = onEnableLyricsPlusChange,
+                                thumbContent = {
+                                    Icon(
+                                        painter = painterResource(
+                                            id = if (enableLyricsPlus) R.drawable.check else R.drawable.close
+                                        ),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(SwitchDefaults.IconSize)
+                                    )
+                                }
+                            )
+                        }
                     }
                     Column(modifier = Modifier.padding(2.dp)) {
                         Text(
@@ -704,15 +774,20 @@ fun ContentSettings(
     Column(
         Modifier
             .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
+            .onGloballyPositioned { columnTop[0] = it.boundsInWindow().top }
             .padding(horizontal = 16.dp),
     ) {
         Material3SettingsGroup(
             title = stringResource(R.string.general),
+            anchorId = "general",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items = listOf(
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.language),
                     title = { Text(stringResource(R.string.content_language)) },
+                    anchorId = "content_language",
+                    isHighlighted = (highlightItemId == "content_language"),
                     description = {
                         Text(
                             LanguageCodeToName.getOrElse(contentLanguage) { stringResource(R.string.system_default) }
@@ -723,6 +798,8 @@ fun ContentSettings(
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.location_on),
                     title = { Text(stringResource(R.string.content_country)) },
+                    anchorId = "content_country",
+                    isHighlighted = (highlightItemId == "content_country"),
                     description = {
                         Text(
                             CountryCodeToName.getOrElse(contentCountry) { stringResource(R.string.system_default) }
@@ -733,6 +810,8 @@ fun ContentSettings(
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.explicit),
                     title = { Text(stringResource(R.string.hide_explicit)) },
+                    anchorId = "hide_explicit",
+                    isHighlighted = (highlightItemId == "hide_explicit"),
                     trailingContent = {
                         Switch(
                             checked = hideExplicit,
@@ -753,6 +832,8 @@ fun ContentSettings(
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.slow_motion_video),
                     title = { Text(stringResource(R.string.hide_video_songs)) },
+                    anchorId = "hide_video_songs",
+                    isHighlighted = (highlightItemId == "hide_video_songs"),
                     trailingContent = {
                         Switch(
                             checked = hideVideoSongs,
@@ -773,6 +854,8 @@ fun ContentSettings(
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.hide_image),
                     title = { Text(stringResource(R.string.hide_youtube_shorts)) },
+                    anchorId = "hide_youtube_shorts",
+                    isHighlighted = (highlightItemId == "hide_youtube_shorts"),
                     trailingContent = {
                         Switch(
                             checked = hideYoutubeShorts,
@@ -797,10 +880,14 @@ fun ContentSettings(
 
         Material3SettingsGroup(
             title = stringResource(R.string.playlists),
+            anchorId = "playlists",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items = listOf(
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.playlist_add),
                     title = { Text(stringResource(R.string.add_to_playlist_position)) },
+                    anchorId = "add_to_playlist_position",
+                    isHighlighted = (highlightItemId == "add_to_playlist_position"),
                     description = {
                         Text(
                             when (addToPlaylistPosition) {
@@ -818,10 +905,14 @@ fun ContentSettings(
 
         Material3SettingsGroup(
             title = stringResource(R.string.artist_page_settings),
+            anchorId = "artist_page",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items = listOf(
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.info),
                     title = { Text(stringResource(R.string.show_artist_description)) },
+                    anchorId = "show_artist_description",
+                    isHighlighted = (highlightItemId == "show_artist_description"),
                     trailingContent = {
                         Switch(
                             checked = showArtistDescription,
@@ -842,6 +933,8 @@ fun ContentSettings(
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.person),
                     title = { Text(stringResource(R.string.show_artist_subscriber_count)) },
+                    anchorId = "show_artist_subscriber_count",
+                    isHighlighted = (highlightItemId == "show_artist_subscriber_count"),
                     trailingContent = {
                         Switch(
                             checked = showArtistSubscriberCount,
@@ -862,6 +955,8 @@ fun ContentSettings(
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.person),
                     title = { Text(stringResource(R.string.show_artist_monthly_listeners)) },
+                    anchorId = "show_artist_monthly_listeners",
+                    isHighlighted = (highlightItemId == "show_artist_monthly_listeners"),
                     trailingContent = {
                         Switch(
                             checked = showMonthlyListeners,
@@ -886,11 +981,15 @@ fun ContentSettings(
 
         Material3SettingsGroup(
             title = stringResource(R.string.app_language),
+            anchorId = "app_language_group",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items = listOf(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     Material3SettingsItem(
                         icon = painterResource(R.drawable.language),
                         title = { Text(stringResource(R.string.app_language)) },
+                        anchorId = "app_language",
+                        isHighlighted = (highlightItemId == "app_language"),
                         onClick = {
                             context.startActivity(
                                 Intent(
@@ -904,6 +1003,8 @@ fun ContentSettings(
                     Material3SettingsItem(
                         icon = painterResource(R.drawable.language),
                         title = { Text(stringResource(R.string.app_language)) },
+                        anchorId = "app_language",
+                        isHighlighted = (highlightItemId == "app_language"),
                         description = {
                             Text(
                                 LanguageCodeToName.getOrElse(appLanguage) { stringResource(R.string.system_default) }
@@ -919,11 +1020,15 @@ fun ContentSettings(
 
         Material3SettingsGroup(
             title = stringResource(R.string.proxy),
+            anchorId = "proxy",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items = buildList {
                 add(
                     Material3SettingsItem(
                         icon = painterResource(R.drawable.wifi_proxy),
                         title = { Text(stringResource(R.string.enable_proxy)) },
+                    anchorId = "enable_proxy",
+                    isHighlighted = (highlightItemId == "enable_proxy"),
                         trailingContent = {
                             Switch(
                                 checked = proxyEnabled,
@@ -947,6 +1052,8 @@ fun ContentSettings(
                         Material3SettingsItem(
                             icon = painterResource(R.drawable.settings),
                             title = { Text(stringResource(R.string.config_proxy)) },
+                            anchorId = "config_proxy",
+                            isHighlighted = (highlightItemId == "config_proxy"),
                             onClick = { showProxyConfigurationDialog = true }
                         )
                     )
@@ -958,22 +1065,30 @@ fun ContentSettings(
 
         Material3SettingsGroup(
             title = stringResource(R.string.lyrics),
+            anchorId = "lyrics",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items = listOf(
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.lyrics),
                     title = { Text(stringResource(R.string.lyrics_provider_selection)) },
+                    anchorId = "lyrics_provider_selection",
+                    isHighlighted = (highlightItemId == "lyrics_provider_selection"),
                     description = { Text(stringResource(R.string.lyrics_provider_selection_desc)) },
                     onClick = { showProviderSelectionDialog = true }
                 ),
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.lyrics),
                     title = { Text(stringResource(R.string.lyrics_provider_priority)) },
+                    anchorId = "lyrics_provider_priority",
+                    isHighlighted = (highlightItemId == "lyrics_provider_priority"),
                     description = { Text(stringResource(R.string.lyrics_provider_priority_desc)) },
                     onClick = { showProviderPriorityDialog = true }
                 ),
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.language_korean_latin),
                     title = { Text(stringResource(R.string.lyrics_romanization)) },
+                    anchorId = "lyrics_romanization",
+                    isHighlighted = (highlightItemId == "lyrics_romanization"),
                     onClick = { navController.navigate("settings/content/romanization") }
                 )
             )
@@ -983,10 +1098,14 @@ fun ContentSettings(
 
         Material3SettingsGroup(
             title = "Statistik",
+            anchorId = "stats",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items = listOf(
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.stats),
                     title = { Text(stringResource(R.string.show_most_stats_playlists)) },
+                    anchorId = "show_most_stats_playlists",
+                    isHighlighted = (highlightItemId == "show_most_stats_playlists"),
                     description = { Text(stringResource(R.string.show_most_stats_playlists_desc)) },
                     trailingContent = {
                         Switch(
@@ -1012,10 +1131,14 @@ fun ContentSettings(
 
         Material3SettingsGroup(
             title = stringResource(R.string.misc),
+            anchorId = "misc",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items = listOf(
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.shuffle),
                     title = { Text(stringResource(R.string.randomize_home_order)) },
+                    anchorId = "randomize_home_order",
+                    isHighlighted = (highlightItemId == "randomize_home_order"),
                     description = { Text(stringResource(R.string.randomize_home_order_desc)) },
                     trailingContent = {
                         Switch(
@@ -1037,12 +1160,16 @@ fun ContentSettings(
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.trending_up),
                     title = { Text(stringResource(R.string.top_length)) },
+                    anchorId = "top_length",
+                    isHighlighted = (highlightItemId == "top_length"),
                     description = { Text(lengthTop) },
                     onClick = { showTopLengthDialog = true }
                 ),
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.home_outlined),
                     title = { Text(stringResource(R.string.set_quick_picks)) },
+                    anchorId = "set_quick_picks",
+                    isHighlighted = (highlightItemId == "set_quick_picks"),
                     description = {
                         Text(
                             when (quickPicks) {

@@ -116,9 +116,12 @@ fun SettingsScreen(
     }
 
     // Daftar tujuan yang bisa dicari. Metrolist mengindeks tiap halaman dan
-    // tiap item lewat registry; Meowsic tidak punya registry, jadi yang
-    // diindeks adalah halaman-halaman pengaturan ini + dua aksi di atas.
-    val searchEntries = buildList {
+    // tiap item lewat registry; di sini item-itemnya datang dari
+    // rememberSettingsSearchItems (index dari item pengaturan beneran, lihat
+    // SettingsSearchIndex.kt), dan halaman-halaman yang tidak punya item
+    // terindeks (backup, impor, tentang, dsb.) tetap sebagai hasil
+    // tingkat-halaman dengan search terms-nya, sama seperti Metrolist.
+    val searchEntries = rememberSettingsSearchItems(navController) + buildList {
         add(
             SettingsSearchEntry(
                 title = stringResource(R.string.appearance),

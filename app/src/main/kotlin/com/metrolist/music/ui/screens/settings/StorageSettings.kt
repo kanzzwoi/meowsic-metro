@@ -37,6 +37,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -73,13 +75,21 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalCoilApi::class, ExperimentalMaterial3Api::class, DelicateCoilApi::class)
 @Composable
 fun StorageSettings(
-    navController: NavController
+    navController: NavController,
+    highlightItemId: String? = null,
+    highlightGroupId: String? = null,
+    openDialog: String? = null,
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
     val imageDiskCache = context.imageLoader.diskCache ?: return
     val playerCache = LocalPlayerConnection.current?.service?.playerCache ?: return
     val downloadCache = LocalPlayerConnection.current?.service?.downloadCache ?: return
+
+    val scrollState = rememberScrollState()
+    val itemOffsets = remember { SettingsItemOffsets() }
+    val columnTop = remember { floatArrayOf(0f) }
+    SettingsHighlightEffect(scrollState, highlightItemId, highlightGroupId, itemOffsets, openDialog)
 
     val coroutineScope = rememberCoroutineScope()
     val songCacheString = stringResource(R.string.song_cache).lowercase()
@@ -286,7 +296,7 @@ fun StorageSettings(
                 LocalPlayerAwareWindowInsets.current.only(
                     WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
                 ),
-            ).verticalScroll(rememberScrollState())
+            ).verticalScroll(scrollState).onGloballyPositioned { columnTop[0] = it.boundsInWindow().top }
             .padding(horizontal = 16.dp),
     ) {
         Spacer(
@@ -298,9 +308,13 @@ fun StorageSettings(
         )
         Material3SettingsGroup(
             title = stringResource(R.string.storage),
+            anchorId = "storage",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items =
                 listOf(
                     Material3SettingsItem(
+                        anchorId = "downloaded_songs",
+                        isHighlighted = (highlightItemId == "downloaded_songs"),
                         icon = painterResource(R.drawable.storage),
                         title = { Text(stringResource(R.string.downloaded_songs)) },
                         description = {
@@ -308,6 +322,8 @@ fun StorageSettings(
                         },
                     ),
                     Material3SettingsItem(
+                        anchorId = "clear_all_downloads",
+                        isHighlighted = (highlightItemId == "clear_all_downloads"),
                         icon = painterResource(R.drawable.clear_all),
                         title = { Text(stringResource(R.string.clear_all_downloads)) },
                         onClick = {
@@ -319,8 +335,12 @@ fun StorageSettings(
 
         Material3SettingsGroup(
             title = stringResource(R.string.song_cache),
+            anchorId = "song_cache",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items = listOf(
                 Material3SettingsItem(
+                    anchorId = "enable_song_cache",
+                    isHighlighted = (highlightItemId == "enable_song_cache"),
                     icon = painterResource(R.drawable.cached),
                     title = { Text(stringResource(R.string.enable_song_cache)) },
                     description = { Text(stringResource(R.string.enable_song_cache_desc)) },
@@ -342,6 +362,8 @@ fun StorageSettings(
                     onClick = { onEnableSongCacheChange(!enableSongCache) }
                 ),
                 Material3SettingsItem(
+                    anchorId = "max_song_cache_size",
+                    isHighlighted = (highlightItemId == "max_song_cache_size"),
                     icon = painterResource(R.drawable.cached),
                     title = { Text(stringResource(R.string.max_song_cache_size)) },
                     enabled = enableSongCache,
@@ -402,6 +424,8 @@ fun StorageSettings(
                         },
                     ),
                     Material3SettingsItem(
+                        anchorId = "clear_song_cache",
+                        isHighlighted = (highlightItemId == "clear_song_cache"),
                         icon = painterResource(R.drawable.clear_all),
                         title = { Text(stringResource(R.string.clear_song_cache)) },
                         onClick = {
@@ -413,9 +437,13 @@ fun StorageSettings(
 
         Material3SettingsGroup(
             title = stringResource(R.string.image_cache),
+            anchorId = "image_cache",
+            onItemPlaced = { anchorId, coords -> itemOffsets.record(anchorId, coords.boundsInWindow().top, columnTop[0], scrollState.value) },
             items =
                 listOf(
                     Material3SettingsItem(
+                        anchorId = "max_image_cache_size",
+                        isHighlighted = (highlightItemId == "max_image_cache_size"),
                         icon = painterResource(R.drawable.manage_search),
                         title = { Text(stringResource(R.string.max_image_cache_size)) },
                         description = {
@@ -465,6 +493,8 @@ fun StorageSettings(
                         },
                     ),
                     Material3SettingsItem(
+                        anchorId = "clear_image_cache",
+                        isHighlighted = (highlightItemId == "clear_image_cache"),
                         icon = painterResource(R.drawable.clear_all),
                         title = { Text(stringResource(R.string.clear_image_cache)) },
                         onClick = {

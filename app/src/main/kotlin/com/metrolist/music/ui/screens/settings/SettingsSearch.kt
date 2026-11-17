@@ -3,11 +3,13 @@
  * Licensed under GPL-3.0 | See git history for contributors
  *
  * Settings search, adapted from Metrolist's shared SettingsSearch (KMP).
- * Metrolist indexes every page and item through a settings registry; Meowsic
- * has no registry, so the searchable entries here are built from this
- * screen's own destinations (sub-screen routes + the two actions below).
- * Matching rule, field look, result rows, yellow match highlight and the
- * empty state all follow Metrolist's implementation.
+ * Metrolist's index is its settings registry (every page + item with its
+ * real title, description, group and choices); the same index is built here
+ * from Meowsic's real settings items (see SettingsSearchIndex.kt) — the
+ * item text IS the index, and tapping a result opens the page and scrolls
+ * to + highlights the item (Metrolist's highlightedItemId), falling back
+ * to the item's group when the item is hidden by a condition. The field,
+ * result rows, yellow match highlight and empty state follow Metrolist.
  */
 
 package com.metrolist.music.ui.screens.settings
@@ -24,6 +26,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -35,6 +38,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -51,19 +56,39 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.metrolist.music.R
+import kotlin.math.roundToInt
 
-/** One searchable settings destination: a sub-screen route or an action. */
+/**
+ * One searchable settings destination.
+ *
+ * This mirrors Metrolist's SettingsItemRegistration / SettingsSearchResult:
+ * an item result carries the real item (its title + description + group +
+ * choices are the search text, exactly like Metrolist's
+ * settingsSearchResults), a page result has [itemId] null.
+ * [dialog] names a dialog on the target screen that must be opened on entry
+ * (items that live inside a dialog, e.g. the word-synced toggle inside
+ * Content's "Provider selection" dialog).
+ * [pageTitle] is shown as a third line on item results so the user sees
+ * which screen the result opens.
+ */
 data class SettingsSearchEntry(
     val title: String,
     val subtitle: String?,
     val keywords: List<String> = emptyList(),
+    val group: String? = null,
+    val choices: List<String> = emptyList(),
     val icon: Painter,
     val onClick: () -> Unit,
+    val itemId: String? = null,
+    val dialog: String? = null,
+    val pageTitle: String? = null,
 )
 
 /**
- * Case-insensitive contains match on title, subtitle and keywords,
- * same rule as Metrolist's settingsSearchResults.
+ * Case-insensitive contains match on title, description, group title,
+ * choice labels and page search terms — the same rule as Metrolist's
+ * settingsSearchResults. The real item text IS the index; nothing here is
+ * a hand-written keyword except page-level search terms.
  */
 fun searchSettingsEntries(
     entries: List<SettingsSearchEntry>,
@@ -74,7 +99,61 @@ fun searchSettingsEntries(
     return entries.filter { entry ->
         entry.title.lowercase().contains(normalized) ||
             entry.subtitle.orEmpty().lowercase().contains(normalized) ||
+            entry.group.orEmpty().lowercase().contains(normalized) ||
+            entry.choices.any { it.lowercase().contains(normalized) } ||
             entry.keywords.any { it.lowercase().contains(normalized) }
+    }
+}
+
+/**
+ * Item positions for scroll-to-search-result, Metrolist's highlightedItemId
+ * adapted to Meowsic's Column + verticalScroll screens (which have no
+ * LazyList item indices). An anchor's content offset is its top edge in the
+ * window minus the scrolling column's top edge plus the current scroll
+ * value, so the recorded value is valid whatever the scroll position was
+ * when it was measured.
+ */
+class SettingsItemOffsets {
+    private val offsets = mutableMapOf<String, Int>()
+
+    fun record(
+        anchorId: String,
+        topInWindow: Float,
+        columnTopInWindow: Float,
+        scrollValue: Int,
+    ) {
+        offsets[anchorId] =
+            (topInWindow - columnTopInWindow + scrollValue).roundToInt().coerceAtLeast(0)
+    }
+
+    fun offset(anchorId: String): Int? = offsets[anchorId]
+}
+
+/**
+ * After a screen opens with a search target, scroll to the item and leave
+ * it highlighted. Falls back to the item's group when the item itself is
+ * hidden by a condition (e.g. crossfade duration while crossfade is off) —
+ * the group's first row is the toggle that reveals it. No-op when neither
+ * anchor was recorded, and no scroll at all when the target lives in a
+ * dialog ([openDialog] != null): the dialog opens instead, and scrolling
+ * the column behind it would move the wrong content.
+ */
+@Composable
+fun SettingsHighlightEffect(
+    scrollState: ScrollState,
+    highlightItemId: String?,
+    highlightGroupId: String?,
+    itemOffsets: SettingsItemOffsets,
+    openDialog: String? = null,
+) {
+    LaunchedEffect(highlightItemId) {
+        if (openDialog != null) return@LaunchedEffect
+        val id = highlightItemId ?: return@LaunchedEffect
+        withFrameNanos { }
+        withFrameNanos { }
+        val target = itemOffsets.offset(id)
+            ?: highlightGroupId?.let { itemOffsets.offset(it) }
+        target?.let { scrollState.animateScrollTo(it) }
     }
 }
 
@@ -240,6 +319,16 @@ fun SettingsSearchResultRow(
                     Text(
                         highlightSearchMatches(it, query),
                         style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                // Item results name the screen they open, like Metrolist.
+                if (entry.itemId != null && entry.pageTitle != null &&
+                    entry.pageTitle != entry.subtitle
+                ) {
+                    Text(
+                        highlightSearchMatches(entry.pageTitle, query),
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
