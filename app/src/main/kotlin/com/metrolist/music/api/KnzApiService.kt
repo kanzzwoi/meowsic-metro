@@ -137,6 +137,19 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
                             .replace(Regex("^-\\s*"), "")
                     }
             }
+        // Tolak prosa: kadang model malah mendeskripsikan lagunya ("The song
+        // featured in your prompt is ...") bukan menerjemahkan. Satu paragraf
+        // panjang untuk banyak baris input, atau satu baris yang jauh lebih
+        // panjang dari baris lirik manapun, itu bukan terjemahan — lempar
+        // supaya fetch() gagal + retry, jangan sampai sampahnya tersimpan
+        // dan tampil sebagai terjemahan.
+        val nonBlankLines = lines.filter { it.isNotBlank() }
+        if (nonBlankLines.size == 1 && nonBlankLines[0].length > 200 && expectedLineCount > 1) {
+            throw IllegalArgumentException("KNZAPI returned a song description instead of translations")
+        }
+        if (nonBlankLines.any { it.length > 300 }) {
+            throw IllegalArgumentException("KNZAPI returned a song description instead of translations")
+        }
         // Samakan jumlah baris dengan input (posisi per baris dipertahankan;
         // baris kosong "" dilewati saat render, seperti provider lain).
         return lines.take(expectedLineCount) +
@@ -147,8 +160,13 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
         withContext(Dispatchers.IO) {
             try {
                 val lineCount = text.lines().size
+                // System prompt custom (kalau diisi) MENGGANTIKAN default yang
+                // ketat — makanya model bisa jawab prosa. Selalu tempel aturan
+                // JSON di belakangnya, jadi format {"lines": [...]} tetap
+                // dijaga apa pun isi prompt custom-nya.
                 val systemPrompt =
                     customSystemPrompt.takeIf(String::isNotBlank)?.replace("{lineCount}", lineCount.toString())
+                        ?.let { "$it\n\nAlways reply with ONLY a JSON object {\"lines\": [...]} containing exactly $lineCount strings, no other text." }
                         ?: defaultSystemPrompt(lineCount)
                 val url = BASE_URL +
                     "?chat=${URLEncoder.encode(userPrompt(text, targetLanguage, mode), "UTF-8")}" +

@@ -304,12 +304,6 @@ fun ExperimentalLyrics(
         }
     }
     
-    LaunchedEffect(lines) {
-        LyricsTranslationHelper.clearTranslationsTrigger.collectLatest {
-            lines.forEach { it.translatedTextFlow.value = null }
-        }
-    }
-
     val expressiveAccent = when (playerBackground) {
         PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.primary
         PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT -> Color.White
@@ -507,6 +501,20 @@ fun ExperimentalLyrics(
     val decayAnimSpec = remember { exponentialDecay<Float>(frictionMultiplier = 1.8f) }
     val itemHeights = remember(lyrics, mergedLyricsList) { mutableStateMapOf<Int, Int>() }
     var isInitialLayout by remember(lyrics, mergedLyricsList) { mutableStateOf(true) }
+
+    // Dipindah ke sini (dulu di atas, sebelum itemHeights dideklarasi) supaya
+    // saat terjemahan dimatikan tinggi baris ikut direset.
+    LaunchedEffect(lines) {
+        LyricsTranslationHelper.clearTranslationsTrigger.collectLatest {
+            lines.forEach { it.translatedTextFlow.value = null }
+            // Ukur ulang tinggi baris: itemHeights menyimpan tinggi lama
+            // (dengan terjemahan) dan posisi baris tidak menutup — ruang
+            // kosong bekas terjemahan tertinggal. Reset + nyalakan lagi
+            // auto-scroll supaya offset beku ikut posisi baru.
+            itemHeights.clear()
+            isAutoScrollEnabled = true
+        }
+    }
 
     val activeListIndex by remember(mergedLyricsList, deferredCurrentLineIndex) {
         derivedStateOf {

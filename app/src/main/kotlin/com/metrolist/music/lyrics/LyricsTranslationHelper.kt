@@ -94,6 +94,11 @@ object LyricsTranslationHelper {
     fun triggerClearTranslations() {
         _clearTranslationsTrigger.tryEmit(Unit)
         _hasActiveTranslations.value = false
+        // Hapus juga cache memori: kalau tidak, terjemahan berikutnya (atau
+        // "Muat ulang") langsung memakai cache lama tanpa fetch ulang — dan
+        // translateLyrics malah menulis cache itu kembali ke DB. Sampah dari
+        // satu respons model yang gagal pun jadi hidup selamanya selama sesi.
+        translationCache.clear()
     }
 
     fun clearTranslations(lyrics: LyricsEntity): LyricsEntity {
