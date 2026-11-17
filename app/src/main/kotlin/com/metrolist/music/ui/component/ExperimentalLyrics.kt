@@ -136,8 +136,6 @@ private val LYRICS_ITEM_FALLBACK_HEIGHT_DP = 68.dp
 private val LYRICS_ITEM_GAP_DP = 16.dp
 private val LYRICS_FADE_TOP_DP = 130.dp
 private val LYRICS_FADE_BOTTOM_DP = 160.dp
-private const val LYRICS_STAGGER_DELAY_PER_DISTANCE = 20
-private const val LYRICS_STAGGER_DELAY_MAX_MS = 200
 private const val LYRICS_PREVIEW_TIME = 8000L
 
 @OptIn(
@@ -771,19 +769,23 @@ fun ExperimentalLyrics(
 
                 mergedLyricsList.forEachIndexed { listIndex, listItem ->
                     key(listItem) {
-                        val distance = abs(listIndex - activeListIndex)
                         val targetOffset = anchorY + positions.getOrDefault(listIndex, (listIndex - activeListIndex) * lineHeightPx)
                         val frozenOffset = remember { mutableFloatStateOf(targetOffset) }
                         LaunchedEffect(isAutoScrollEnabled, targetOffset, isInitialLayout) {
                             if (isAutoScrollEnabled || isInitialLayout) frozenOffset.floatValue = targetOffset
                         }
+                        // Semua baris digerakkan BARENG dengan tween yang sama.
+                        // Sebelumnya tiap baris diberi jeda (stagger) berdasarkan
+                        // jaraknya dari baris aktif — baris dekat jangkar jalan
+                        // duluan dan menabrak baris di atasnya yang belum jalan,
+                        // jadi pas pindah lirik teksnya kelihatan numpuk.
                         val animatedOffset by animateFloatAsState(
                             targetValue = if (isAutoScrollEnabled) targetOffset else frozenOffset.floatValue,
-                            animationSpec = if (isInitialLayout || !isAutoScrollEnabled) snap() 
+                            animationSpec = if (isInitialLayout || !isAutoScrollEnabled) snap()
                                             else {
-                                                tween(750, (distance * LYRICS_STAGGER_DELAY_PER_DISTANCE).coerceAtMost(LYRICS_STAGGER_DELAY_MAX_MS), FastOutSlowInEasing)
+                                                tween(750, easing = FastOutSlowInEasing)
                                             },
-                            label = "lyricStaggeredOffset_$listIndex"
+                            label = "lyricOffset_$listIndex"
                         )
 
                         Box(
