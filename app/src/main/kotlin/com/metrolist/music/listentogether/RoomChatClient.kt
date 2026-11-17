@@ -153,6 +153,15 @@ class RoomChatClient(
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var webSocket: WebSocket? = null
+    /**
+     * Relay menolak publish dari socket yang belum subscribe, jadi pesan
+     * yang dikirim selama handshake masih jalan (mis. publish profil saat
+     * masuk room) harus ditahan dan dikirim setelah subscribe — kalau
+     * tidak, pesannya hilang diam-diam dan anggota lain tidak pernah
+     * melihat level/border/pfp pengirimnya.
+     */
+    private var relaySubscribed = false
+    private val pendingRelayPublishes = mutableListOf<String>()
     private var currentTopic: String? = null
     private var userId: String = ""
     private var relayDisabled = false
@@ -230,6 +239,10 @@ class RoomChatClient(
                 .url(wsUrl)
                 .build()
 
+        // Socket baru = belum subscribe; tahan publish sampai onOpen.
+        relaySubscribed = false
+        pendingRelayPublishes.clear()
+
         webSocket =
             client.newWebSocket(
                 request,
@@ -252,6 +265,19 @@ class RoomChatClient(
                                 },
                             ),
                         )
+                        // Subscribe sudah terkirim, jadi publish yang tertahan
+                        // selama handshake aman dikirim sekarang (relay memproses
+                        // pesan berurutan, publish tidak akan mendahului subscribe).
+                        relaySubscribed = true
+                        val pending = pendingRelayPublishes.toList()
+                        pendingRelayPublishes.clear()
+                        for (encoded in pending) {
+                            try {
+                                webSocket.send(encoded)
+                            } catch (e: Exception) {
+                                Timber.tag(TAG).w(e, "Relay flush failed")
+                            }
+                        }
                     }
 
                     override fun onMessage(
@@ -493,24 +519,17 @@ class RoomChatClient(
         // 1) Self-hosted relay first: it is our own server, has no quota and is the
         //    transport every member should end up on.
         var delivered = false
-        val relaySocket = webSocket
-        if (activeRelay() != null && !relayDisabled && relaySocket != null) {
+        if (activeRelay() != null && !relayDisabled) {
             delivered =
-                try {
-                    relaySocket.send(
-                        json.encodeToString(
-                            JsonObject.serializer(),
-                            buildJsonObject {
-                                put("action", JsonPrimitive("publish"))
-                                put("payload", payload)
-                            },
-                        ),
-                    )
-                    true
-                } catch (e: Exception) {
-                    Timber.tag(TAG).w(e, "Relay publish failed")
-                    false
-                }
+                sendToRelay(
+                    json.encodeToString(
+                        JsonObject.serializer(),
+                        buildJsonObject {
+                            put("action", JsonPrimitive("publish"))
+                            put("payload", payload)
+                        },
+                    ),
+                )
         }
 
         if (!useFreeServiceFallback && activeRelay() != null) {
@@ -583,22 +602,19 @@ class RoomChatClient(
                 put("timestamp", JsonPrimitive(System.currentTimeMillis()))
             }
 
-        // Publish to every available transport.
-        val live = webSocket
-        if (activeRelay() != null && !relayDisabled && live != null) {
-            try {
-                live.send(
-                    json.encodeToString(
-                        JsonObject.serializer(),
-                        buildJsonObject {
-                            put("action", JsonPrimitive("publish"))
-                            put("payload", payload)
-                        },
-                    ),
-                )
-            } catch (e: Exception) {
-                Timber.tag(TAG).w(e, "Relay profile publish failed")
-            }
+        // Publish to every available transport. Relay menolak publish
+        // sebelum subscribe, jadi pesan yang datang saat handshake masih
+        // jalan ditahan dan dikirim setelah subscribe (lihat sendToRelay).
+        if (activeRelay() != null && !relayDisabled) {
+            sendToRelay(
+                json.encodeToString(
+                    JsonObject.serializer(),
+                    buildJsonObject {
+                        put("action", JsonPrimitive("publish"))
+                        put("payload", payload)
+                    },
+                ),
+            )
         }
 
         if (!useFreeServiceFallback && activeRelay() != null) return
@@ -683,10 +699,34 @@ class RoomChatClient(
         pollJob = null
         seenMessageIds.clear()
         lastPollCursor = null
+        relaySubscribed = false
+        pendingRelayPublishes.clear()
         webSocket?.close(1000, "bye")
         webSocket = null
         ntfySocket?.close(1000, "bye")
         ntfySocket = null
         currentTopic = null
+    }
+
+    /**
+     * Kirim satu pesan publish ke relay. Kalau socket belum subscribe,
+     * pesannya ditahan dan dikirim begitu subscribe terkirim (lihat
+     * onOpen). Return true kalau pesan sudah terkirim atau ditahan untuk
+     * dikirim; false kalau relay tidak dipakai.
+     */
+    private fun sendToRelay(encodedPublish: String): Boolean {
+        if (activeRelay() == null || relayDisabled) return false
+        val live = webSocket
+        if (live != null && relaySubscribed) {
+            return try {
+                live.send(encodedPublish)
+                true
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "Relay publish failed")
+                false
+            }
+        }
+        pendingRelayPublishes.add(encodedPublish)
+        return true
     }
 }

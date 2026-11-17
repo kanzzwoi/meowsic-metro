@@ -188,6 +188,10 @@ class ListenTogetherManager
         private val _memberProfiles = MutableStateFlow<Map<String, RoomChatClient.UserProfile>>(emptyMap())
         val memberProfiles: StateFlow<Map<String, RoomChatClient.UserProfile>> = _memberProfiles.asStateFlow()
 
+        // Mengawasi perubahan EXP selama di room supaya level yang naik
+        // langsung diterbitkan ulang ke anggota lain.
+        private var levelWatchJob: Job? = null
+
         /** Publish the local user's avatar so other members can render it. */
         fun publishMyProfile(
             username: String,
@@ -277,6 +281,39 @@ class ListenTogetherManager
                     }
                 },
             )
+
+            // Terbitkan ulang profil tiap EXP berubah selama di room, supaya
+            // level yang naik (cheat menu / ticker) langsung kelihatan anggota
+            // lain tanpa harus keluar-masuk room.
+            levelWatchJob?.cancel()
+            levelWatchJob =
+                scope.launch {
+                    var first = true
+                    context.dataStore.data
+                        .map { prefs -> levelForTotalExp(prefs[LevelTotalExpKey] ?: 0L) }
+                        .distinctUntilChanged()
+                        .collect { newLevel ->
+                            if (first) {
+                                // Nilai awal sudah diterbitkan connectChat di atas.
+                                first = false
+                                return@collect
+                            }
+                            val prefs = context.dataStore.data.first()
+                            val myId = userId.value ?: return@collect
+                            val name =
+                                roomState.value?.users?.firstOrNull { it.userId == myId }?.username
+                                    ?: prefs[com.metrolist.music.constants.ListenTogetherUsernameKey]
+                                    ?: "Teman"
+                            publishMyProfile(
+                                username = name,
+                                emoji = prefs[com.metrolist.music.constants.ListenTogetherAvatarEmojiKey] ?: "🎧",
+                                color = prefs[com.metrolist.music.constants.ListenTogetherAvatarColorKey] ?: "#7C4DFF",
+                                border = (prefs[com.metrolist.music.constants.ListenTogetherAvatarBorderKey] ?: 0).takeIf { it > 0 }?.toString() ?: "",
+                                pfp = prefs[com.metrolist.music.constants.ListenTogetherAvatarPfpKey] ?: "",
+                                level = newLevel.toString(),
+                            )
+                        }
+                }
         }
 
         /**
@@ -327,6 +364,8 @@ class ListenTogetherManager
         }
 
         private fun disconnectChat() {
+            levelWatchJob?.cancel()
+            levelWatchJob = null
             chatClient.disconnect()
             _chatMessages.value = emptyList()
             _chatError.value = null
