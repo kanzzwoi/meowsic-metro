@@ -267,7 +267,7 @@ fun ListenTogetherSettings(navController: NavController) {
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Button(onClick = {
-                    username = tempUsername.trim()
+                    username = tempUsername.trim().take(RoomChatClient.MAX_USERNAME_LENGTH)
                     showUsernameDialog = false
                 }) {
                     Text(stringResource(android.R.string.ok))
@@ -276,7 +276,7 @@ fun ListenTogetherSettings(navController: NavController) {
         ) {
             OutlinedTextField(
                 value = tempUsername,
-                onValueChange = { tempUsername = it },
+                onValueChange = { tempUsername = it.take(RoomChatClient.MAX_USERNAME_LENGTH) },
                 label = { Text(stringResource(R.string.listen_together_username)) },
                 leadingIcon = {
                     Icon(painterResource(R.drawable.person), contentDescription = null)
@@ -308,7 +308,7 @@ fun ListenTogetherSettings(navController: NavController) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Button(
                     onClick = {
-                        val finalUsername = createUsername.trim()
+                        val finalUsername = createUsername.trim().take(RoomChatClient.MAX_USERNAME_LENGTH)
                         if (finalUsername.isNotBlank()) {
                             username = finalUsername
                             manager.createRoom(finalUsername)
@@ -333,7 +333,7 @@ fun ListenTogetherSettings(navController: NavController) {
                 )
                 OutlinedTextField(
                     value = createUsername,
-                    onValueChange = { createUsername = it },
+                    onValueChange = { createUsername = it.take(RoomChatClient.MAX_USERNAME_LENGTH) },
                     label = { Text(stringResource(R.string.listen_together_username)) },
                     leadingIcon = {
                         Icon(painterResource(R.drawable.person), contentDescription = null)
@@ -359,7 +359,7 @@ fun ListenTogetherSettings(navController: NavController) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Button(
                     onClick = {
-                        val finalUsername = joinUsername.trim()
+                        val finalUsername = joinUsername.trim().take(RoomChatClient.MAX_USERNAME_LENGTH)
                         if (finalUsername.isNotBlank() && roomCodeInput.length == 8) {
                             username = finalUsername
                             manager.joinRoom(roomCodeInput, finalUsername)
@@ -380,7 +380,7 @@ fun ListenTogetherSettings(navController: NavController) {
             ) {
                 OutlinedTextField(
                     value = joinUsername,
-                    onValueChange = { joinUsername = it },
+                    onValueChange = { joinUsername = it.take(RoomChatClient.MAX_USERNAME_LENGTH) },
                     label = { Text(stringResource(R.string.listen_together_username)) },
                     leadingIcon = {
                         Icon(painterResource(R.drawable.person), contentDescription = null)

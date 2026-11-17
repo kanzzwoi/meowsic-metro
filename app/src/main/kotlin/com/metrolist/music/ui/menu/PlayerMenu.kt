@@ -86,6 +86,7 @@ import com.metrolist.music.constants.ListItemHeight
 import com.metrolist.music.constants.VarispeedKey
 import com.metrolist.music.listentogether.ConnectionState
 import com.metrolist.music.listentogether.ListenTogetherEvent
+import com.metrolist.music.listentogether.RoomChatClient
 import com.metrolist.music.models.MediaMetadata
 import com.metrolist.music.playback.ExoDownloadService
 import com.metrolist.music.db.entities.Song
@@ -1848,7 +1849,7 @@ fun ListenTogetherDialog(
 
                         OutlinedTextField(
                             value = usernameInput,
-                            onValueChange = { usernameInput = it },
+                            onValueChange = { usernameInput = it.take(RoomChatClient.MAX_USERNAME_LENGTH) },
                             label = { Text(stringResource(R.string.username)) },
                             placeholder = { Text(stringResource(R.string.enter_username)) },
                             leadingIcon = {
@@ -1986,7 +1987,7 @@ fun ListenTogetherDialog(
                         Button(
                             onClick = {
                                 val username = usernameInput.takeIf { it.isNotBlank() } ?: savedUsername
-                                val finalUsername = username.trim()
+                                val finalUsername = username.trim().take(RoomChatClient.MAX_USERNAME_LENGTH)
                                 if (finalUsername.isNotBlank()) {
                                     savedUsername = finalUsername
                                     Toast.makeText(context, R.string.creating_room, Toast.LENGTH_SHORT).show()
@@ -2020,7 +2021,7 @@ fun ListenTogetherDialog(
                             Button(
                                 onClick = {
                                     val username = usernameInput.takeIf { it.isNotBlank() } ?: savedUsername
-                                    val finalUsername = username.trim()
+                                    val finalUsername = username.trim().take(RoomChatClient.MAX_USERNAME_LENGTH)
                                     if (finalUsername.isNotBlank()) {
                                         savedUsername = finalUsername
                                         Toast

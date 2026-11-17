@@ -2151,8 +2151,9 @@ class ListenTogetherManager
          * Create a new room
          */
         fun createRoom(username: String) {
-            Timber.tag(TAG).d("Creating room with username: $username")
-            client.createRoom(username)
+            val safeUsername = username.trim().take(RoomChatClient.MAX_USERNAME_LENGTH)
+            Timber.tag(TAG).d("Creating room with username: $safeUsername")
+            client.createRoom(safeUsername)
         }
 
         /**
@@ -2162,8 +2163,9 @@ class ListenTogetherManager
             roomCode: String,
             username: String,
         ) {
-            Timber.tag(TAG).d("Joining room $roomCode as $username")
-            client.joinRoom(roomCode, username)
+            val safeUsername = username.trim().take(RoomChatClient.MAX_USERNAME_LENGTH)
+            Timber.tag(TAG).d("Joining room $roomCode as $safeUsername")
+            client.joinRoom(roomCode, safeUsername)
         }
 
         /**

@@ -503,7 +503,7 @@ fun ListenTogetherScreen(
                     bringIntoViewRequester = bringIntoViewRequester,
                     onCreateRoom = {
                         val username = usernameInput.takeIf { it.isNotBlank() } ?: savedUsername
-                        val finalUsername = username.trim()
+                        val finalUsername = username.trim().take(RoomChatClient.MAX_USERNAME_LENGTH)
                         if (finalUsername.isNotBlank()) {
                             savedUsername = finalUsername
                             Toast.makeText(context, R.string.creating_room, Toast.LENGTH_SHORT).show()
@@ -518,7 +518,7 @@ fun ListenTogetherScreen(
                     },
                     onJoinRoom = {
                         val username = usernameInput.takeIf { it.isNotBlank() } ?: savedUsername
-                        val finalUsername = username.trim()
+                        val finalUsername = username.trim().take(RoomChatClient.MAX_USERNAME_LENGTH)
                         if (finalUsername.isNotBlank()) {
                             savedUsername = finalUsername
                             Toast
@@ -923,6 +923,17 @@ private fun UserAvatar(
                 .width(72.dp)
                 .clickable(enabled = isClickable, onClick = onClick),
     ) {
+        // Angka level di atas avatar; sembunyi kalau level belum diketahui.
+        level.takeIf { it.isNotBlank() }?.toIntOrNull()?.let { lvl ->
+            Text(
+                text = lvl.toString(),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = tierForLevel(lvl).accent,
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+        }
+
         Box(
             contentAlignment = Alignment.Center,
         ) {
@@ -1330,7 +1341,7 @@ private fun JoinCreateRoomSection(
 
             OutlinedTextField(
                 value = usernameInput,
-                onValueChange = onUsernameChange,
+                onValueChange = { onUsernameChange(it.take(RoomChatClient.MAX_USERNAME_LENGTH)) },
                 label = { Text("Nama kamu") },
                 placeholder = { Text(stringResource(R.string.enter_username)) },
                 leadingIcon = {
@@ -1608,7 +1619,7 @@ private fun ChatPanel(messages: List<RoomChatClient.ChatMessage>, expanded: Bool
                 Box(modifier = Modifier.fillMaxWidth().height(if (messages.isEmpty()) 80.dp else 220.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerLowest).padding(8.dp)) {
                     if (messages.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Belum ada pesan", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     else LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
-                        items(messages) { msg -> val isMe = msg.senderId == currentUserId; val time = remember(msg.timestamp) { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(msg.timestamp)) }; Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start) { Surface(shape = RoundedCornerShape(16.dp), color = if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth(0.78f)) { Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) { if (!isMe) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) { profiles[msg.senderId]?.level?.takeIf { it.isNotBlank() }?.toIntOrNull()?.let { lvl -> Image(painter = painterResource(tierForLevel(lvl).badgeRes), contentDescription = null, modifier = Modifier.size(14.dp)) }; Text(msg.senderName, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) }; Text(msg.text, style = MaterialTheme.typography.bodyMedium); Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.End)) } } } }
+                        items(messages) { msg -> val isMe = msg.senderId == currentUserId; val time = remember(msg.timestamp) { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(msg.timestamp)) }; Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start) { Surface(shape = RoundedCornerShape(16.dp), color = if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth(0.78f)) { Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) { if (!isMe) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) { profiles[msg.senderId]?.level?.takeIf { it.isNotBlank() }?.toIntOrNull()?.let { lvl -> Image(painter = painterResource(tierForLevel(lvl).badgeRes), contentDescription = null, modifier = Modifier.size(14.dp)) }; Text(msg.senderName, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); profiles[msg.senderId]?.level?.takeIf { it.isNotBlank() }?.toIntOrNull()?.let { lvl -> Text("($lvl)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFFFFD54F)) } }; Text(msg.text, style = MaterialTheme.typography.bodyMedium); Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.End)) } } } }
                     }
                 }
                 Spacer(Modifier.height(10.dp))

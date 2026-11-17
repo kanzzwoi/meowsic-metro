@@ -70,6 +70,9 @@ class RoomChatClient(
         /** Maximum number of characters allowed in a single chat message. */
         const val MAX_CHAT_LENGTH = 500
 
+        /** Maximum number of characters allowed in a Together username. */
+        const val MAX_USERNAME_LENGTH = 12
+
         /** Resolve the relay that should actually be used right now. */
         fun activeRelay(): String? {
             val configured = relayUrl
