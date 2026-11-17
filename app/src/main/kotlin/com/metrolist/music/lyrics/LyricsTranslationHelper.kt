@@ -14,6 +14,7 @@ import com.metrolist.music.api.DeeplFreeService
 import com.metrolist.music.api.GoogleFreeService
 import com.metrolist.music.api.OpenRouterService
 import com.metrolist.music.api.OpenRouterStreamingService
+import com.metrolist.music.extensions.isInternetConnected
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.io.IOException
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
@@ -115,6 +117,31 @@ object LyricsTranslationHelper {
     private fun getCacheKey(text: String, mode: String, targetLanguage: String): String {
         return "${text.hashCode()}_${mode}_${targetLanguage}"
     }
+
+    /**
+     * True kalau kegagalan ini soal konektivitas (offline, DNS gagal, dsb),
+     * bukan soal kredensial/kuota — yang seperti itu tidak perlu ditampilkan
+     * sebagai kartu error merah di atas lirik.
+     */
+    private fun isNetworkError(error: Throwable): Boolean {
+        var cause: Throwable? = error
+        while (cause != null) {
+            if (cause is IOException) return true
+            cause = cause.cause
+        }
+        val message = error.message.orEmpty()
+        return NETWORK_ERROR_MARKERS.any { message.contains(it, ignoreCase = true) }
+    }
+
+    private val NETWORK_ERROR_MARKERS = listOf(
+        "Unable to resolve host",
+        "No address associated with hostname",
+        "Network is unreachable",
+        "Connection refused",
+        "Connection reset",
+        "Failed to connect",
+        "timed out",
+    )
 
     /**
      * Attempts to parse partial translation content from the AI.
@@ -277,6 +304,15 @@ object LyricsTranslationHelper {
                         if (_status.value is TranslationStatus.Success) {
                             _status.value = TranslationStatus.Idle
                         }
+                        return@launch
+                    }
+
+                    // Offline: jangan panggil provider sama sekali. Terjemahan
+                    // itu best-effort; lirik asli tetap tampil tanpa kartu error.
+                    // (Cek di sini, setelah cache — terjemahan yang sudah
+                    // tersimpan tetap dipakai saat offline.)
+                    if (!context.isInternetConnected()) {
+                        _status.value = TranslationStatus.Idle
                         return@launch
                     }
 
@@ -470,6 +506,13 @@ object LyricsTranslationHelper {
                                 return@onFailure
                             }
 
+                            // Gagal koneksi (mis. offline): diam saja, jangan
+                            // tampilkan pesan error mentah di atas lirik.
+                            if (isNetworkError(error)) {
+                                _status.value = TranslationStatus.Idle
+                                return@onFailure
+                            }
+
                             val errorMessage = error.message ?: context.getString(com.metrolist.music.R.string.ai_error_unknown)
 
                             // Show error in UI
@@ -478,8 +521,14 @@ object LyricsTranslationHelper {
                 } catch (e: Exception) {
                     // Ignore cancellation exceptions or if composition is no longer active
                     if (e !is kotlinx.coroutines.CancellationException && isCompositionActive) {
-                        val errorMessage = e.message ?: context.getString(com.metrolist.music.R.string.ai_error_translation_failed)
-                        _status.value = TranslationStatus.Error(errorMessage)
+                        // Gagal koneksi (mis. jaringan putus di tengah jalan):
+                        // diam saja, jangan tampilkan pesan error mentah.
+                        if (isNetworkError(e)) {
+                            _status.value = TranslationStatus.Idle
+                        } else {
+                            val errorMessage = e.message ?: context.getString(com.metrolist.music.R.string.ai_error_translation_failed)
+                            _status.value = TranslationStatus.Error(errorMessage)
+                        }
                     }
                 }
             }
