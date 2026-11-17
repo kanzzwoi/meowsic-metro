@@ -1036,6 +1036,17 @@ fun BottomSheetPlayer(
 
     val backgroundAlpha = state.progress.coerceIn(0f, 1f)
 
+    // Crossfade bleed saat toggle thumbnail penuh: dipudarkan masuk/keluar
+    // (bukan muncul/hilang langsung) supaya transisinya mulus seperti
+    // Metrolist. Bleed selalu di-compose kalau artwork tersedia, jadi
+    // bitmap bleed sudah dihitung sebelum tombol ditekan — bukan saat
+    // ditekan, yang bikin frame patah.
+    val bleedAlpha by animateFloatAsState(
+        targetValue = if (isFullThumbnail) 1f else 0f,
+        animationSpec = tween(350),
+        label = "bleedAlpha",
+    )
+
     BottomSheet(
         state = state,
         modifier = modifier,
@@ -1137,13 +1148,16 @@ fun BottomSheetPlayer(
                 }
                 }
                 // Lapisan atas, ala v14 (FullscreenThumbnailBackground cuma
-                // digambar kalau !isLyricsVisible): bleed HANYA saat mode
-                // penuh + lirik penuh tertutup. Background normal di atas
-                // tetap jadi lapisan bawah, jadi layar tidak pernah kosong
-                // selagi bleed dihitung.
-                if (isFullThumbnail && !hidePlayerThumbnail && fullThumbnailUrl != null && !showInlineLyrics) {
+                // digambar kalau !isLyricsVisible): bleed di-compose begitu
+                // artwork tersedia (supaya bitmap-nya sudah siap), tapi
+                // HANYA terlihat saat mode penuh + lirik penuh tertutup —
+                // visibilitasnya diatur bleedAlpha, bukan dengan muncul /
+                // hilang mendadak. Background normal di atas tetap jadi
+                // lapisan bawah, jadi layar tidak pernah kosong selagi
+                // bleed dihitung.
+                if (!hidePlayerThumbnail && fullThumbnailUrl != null && !showInlineLyrics) {
                     Box(
-                        modifier = Modifier.fillMaxSize().alpha(backgroundAlpha),
+                        modifier = Modifier.fillMaxSize().alpha(backgroundAlpha * bleedAlpha),
                     ) {
                         FullscreenArtworkBleed(
                             url = fullThumbnailUrl,

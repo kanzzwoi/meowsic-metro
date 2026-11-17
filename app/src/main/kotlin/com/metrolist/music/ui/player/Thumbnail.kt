@@ -6,6 +6,8 @@
 package com.metrolist.music.ui.player
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -52,6 +54,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -612,6 +615,15 @@ private fun ThumbnailItem(
     var skipMultiplier by remember { mutableIntStateOf(1) }
     var lastTapTime by remember { mutableLongStateOf(0L) }
 
+    // Crossfade artwork kotak saat mode penuh: dipudarkan (bukan langsung
+    // hilang) sementara bleed background dipudarkan masuk, jadi transisi
+    // ke fullscreen mulus seperti Metrolist, bukan potongan kasar.
+    val artworkAlpha by animateFloatAsState(
+        targetValue = if (isFullThumbnail) 0f else 1f,
+        animationSpec = tween(350),
+        label = "artworkAlpha",
+    )
+
     Box(
         modifier = modifier
             .then(
@@ -665,6 +677,27 @@ private fun ThumbnailItem(
             },
         contentAlignment = Alignment.Center
     ) {
+        // URI artwork dihitung sekali di sini (dulu di dalam cabang else),
+        // supaya bisa dipakai baik saat artwork penuh maupun saat dipudarkan.
+        val artworkUriToUse = if (item.mediaId == currentMediaId && !currentMediaThumbnail.isNullOrBlank()) {
+            currentMediaThumbnail
+        } else {
+            item.mediaMetadata.artworkUri?.toString()
+        }
+        // Jangan kosongkan gambar saat URI belum tersedia: turunkan ke
+        // thumbnail lagu ini, lalu ke lagu aktif. Tanpa ini, kotak abu-abu
+        // placeholder tampil lama setelah lagu berganti (mis. saat skip).
+        // Catatan: item.mediaMetadata bertipe MediaMetadata media3 yang
+        // TIDAK punya properti thumbnailUrl; thumbnail disimpan di extras
+        // "artwork_uri" oleh MediaItemExt.toMediaItem().
+        val ownArtworkUri = item.mediaMetadata.extras?.getString("artwork_uri")
+        val resolvedArtworkUri =
+            remember(artworkUriToUse, ownArtworkUri, currentMediaThumbnail) {
+                artworkUriToUse?.takeIf { it.isNotBlank() }
+                    ?: ownArtworkUri?.takeIf { it.isNotBlank() }
+                    ?: currentMediaThumbnail
+            }
+
         Box(
             modifier =
                 if (isFullThumbnail) {
@@ -675,38 +708,23 @@ private fun ThumbnailItem(
                         .clip(RoundedCornerShape(dimensions.cornerRadius))
                 },
         ) {
-            if (isFullThumbnail) {
-                // Artwork sudah tampil sebagai background full-bleed;
-                // di sini tidak digambar lagi supaya tidak ada jahitan
-                // crop yang berbeda dengan background.
-            } else if (hidePlayerThumbnail) {
-                HiddenThumbnailPlaceholder(textBackgroundColor = textBackgroundColor)
-            } else {
-                val artworkUriToUse = if (item.mediaId == currentMediaId && !currentMediaThumbnail.isNullOrBlank()) {
-                    currentMediaThumbnail
-                } else {
-                    item.mediaMetadata.artworkUri?.toString()
+            // Artwork kotak dipudarkan saat mode penuh (crossfade ke bleed
+            // background), bukan langsung hilang. Setelah alpha 0, artwork
+            // tidak digambar lagi supaya tidak ada jahitan crop dengan
+            // background.
+            if (!hidePlayerThumbnail && artworkAlpha > 0f) {
+                Box(
+                    modifier = Modifier.fillMaxSize().alpha(artworkAlpha),
+                ) {
+                    ThumbnailImage(
+                        artworkUri = resolvedArtworkUri,
+                        cropArtwork = cropAlbumArt,
+                    )
                 }
-                // Jangan kosongkan gambar saat URI belum tersedia: turunkan ke
-                // thumbnail lagu ini, lalu ke lagu aktif. Tanpa ini, kotak abu-abu
-                // placeholder tampil lama setelah lagu berganti (mis. saat skip).
-                // Catatan: item.mediaMetadata bertipe MediaMetadata media3 yang
-                // TIDAK punya properti thumbnailUrl; thumbnail disimpan di extras
-                // "artwork_uri" oleh MediaItemExt.toMediaItem().
-                val ownArtworkUri = item.mediaMetadata.extras?.getString("artwork_uri")
-                val resolvedArtworkUri =
-                    remember(artworkUriToUse, ownArtworkUri, currentMediaThumbnail) {
-                        artworkUriToUse?.takeIf { it.isNotBlank() }
-                            ?: ownArtworkUri?.takeIf { it.isNotBlank() }
-                            ?: currentMediaThumbnail
-                    }
-
-                ThumbnailImage(
-                    artworkUri = resolvedArtworkUri,
-                    cropArtwork = cropAlbumArt
-                )
+            } else if (hidePlayerThumbnail && !isFullThumbnail) {
+                HiddenThumbnailPlaceholder(textBackgroundColor = textBackgroundColor)
             }
-            
+
             // Cast button at top-right corner of thumbnail
             CastButton(
                 modifier = Modifier
