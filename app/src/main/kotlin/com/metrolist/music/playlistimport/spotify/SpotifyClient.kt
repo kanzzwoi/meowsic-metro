@@ -55,6 +55,8 @@ class SpotifyClient internal constructor(
     private var currentSession = SpotifySession()
 
     companion object {
+        const val TAG = "SpotifyApi"
+
         fun create(config: SpotifyConfig = SpotifyConfig()): SpotifyClient {
             val okHttp =
                 OkHttpClient.Builder()
@@ -303,8 +305,4 @@ class SpotifyClient internal constructor(
 
     private fun reindex(tracks: List<SpotifyTrackItem>): List<SpotifyTrackItem> =
         tracks.mapIndexed { index, track -> track.copy(position = index + 1) }
-
-    private companion object {
-        const val TAG = "SpotifyApi"
-    }
 }

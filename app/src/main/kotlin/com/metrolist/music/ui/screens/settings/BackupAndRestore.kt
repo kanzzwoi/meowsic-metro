@@ -178,7 +178,10 @@ fun BackupAndRestore(
     var loadedSpotifyPlaylists by remember { mutableStateOf<List<SpotifyImportManager.LoadedPlaylist>?>(null) }
     var spotifyPreviewUri by remember { mutableStateOf<String?>(null) }
     var showSpotifyPreview by remember { mutableStateOf(false) }
-    var isSpotifyImporting by remember { mutableStateOf(false) }
+    var isSpotifyAccountImporting by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     fun closeAccountFlow() {
         accountManager?.close()
@@ -293,8 +296,6 @@ fun BackupAndRestore(
         }
     }
 
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
 
     val backupLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
@@ -932,7 +933,7 @@ fun BackupAndRestore(
             },
             onContinue = {
                 val loaded = loadedSpotifyPlaylists ?: return@SpotifyPlaylistPreviewSheet
-                isSpotifyImporting = true
+                isSpotifyAccountImporting = true
                 coroutineScope.launch(Dispatchers.IO) {
                     var imported = 0
                     var failed = 0
@@ -942,7 +943,7 @@ fun BackupAndRestore(
                             .onFailure { failed++ }
                     }
                     withContext(Dispatchers.Main) {
-                        isSpotifyImporting = false
+                        isSpotifyAccountImporting = false
                         showSpotifyPreview = false
                         val message = if (failed > 0) {
                             context.getString(R.string.import_spotify_partial, imported, failed)
@@ -957,7 +958,7 @@ fun BackupAndRestore(
     }
 
     LoadingScreen(
-        isVisible = isAccountImporting || isSpotifyImporting || isSpotifyLoadingPlaylists,
+        isVisible = isAccountImporting || isSpotifyAccountImporting || isSpotifyLoadingPlaylists,
         value = 0,
         songTitle = "",
     )
