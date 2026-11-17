@@ -495,6 +495,24 @@
     <string name="settings_section_storage">Storage &amp; Data</string>
     <string name="settings_section_system">System &amp; About</string>
 
+    <!-- Settings search -->
+    <string name="settings_search_placeholder">Search settings</string>
+    <string name="settings_search_no_results">No results found</string>
+    <string name="settings_search_no_results_desc">No settings match \"%1$s\"</string>
+    <string name="settings_desc_appearance">Theme, font, and player appearance</string>
+    <string name="settings_desc_content">Language, feed, explore</string>
+    <string name="settings_desc_player">Audio, transitions, queue</string>
+    <string name="settings_desc_ai_translation">AI lyrics translation</string>
+    <string name="settings_desc_privacy">History, screenshot restrictions</string>
+    <string name="settings_desc_storage">Downloads, song and image cache</string>
+    <string name="settings_desc_backup_restore">Back up, restore, and import from other apps</string>
+    <string name="settings_desc_import_playlist">Spotify, YouTube Music, Apple Music, and more</string>
+    <string name="settings_desc_android_auto">Play music in the car</string>
+    <string name="settings_desc_default_links">Open the default links settings for the app</string>
+    <string name="settings_desc_share_log">Share the playback log for diagnosis</string>
+    <string name="settings_desc_about">App version and info</string>
+    <string name="settings_desc_cheat">Add EXP</string>
+
     <!-- Updater -->
     <string name="updater">Updater</string>
     <string name="check_for_updates">Automatically check for updates</string>

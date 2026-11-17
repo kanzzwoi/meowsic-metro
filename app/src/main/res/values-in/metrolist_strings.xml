@@ -193,6 +193,24 @@
     <string name="settings_section_privacy">Privasi &amp; Keamanan</string>
     <string name="settings_section_storage">Penyimpanan &amp; Data</string>
     <string name="settings_section_system">Sistem &amp; Tentang</string>
+
+    <!-- Settings search -->
+    <string name="settings_search_placeholder">Cari pengaturan</string>
+    <string name="settings_search_no_results">Tidak ada hasil</string>
+    <string name="settings_search_no_results_desc">Tidak ada pengaturan yang cocok dengan \"%1$s\"</string>
+    <string name="settings_desc_appearance">Tema, font, dan tampilan pemutar</string>
+    <string name="settings_desc_content">Bahasa, feed, jelajah</string>
+    <string name="settings_desc_player">Audio, transisi, antrean</string>
+    <string name="settings_desc_ai_translation">Terjemahan lirik AI</string>
+    <string name="settings_desc_privacy">Riwayat, batasan tangkapan layar</string>
+    <string name="settings_desc_storage">Unduhan, cache lagu, dan cache gambar</string>
+    <string name="settings_desc_backup_restore">Cadangkan, pulihkan, dan impor dari aplikasi lain</string>
+    <string name="settings_desc_import_playlist">Spotify, YouTube Music, Apple Music, dan lainnya</string>
+    <string name="settings_desc_android_auto">Putar musik di mobil</string>
+    <string name="settings_desc_default_links">Buka pengaturan tautan default aplikasi</string>
+    <string name="settings_desc_share_log">Bagikan log pemutaran untuk diagnosis</string>
+    <string name="settings_desc_about">Versi aplikasi dan info</string>
+    <string name="settings_desc_cheat">Tambah EXP</string>
     <string name="starting_radio">Memulai radio…</string>
     <string name="edit_playlist_cover_note_wait">Setelah memilih gambar, harap tunggu sebentar agar sampul baru muncul di playlist Anda</string>
     <string name="config_proxy">Atur proksi</string>

@@ -5,11 +5,11 @@
 
 package com.metrolist.music.ui.screens.settings
 
-import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -22,7 +22,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -67,6 +70,217 @@ fun SettingsScreen(
         }
     }
 
+    var query by rememberSaveable { mutableStateOf("") }
+
+    // Dua aksi di grup System & About ini juga dipakai sebagai hasil
+    // pencarian, jadi didefinisikan sekali di sini (dulu inline di item).
+    val openDefaultLinks: () -> Unit = {
+        try {
+            val intent = Intent(
+                Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS,
+                "package:${context.packageName}".toUri()
+            )
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(
+                context,
+                R.string.open_app_settings_error,
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+    val sharePlaybackLog: () -> Unit = {
+        try {
+            val file = com.metrolist.music.playback.PlaybackLog.file(context)
+            if (!file.exists()) {
+                Toast.makeText(context, "Belum ada log", Toast.LENGTH_SHORT).show()
+            } else {
+                val uri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.FileProvider",
+                    file,
+                )
+                val share = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(
+                    Intent.createChooser(share, "Bagikan log pemutaran"),
+                )
+            }
+        } catch (e: Exception) {
+            Toast.makeText(context, "Gagal membagikan log: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Daftar tujuan yang bisa dicari. Metrolist mengindeks tiap halaman dan
+    // tiap item lewat registry; Meowsic tidak punya registry, jadi yang
+    // diindeks adalah halaman-halaman pengaturan ini + dua aksi di atas.
+    val searchEntries = buildList {
+        add(
+            SettingsSearchEntry(
+                title = stringResource(R.string.appearance),
+                subtitle = stringResource(R.string.settings_desc_appearance),
+                keywords = listOf(
+                    "tema", "font", "pemutar", "gelap", "terang", "dinamis",
+                    "warna", "lirik", "theme", "appearance", "display",
+                    "dark", "light", "lyrics",
+                ),
+                icon = painterResource(R.drawable.palette),
+                onClick = { navController.navigate("settings/appearance") },
+            )
+        )
+        add(
+            SettingsSearchEntry(
+                title = stringResource(R.string.player_and_audio),
+                subtitle = stringResource(R.string.settings_desc_player),
+                keywords = listOf(
+                    "audio", "transisi", "antrean", "kualitas", "volume",
+                    "crossfade", "loudness", "repeat", "shuffle", "putar",
+                    "quality", "transitions", "queue", "playback",
+                ),
+                icon = painterResource(R.drawable.play),
+                onClick = { navController.navigate("settings/player") },
+            )
+        )
+        add(
+            SettingsSearchEntry(
+                title = stringResource(R.string.content),
+                subtitle = stringResource(R.string.settings_desc_content),
+                keywords = listOf(
+                    "bahasa", "feed", "jelajah", "lirik", "lyrics", "proxy",
+                    "proksi", "negara", "country", "language", "home",
+                    "beranda", "explore",
+                ),
+                icon = painterResource(R.drawable.language),
+                onClick = { navController.navigate("settings/content") },
+            )
+        )
+        add(
+            SettingsSearchEntry(
+                title = stringResource(R.string.ai_lyrics_translation),
+                subtitle = stringResource(R.string.settings_desc_ai_translation),
+                keywords = listOf(
+                    "terjemahan", "translate", "ai", "lirik", "lyrics",
+                    "knzapi", "gemini", "openrouter", "provider", "penyedia",
+                    "model",
+                ),
+                icon = painterResource(R.drawable.translate),
+                onClick = { navController.navigate("settings/ai") },
+            )
+        )
+        if (hasAndroidAuto) {
+            add(
+                SettingsSearchEntry(
+                    title = stringResource(R.string.android_auto),
+                    subtitle = stringResource(R.string.settings_desc_android_auto),
+                    keywords = listOf("android auto", "mobil", "car"),
+                    icon = painterResource(R.drawable.ic_android_auto),
+                    onClick = { navController.navigate("settings/android_auto") },
+                )
+            )
+        }
+        add(
+            SettingsSearchEntry(
+                title = stringResource(R.string.privacy),
+                subtitle = stringResource(R.string.settings_desc_privacy),
+                keywords = listOf(
+                    "riwayat", "history", "tangkapan layar", "screenshot",
+                    "privasi", "privacy", "dengarkan", "listen", "cari",
+                    "search",
+                ),
+                icon = painterResource(R.drawable.security),
+                onClick = { navController.navigate("settings/privacy") },
+            )
+        )
+        add(
+            SettingsSearchEntry(
+                title = stringResource(R.string.storage),
+                subtitle = stringResource(R.string.settings_desc_storage),
+                keywords = listOf(
+                    "penyimpanan", "storage", "cache", "unduhan", "download",
+                    "hapus", "clear", "lagu", "gambar",
+                ),
+                icon = painterResource(R.drawable.storage),
+                onClick = { navController.navigate("settings/storage") },
+            )
+        )
+        add(
+            SettingsSearchEntry(
+                title = stringResource(R.string.backup_restore),
+                subtitle = stringResource(R.string.settings_desc_backup_restore),
+                keywords = listOf(
+                    "cadangan", "backup", "pulihkan", "restore", "impor",
+                    "import", "playlist", "spotify", "youtube", "ekspor",
+                    "export",
+                ),
+                icon = painterResource(R.drawable.restore),
+                onClick = { navController.navigate("settings/backup_restore") },
+            )
+        )
+        add(
+            SettingsSearchEntry(
+                title = stringResource(R.string.import_playlist),
+                subtitle = stringResource(R.string.settings_desc_import_playlist),
+                keywords = listOf(
+                    "impor", "import", "playlist", "spotify", "apple",
+                    "deezer", "tidal", "amazon", "youtube",
+                ),
+                icon = painterResource(R.drawable.download),
+                onClick = { navController.navigate("playlist_import") },
+            )
+        )
+        if (isAndroid12OrLater) {
+            add(
+                SettingsSearchEntry(
+                    title = stringResource(R.string.default_links),
+                    subtitle = stringResource(R.string.settings_desc_default_links),
+                    keywords = listOf(
+                        "tautan", "link", "default", "buka", "open",
+                    ),
+                    icon = painterResource(R.drawable.link),
+                    onClick = openDefaultLinks,
+                )
+            )
+        }
+        add(
+            SettingsSearchEntry(
+                title = "Bagikan log pemutaran",
+                subtitle = stringResource(R.string.settings_desc_share_log),
+                keywords = listOf(
+                    "log", "pemutaran", "playback", "bagikan", "share",
+                    "debug", "diagnosis",
+                ),
+                icon = painterResource(R.drawable.info),
+                onClick = sharePlaybackLog,
+            )
+        )
+        add(
+            SettingsSearchEntry(
+                title = stringResource(R.string.about),
+                subtitle = stringResource(R.string.settings_desc_about),
+                keywords = listOf(
+                    "tentang", "about", "versi", "version", "meowsic",
+                ),
+                icon = painterResource(R.drawable.info),
+                onClick = { navController.navigate("settings/about") },
+            )
+        )
+        if (secretPfpUnlocked) {
+            add(
+                SettingsSearchEntry(
+                    title = "Menu Cheat",
+                    subtitle = stringResource(R.string.settings_desc_cheat),
+                    keywords = listOf("cheat", "exp", "level"),
+                    icon = painterResource(R.drawable.key),
+                    onClick = { navController.navigate("settings/cheat") },
+                )
+            )
+        }
+    }
+
     Column(
         Modifier
             .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
@@ -81,6 +295,14 @@ fun SettingsScreen(
             )
         )
 
+        SettingsSearchField(
+            query = query,
+            onQueryChange = { query = it },
+        )
+
+        Spacer(modifier = Modifier.height(if (query.isBlank()) 16.dp else 12.dp))
+
+        if (query.isBlank()) {
         // User Interface Section
         Material3SettingsGroup(
             title = stringResource(R.string.settings_section_ui),
@@ -182,42 +404,7 @@ fun SettingsScreen(
                         Material3SettingsItem(
                             icon = painterResource(R.drawable.link),
                             title = { Text(stringResource(R.string.default_links)) },
-                            onClick = {
-                                try {
-                                    val intent = Intent(
-                                        Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS,
-                                        "package:${context.packageName}".toUri()
-                                    )
-                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    when (e) {
-                                        is ActivityNotFoundException -> {
-                                            Toast.makeText(
-                                                context,
-                                                R.string.open_app_settings_error,
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                        }
-
-                                        is SecurityException -> {
-                                            Toast.makeText(
-                                                context,
-                                                R.string.open_app_settings_error,
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                        }
-
-                                        else -> {
-                                            Toast.makeText(
-                                                context,
-                                                R.string.open_app_settings_error,
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                        }
-                                    }
-                                }
-                            }
+                            onClick = openDefaultLinks
                         )
                     )
                 }
@@ -225,30 +412,7 @@ fun SettingsScreen(
                     Material3SettingsItem(
                         icon = painterResource(R.drawable.info),
                         title = { Text("Bagikan log pemutaran") },
-                        onClick = {
-                            try {
-                                val file = com.metrolist.music.playback.PlaybackLog.file(context)
-                                if (!file.exists()) {
-                                    Toast.makeText(context, "Belum ada log", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    val uri = androidx.core.content.FileProvider.getUriForFile(
-                                        context,
-                                        "${context.packageName}.FileProvider",
-                                        file,
-                                    )
-                                    val share = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_STREAM, uri)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    context.startActivity(
-                                        Intent.createChooser(share, "Bagikan log pemutaran"),
-                                    )
-                                }
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Gagal membagikan log: ${e.message}", Toast.LENGTH_SHORT).show()
-                            }
-                        },
+                        onClick = sharePlaybackLog,
                     ),
                 )
                 add(
@@ -269,6 +433,25 @@ fun SettingsScreen(
                 }
             }
         )
+        } else {
+            val results = searchSettingsEntries(searchEntries, query)
+            if (results.isEmpty()) {
+                SettingsSearchEmptyState(query)
+            } else {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    results.forEachIndexed { index, entry ->
+                        SettingsSearchResultRow(
+                            entry = entry,
+                            query = query,
+                            first = index == 0,
+                            last = index == results.lastIndex,
+                        )
+                    }
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
     }
