@@ -52,7 +52,8 @@ CRITICAL RULES:
 3. Each input line maps to exactly one entry in the "lines" array
 4. Preserve empty lines as empty strings ""
 5. The "lines" array must contain EXACTLY $lineCount items
-6. If uncertain, provide best approximation but maintain line count"""
+6. If uncertain, provide best approximation but maintain line count
+7. NEVER describe, summarize, or discuss the song or its themes — translate the lyrics ONLY"""
 
     private fun userPrompt(text: String, targetLanguage: String, mode: String): String {
         val lineCount = text.lines().size
