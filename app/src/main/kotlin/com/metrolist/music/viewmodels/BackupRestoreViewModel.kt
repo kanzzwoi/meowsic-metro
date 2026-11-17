@@ -39,6 +39,13 @@ import com.metrolist.music.extensions.div
 import com.metrolist.music.extensions.tryOrNull
 import com.metrolist.music.extensions.zipInputStream
 import com.metrolist.music.extensions.zipOutputStream
+import com.metrolist.music.playlistimport.providers.AmazonMusicCookiesKey
+import com.metrolist.music.playlistimport.providers.AmazonMusicHostKey
+import com.metrolist.music.playlistimport.providers.AppleMusicSessionTokenKey
+import com.metrolist.music.playlistimport.providers.DeezerArlKey
+import com.metrolist.music.playlistimport.providers.TidalSessionIdKey
+import com.metrolist.music.playlistimport.providers.TidalUserIdKey
+import com.metrolist.music.playlistimport.spotify.SpotifySessionKey
 import com.metrolist.music.playback.MusicService
 import com.metrolist.music.playback.MusicService.Companion.PERSISTENT_AUTOMIX_FILE
 import com.metrolist.music.playback.MusicService.Companion.PERSISTENT_PLAYER_STATE_FILE
@@ -293,6 +300,16 @@ class BackupRestoreViewModel @Inject constructor(
                             kotlinx.coroutines.runBlocking {
                                 stageDataStore.edit { prefs ->
                                     prefs.remove(LevelTotalExpKey)
+                                    // Sesi impor akun provider jangan ikut pindah lewat cadangan
+                                    // (sama seperti EXP): sesi Spotify/Apple/Deezer/Tidal/Amazon
+                                    // milik donor akan memberi penerima akses ke akunnya.
+                                    prefs.remove(SpotifySessionKey)
+                                    prefs.remove(AppleMusicSessionTokenKey)
+                                    prefs.remove(DeezerArlKey)
+                                    prefs.remove(TidalSessionIdKey)
+                                    prefs.remove(TidalUserIdKey)
+                                    prefs.remove(AmazonMusicCookiesKey)
+                                    prefs.remove(AmazonMusicHostKey)
                                     if (clearAuthData) {
                                         prefs.remove(InnerTubeCookieKey)
                                         prefs.remove(VisitorDataKey)
