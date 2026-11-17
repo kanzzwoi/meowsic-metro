@@ -275,7 +275,7 @@ fun ExperimentalLyrics(
         database
     ) {
         LyricsTranslationHelper.manualTrigger.collectLatest {
-            val isKeyless = aiProvider == "Google" || aiProvider == "DeepLFree"
+            val isKeyless = aiProvider == "Google" || aiProvider == "DeepLFree" || aiProvider == "KNZAPI"
             val effectiveApiKey = if (aiProvider == "DeepL") deeplApiKey else openRouterApiKey
             if (showLyrics && lines.isNotEmpty()) {
                 // Tanpa key? Fallback ke Google gratis, bukan toast error

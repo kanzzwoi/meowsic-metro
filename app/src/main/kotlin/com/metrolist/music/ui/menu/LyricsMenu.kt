@@ -114,7 +114,7 @@ fun LyricsMenu(
     var respectAgentPositioning by rememberPreference(RespectAgentPositioningKey, true)
     var showIntervalIndicator by rememberPreference(ShowIntervalIndicatorKey, true)
 
-    val isKeylessProvider = aiProvider == "Google" || aiProvider == "DeepLFree"
+    val isKeylessProvider = aiProvider == "Google" || aiProvider == "DeepLFree" || aiProvider == "KNZAPI"
     val hasApiKey = isKeylessProvider || (if (aiProvider == "DeepL") deeplApiKey.isNotBlank() else openRouterApiKey.isNotBlank())
     
     // Observe the authoritative translation-active state from the singleton; this persists

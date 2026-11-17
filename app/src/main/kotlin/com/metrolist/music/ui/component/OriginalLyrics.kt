@@ -389,7 +389,7 @@ fun OriginalLyrics(
     // Listen for manual trigger
     LaunchedEffect(showLyrics, lines.size) {
         LyricsTranslationHelper.manualTrigger.collect {
-            val isKeyless = aiProvider == "Google" || aiProvider == "DeepLFree"
+            val isKeyless = aiProvider == "Google" || aiProvider == "DeepLFree" || aiProvider == "KNZAPI"
             val effectiveApiKey = if (aiProvider == "DeepL") deeplApiKey else openRouterApiKey
             if (showLyrics && lines.isNotEmpty()) {
                 // Tanpa key? Fallback ke Google gratis

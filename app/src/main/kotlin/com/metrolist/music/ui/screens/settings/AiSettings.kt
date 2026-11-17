@@ -5,6 +5,7 @@
 
 package com.metrolist.music.ui.screens.settings
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.LinkAnnotation
@@ -44,17 +46,20 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.metrolist.music.LocalPlayerAwareWindowInsets
 import com.metrolist.music.R
+import com.metrolist.music.api.KnzApiService
 import com.metrolist.music.constants.AiProviderKey
 import com.metrolist.music.constants.AiSystemPromptKey
 import com.metrolist.music.constants.DEFAULT_AI_SYSTEM_PROMPT
 import com.metrolist.music.constants.DeeplApiKey
 import com.metrolist.music.constants.DeeplFormalityKey
 import com.metrolist.music.constants.LanguageCodeToName
+import com.metrolist.music.constants.LevelTotalExpKey
 import com.metrolist.music.constants.OpenRouterApiKey
 import com.metrolist.music.constants.OpenRouterBaseUrlKey
 import com.metrolist.music.constants.OpenRouterModelKey
 import com.metrolist.music.constants.TranslateLanguageKey
 import com.metrolist.music.constants.TranslateModeKey
+import com.metrolist.music.level.levelForTotalExp
 import com.metrolist.music.ui.component.EnumDialog
 import com.metrolist.music.ui.component.Material3SettingsGroup
 import com.metrolist.music.ui.component.Material3SettingsItem
@@ -74,6 +79,12 @@ fun AiSettings(navController: NavController) {
     var deeplFormality by rememberPreference(DeeplFormalityKey, "default")
     var aiSystemPrompt by rememberPreference(AiSystemPromptKey, "")
 
+    // KNZAPI hanya bisa dipakai mulai level 50.
+    val context = LocalContext.current
+    val totalExp by rememberPreference(LevelTotalExpKey, 0L)
+    val knzapiUnlocked = levelForTotalExp(totalExp) >= KnzApiService.KNZAPI_MIN_LEVEL
+    val knzapiLockedText = stringResource(R.string.ai_provider_knzapi_locked)
+
     val aiProviders =
         mapOf(
             "Google" to "",
@@ -82,6 +93,7 @@ fun AiSettings(navController: NavController) {
             "Perplexity" to "https://api.perplexity.ai/chat/completions",
             "Claude" to "https://api.anthropic.com/v1/messages",
             "Gemini" to "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+            "KNZAPI" to "",
             "XAi" to "https://api.x.ai/v1/chat/completions",
             "Mistral" to "https://api.mistral.ai/v1/chat/completions",
             "Inception" to "https://api.inceptionlabs.ai/v1/chat/completions",
@@ -97,6 +109,7 @@ fun AiSettings(navController: NavController) {
             "Perplexity" to stringResource(R.string.ai_provider_perplexity_help),
             "Claude" to stringResource(R.string.ai_provider_claude_help),
             "Gemini" to stringResource(R.string.ai_provider_gemini_help),
+            "KNZAPI" to stringResource(R.string.ai_provider_knzapi_help),
             "XAi" to stringResource(R.string.ai_provider_xai_help),
             "Mistral" to stringResource(R.string.ai_provider_mistral_help),
             "Inception" to stringResource(R.string.ai_provider_inception_help),
@@ -140,6 +153,7 @@ fun AiSettings(navController: NavController) {
                     "gemini-flash-latest",
                     "gemini-3.8-flash",
                 ),
+            "KNZAPI" to listOf(),
             "Perplexity" to
                 listOf(
                     "sonar",
@@ -289,6 +303,11 @@ fun AiSettings(navController: NavController) {
         EnumDialog(
             onDismiss = { showProviderDialog = false },
             onSelect = {
+                if (it == "KNZAPI" && !knzapiUnlocked) {
+                    // Terkunci: beri tahu syaratnya, jangan ganti provider.
+                    Toast.makeText(context, context.getString(R.string.ai_error_knzapi_level_locked), Toast.LENGTH_SHORT).show()
+                    return@EnumDialog
+                }
                 aiProvider = it
                 if (it != "Custom" && it != "DeepL") {
                     openRouterBaseUrl = aiProviders[it] ?: ""
@@ -309,6 +328,9 @@ fun AiSettings(navController: NavController) {
             current = aiProvider,
             values = aiProviders.keys.toList(),
             valueText = { it },
+            valueDescription = {
+                if (it == "KNZAPI" && !knzapiUnlocked) knzapiLockedText else ""
+            },
         )
     }
 
@@ -566,8 +588,8 @@ fun AiSettings(navController: NavController) {
                                 onClick = { showDeeplFormalityDialog = true },
                             ),
                         )
-                    } else if (aiProvider != "Google") {
-                        // Google gratis tanpa API key dan tanpa model, jadi
+                    } else if (aiProvider != "Google" && aiProvider != "KNZAPI") {
+                        // Google dan KNZAPI gratis tanpa API key dan tanpa model, jadi
                         // tidak ada yang perlu diisi di sini.
                         add(
                             Material3SettingsItem(

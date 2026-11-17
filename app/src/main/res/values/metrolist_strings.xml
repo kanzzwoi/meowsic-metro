@@ -767,6 +767,9 @@
     <string name="ai_error_language_required">A target language is required</string>
     <string name="ai_error_unknown">An unknown error occurred</string>
     <string name="ai_error_translation_failed">Translation failed</string>
+    <string name="ai_error_knzapi_level_locked">KNZAPI requires level 50</string>
+    <string name="ai_provider_knzapi_help">Free, requires level 50. No API key needed</string>
+    <string name="ai_provider_knzapi_locked">Requires level 50</string>
     <string name="ai_provider_help">Get API keys</string>
     <string name="ai_provider_google_help">Free, no API key needed</string>
     <string name="ai_provider_openrouter_help">Visit https://openrouter.ai for free and paid models</string>

@@ -12,9 +12,13 @@ import com.metrolist.music.db.entities.SongEntity
 import com.metrolist.music.api.DeepLService
 import com.metrolist.music.api.DeeplFreeService
 import com.metrolist.music.api.GoogleFreeService
+import com.metrolist.music.api.KnzApiService
 import com.metrolist.music.api.OpenRouterService
 import com.metrolist.music.api.OpenRouterStreamingService
+import com.metrolist.music.constants.LevelTotalExpKey
 import com.metrolist.music.extensions.isInternetConnected
+import com.metrolist.music.level.levelForTotalExp
+import com.metrolist.music.utils.dataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -234,9 +238,9 @@ object LyricsTranslationHelper {
         translationJob =
             scope.launch(Dispatchers.IO) {
                 try {
-                    // Validate inputs — provider gratis (Google/DeepLFree) tidak butuh key
+                    // Validate inputs — provider gratis (Google/DeepLFree/KNZAPI) tidak butuh key
                     val effectiveApiKey = if (provider == "DeepL") deeplApiKey else apiKey
-                    val isKeylessProvider = provider == "Google" || provider == "DeepLFree"
+                    val isKeylessProvider = provider == "Google" || provider == "DeepLFree" || provider == "KNZAPI"
                     if (!isKeylessProvider && effectiveApiKey.isBlank()) {
                         _status.value = TranslationStatus.Error(context.getString(com.metrolist.music.R.string.ai_error_api_key_required))
                         return@launch
@@ -338,6 +342,23 @@ object LyricsTranslationHelper {
                             DeeplFreeService.translate(
                                 text = fullText,
                                 targetLanguage = targetLanguage,
+                            )
+                        } else if (provider == "KNZAPI") {
+                            // KNZAPI hanya untuk level 50 ke atas — dicek di sini
+                            // juga (bukan cuma di picker) supaya level yang turun
+                            // (mis. habis restore backup) langsung menghentikan
+                            // pemakaian provider ini.
+                            val level = levelForTotalExp(context.dataStore.data.first()[LevelTotalExpKey] ?: 0L)
+                            if (level < KnzApiService.KNZAPI_MIN_LEVEL) {
+                                _status.value = TranslationStatus.Error(context.getString(com.metrolist.music.R.string.ai_error_knzapi_level_locked))
+                                return@launch
+                            }
+                            Timber.d("Using KNZAPI for translation")
+                            KnzApiService.translate(
+                                text = fullText,
+                                targetLanguage = fullLanguageName,
+                                mode = mode,
+                                customSystemPrompt = systemPrompt,
                             )
                         } else if (provider == "Google") {
                             Timber.d("Using Google free translation")
