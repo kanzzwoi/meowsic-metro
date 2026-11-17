@@ -113,7 +113,8 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
         }
     }
 
-    private fun parseResponse(response: String, expectedLineCount: Int): List<String> {
+    private fun parseResponse(response: String, sourceLines: List<String>): List<String> {
+        val expectedLineCount = sourceLines.size
         val cleaned = response.replace("```json", "").replace("```", "").trim()
         // Coba JSON {"lines": [...]} dulu (sesuai system prompt).
         val jsonLines =
@@ -149,6 +150,19 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
             throw IllegalArgumentException("KNZAPI returned a song description instead of translations")
         }
         if (nonBlankLines.any { it.length > 300 }) {
+            throw IllegalArgumentException("KNZAPI returned a song description instead of translations")
+        }
+        // Tolak prosa per baris: terjemahan satu baris lirik tidak mungkin
+        // sepanjang paragraf. Kalau satu hasil > 150 karakter DAN > 3x
+        // panjang baris sumbernya, itu deskripsi lagu, bukan terjemahan.
+        // (Menangkap prosa ~279 karakter yang lolos dari dua batas di atas
+        // karena bukan satu-satunya baris dan di bawah 300 karakter.)
+        val proseByRatio =
+            lines.zip(sourceLines).any { (translated, source) ->
+                translated.isNotBlank() && translated.length > 150 &&
+                    translated.length > source.length * 3
+            }
+        if (proseByRatio) {
             throw IllegalArgumentException("KNZAPI returned a song description instead of translations")
         }
         // Samakan jumlah baris dengan input (posisi per baris dipertahankan;
@@ -193,7 +207,7 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
                     if (responseText.isBlank()) {
                         return@withContext Result.failure(Exception("No translation received"))
                     }
-                    Result.success(parseResponse(responseText, lineCount))
+                    Result.success(parseResponse(responseText, text.lines()))
                 }
             } catch (e: Exception) {
                 Timber.w(e, "KNZAPI translate failed")
