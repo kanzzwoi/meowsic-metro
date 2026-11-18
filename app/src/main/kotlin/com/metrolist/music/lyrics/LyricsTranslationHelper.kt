@@ -116,8 +116,13 @@ object LyricsTranslationHelper {
         // Translating yang di-reset, jadi kalau job ke-cancel di dalam
         // jendela delay(3000) auto-hide, status tertahan di Success
         // dan chip nyangkut selamanya saat lirik dibuka lagi.
+        // Error ikut di-reset: kartu merah punya masalah yang sama —
+        // tanpa ini, error dari lagu sebelumnya tetap nongol saat
+        // lirik dibuka lagi, karena tidak ada yang mengubah status
+        // Error menjadi Idle.
         if (_status.value is TranslationStatus.Translating ||
-            _status.value is TranslationStatus.Success
+            _status.value is TranslationStatus.Success ||
+            _status.value is TranslationStatus.Error
         ) {
             _status.value = TranslationStatus.Idle
         }
@@ -543,6 +548,17 @@ object LyricsTranslationHelper {
 
                             // Show error in UI
                             _status.value = TranslationStatus.Error(errorMessage)
+
+                            // Kartu error merah jangan nyangkut: sembunyikan
+                            // sendiri setelah 5 detik, seperti Success (3 detik).
+                            // Sebelumnya tidak ada yang mengubah status Error
+                            // menjadi Idle, jadi kartunya nempel selamanya —
+                            // bahkan sampai lagu berikutnya — sampai user
+                            // menekan terjemah lagi secara manual.
+                            delay(5000)
+                            if (_status.value is TranslationStatus.Error) {
+                                _status.value = TranslationStatus.Idle
+                            }
                         }
                 } catch (e: Exception) {
                     // Ignore cancellation exceptions or if composition is no longer active
@@ -554,6 +570,13 @@ object LyricsTranslationHelper {
                         } else {
                             val errorMessage = e.message ?: context.getString(com.metrolist.music.R.string.ai_error_translation_failed)
                             _status.value = TranslationStatus.Error(errorMessage)
+
+                            // Sama seperti di onFailure: jangan biarkan kartu
+                            // error nyangkut selamanya.
+                            delay(5000)
+                            if (_status.value is TranslationStatus.Error) {
+                                _status.value = TranslationStatus.Idle
+                            }
                         }
                     }
                 }
