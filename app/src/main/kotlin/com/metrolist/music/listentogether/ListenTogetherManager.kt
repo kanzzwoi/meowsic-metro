@@ -7,6 +7,7 @@ package com.metrolist.music.listentogether
 
 import android.content.Context
 import android.os.SystemClock
+import androidx.datastore.preferences.core.edit
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
@@ -21,6 +22,7 @@ import com.metrolist.music.extensions.currentMetadata
 import com.metrolist.music.extensions.metadata
 import com.metrolist.music.extensions.toMediaItem
 import com.metrolist.music.level.levelForTotalExp
+import com.metrolist.music.level.sanitizeTotalExp
 import com.metrolist.music.models.MediaMetadata
 import com.metrolist.music.models.MediaMetadata.Album
 import com.metrolist.music.models.MediaMetadata.Artist
@@ -227,7 +229,15 @@ class ListenTogetherManager
                 val borderLevel = prefs[com.metrolist.music.constants.ListenTogetherAvatarBorderKey] ?: 0
                 val border = if (borderLevel > 0) borderLevel.toString() else ""
                 val pfp = prefs[com.metrolist.music.constants.ListenTogetherAvatarPfpKey] ?: ""
-                val level = levelForTotalExp(prefs[LevelTotalExpKey] ?: 0L).toString()
+                val rawExp = prefs[LevelTotalExpKey] ?: 0L
+                val cleanExp = sanitizeTotalExp(rawExp)
+                if (cleanExp != rawExp) {
+                    // EXP di luar batas (diubah lewat kode / edit DataStore):
+                    // reset ke 0 supaya level palsu tidak keburu tayang di room.
+                    context.dataStore.edit { it[LevelTotalExpKey] = 0L }
+                    PlaybackLog.log("level", "EXP tidak valid ($rawExp), reset ke 0 (room)")
+                }
+                val level = levelForTotalExp(cleanExp).toString()
                 val myId = userId.value ?: return@launch
                 val name =
                     roomState.value?.users?.firstOrNull { it.userId == myId }?.username

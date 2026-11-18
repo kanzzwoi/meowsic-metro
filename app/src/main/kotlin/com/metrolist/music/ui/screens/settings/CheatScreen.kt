@@ -26,6 +26,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -40,8 +41,10 @@ import androidx.navigation.NavController
 import com.metrolist.music.LocalPlayerAwareWindowInsets
 import com.metrolist.music.R
 import com.metrolist.music.constants.LevelTotalExpKey
+import com.metrolist.music.level.MAX_TOTAL_EXP
 import com.metrolist.music.level.expIntoLevel
 import com.metrolist.music.level.levelForTotalExp
+import com.metrolist.music.level.sanitizeTotalExp
 import com.metrolist.music.level.tierForLevel
 import com.metrolist.music.ui.component.IconButton
 import com.metrolist.music.ui.utils.backToMain
@@ -59,6 +62,14 @@ fun CheatScreen(
     val level = levelForTotalExp(totalExp)
     val tier = tierForLevel(level)
     var amountInput by rememberSaveable { mutableStateOf("") }
+
+    // EXP di luar batas (diubah lewat kode / edit DataStore): reset ke 0.
+    LaunchedEffect(totalExp) {
+        if (sanitizeTotalExp(totalExp) != totalExp) {
+            totalExp = 0L
+            Toast.makeText(context, "EXP tidak valid, direset ke 0", Toast.LENGTH_LONG).show()
+        }
+    }
 
     Column(
         modifier =
@@ -104,9 +115,16 @@ fun CheatScreen(
                     Toast.makeText(context, "Jumlah terlalu besar", Toast.LENGTH_SHORT).show()
                     return@Button
                 }
-                totalExp += amount
+                // Maksimal level 2000: tambah EXP tidak boleh lewat batas.
+                val base = sanitizeTotalExp(totalExp)
+                val added = minOf(amount, MAX_TOTAL_EXP - base)
+                if (added <= 0L) {
+                    Toast.makeText(context, "Sudah di level maksimal (2000)", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+                totalExp = base + added
                 amountInput = ""
-                Toast.makeText(context, "EXP +$amount ditambahkan. Total: $totalExp (Level ${levelForTotalExp(totalExp)})", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "EXP +$added ditambahkan. Total: $totalExp (Level ${levelForTotalExp(totalExp)})", Toast.LENGTH_LONG).show()
             },
             modifier = Modifier.fillMaxWidth(),
         ) {

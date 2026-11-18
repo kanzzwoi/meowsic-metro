@@ -207,6 +207,8 @@ import com.metrolist.music.constants.LoudnessLevel
 import com.metrolist.music.constants.LoudnessLevelKey
 import com.metrolist.music.constants.LevelTotalExpKey
 import com.metrolist.music.level.EXP_PER_MINUTE
+import com.metrolist.music.level.MAX_TOTAL_EXP
+import com.metrolist.music.level.sanitizeTotalExp
 import com.metrolist.music.utils.CoilBitmapLoader
 import com.metrolist.music.utils.NetworkConnectivityObserver
 import com.metrolist.music.utils.ScrobbleManager
@@ -4147,11 +4149,26 @@ class MusicService :
                             playedSeconds++
                             if (playedSeconds >= 60) {
                                 playedSeconds -= 60
-                                safeDataStoreEdit { prefs ->
-                                    prefs[LevelTotalExpKey] =
-                                        (prefs[LevelTotalExpKey] ?: 0L) + EXP_PER_MINUTE
+                                var tampered = false
+                                val wrote =
+                                    safeDataStoreEdit { prefs ->
+                                        val current = prefs[LevelTotalExpKey] ?: 0L
+                                        val clean = sanitizeTotalExp(current)
+                                        if (clean != current) {
+                                            // EXP di luar batas (diubah lewat kode /
+                                            // edit DataStore): reset ke 0, jangan ditambah.
+                                            tampered = true
+                                            prefs[LevelTotalExpKey] = 0L
+                                        } else {
+                                            prefs[LevelTotalExpKey] =
+                                                (clean + EXP_PER_MINUTE).coerceAtMost(MAX_TOTAL_EXP)
+                                        }
+                                    }
+                                if (tampered && wrote) {
+                                    PlaybackLog.log("level", "EXP tidak valid, reset ke 0")
+                                } else if (!tampered) {
+                                    PlaybackLog.log("level", "+5 EXP (60 dtk putar)")
                                 }
-                                PlaybackLog.log("level", "+5 EXP (60 dtk putar)")
                             }
                         }
                     } catch (e: Exception) {

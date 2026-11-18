@@ -15,7 +15,10 @@ const val EXP_PER_MINUTE = 5L
 const val EXP_PER_LEVEL = 100L
 
 /** Level tertinggi yang ditampilkan. */
-const val MAX_LEVEL = 99_999
+const val MAX_LEVEL = 2_000
+
+/** Total EXP tertinggi yang bisa disimpan (level 2000). */
+const val MAX_TOTAL_EXP = (MAX_LEVEL - 1) * EXP_PER_LEVEL
 
 data class LevelTier(
     val name: String,
@@ -45,6 +48,15 @@ val LEVEL_TIERS =
 /** Level 1 di 0 EXP; level 2 di 100 EXP; level N di (N-1)*100 EXP. */
 fun levelForTotalExp(totalExp: Long): Int =
     ((totalExp.coerceAtLeast(0L) / EXP_PER_LEVEL).toInt() + 1).coerceAtMost(MAX_LEVEL)
+
+/**
+ * EXP yang boleh disimpan: 0 sampai [MAX_TOTAL_EXP] (level 2000). Nilai di
+ * luar itu tidak mungkin didapat lewat jalur resmi (ticker +5/menit, cheat
+ * menu di-clamp) — jadi dianggap hasil ubahan dan dikembalikan ke 0.
+ * Dipakai di tiap titik yang membaca/menulis EXP (ticker, cheat menu, room).
+ */
+fun sanitizeTotalExp(totalExp: Long): Long =
+    if (totalExp in 0..MAX_TOTAL_EXP) totalExp else 0L
 
 /** EXP yang sudah terkumpul di dalam level saat ini (0-99). */
 fun expIntoLevel(totalExp: Long): Long = totalExp.coerceAtLeast(0L) % EXP_PER_LEVEL
