@@ -102,6 +102,7 @@ import com.metrolist.music.constants.OpenRouterBaseUrlKey
 import com.metrolist.music.constants.OpenRouterDefaultBaseUrl
 import com.metrolist.music.constants.OpenRouterDefaultModel
 import com.metrolist.music.constants.OpenRouterModelKey
+import com.metrolist.music.constants.PlainTranslatedSongIdsKey
 import com.metrolist.music.constants.PlayerBackgroundStyle
 import com.metrolist.music.constants.PlayerBackgroundStyleKey
 import com.metrolist.music.constants.RespectAgentPositioningKey
@@ -174,6 +175,7 @@ fun ExperimentalLyrics(
     val openRouterModel by rememberPreference(OpenRouterModelKey, OpenRouterDefaultModel)
     val translateLanguage by rememberPreference(TranslateLanguageKey, "id")
     val translateMode by rememberPreference(TranslateModeKey, "Literal")
+    val plainTranslatedSongIds by rememberPreference(PlainTranslatedSongIdsKey, emptySet())
     val deeplFormality by rememberPreference(DeeplFormalityKey, "default")
     val aiSystemPrompt by rememberPreference(AiSystemPromptKey, "")
     
@@ -246,13 +248,14 @@ fun ExperimentalLyrics(
         }
     }
     
-    LaunchedEffect(lines, lyricsEntity, translateLanguage, translateMode) {
+    LaunchedEffect(lines, lyricsEntity, translateLanguage, translateMode, plainTranslatedSongIds) {
         if (lines.isNotEmpty() && lyricsEntity != null) {
             LyricsTranslationHelper.loadTranslationsFromDatabase(
                 lyrics = lines,
                 lyricsEntity = lyricsEntity,
                 targetLanguage = translateLanguage,
-                mode = translateMode
+                mode = translateMode,
+                plainTranslatedSongIds = plainTranslatedSongIds,
             )
         }
     }

@@ -6,6 +6,7 @@
 package com.metrolist.music.lyrics
 
 import android.content.Context
+import androidx.datastore.preferences.core.edit
 import com.metrolist.music.db.MusicDatabase
 import com.metrolist.music.db.entities.LyricsEntity
 import com.metrolist.music.db.entities.SongEntity
@@ -16,11 +17,13 @@ import com.metrolist.music.api.KnzApiService
 import com.metrolist.music.api.OpenRouterService
 import com.metrolist.music.api.OpenRouterStreamingService
 import com.metrolist.music.constants.LevelTotalExpKey
+import com.metrolist.music.constants.PlainTranslatedSongIdsKey
 import com.metrolist.music.extensions.isInternetConnected
 import com.metrolist.music.level.levelForTotalExp
 import com.metrolist.music.utils.dataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -70,6 +73,32 @@ object LyricsTranslationHelper {
 
     // Cache translations in memory to avoid redundant API calls during a session
     private val translationCache = ConcurrentHashMap<String, List<String>>()
+
+    // Catatan mesin per lagu ditulis dari scope sendiri (fire-and-forget):
+    // onSuccess Result bukan suspend lambda, jadi edit DataStore tidak
+    // bisa dipanggil langsung dari sana.
+    private val recordScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    /**
+     * Ingat mesin terjemahan per lagu (tanpa ubah skema DB): lagu yang
+     * terakhir diterjemahkan biasa dicatat id-nya, lagu yang terakhir
+     * diterjemahkan AI dihapus dari catatan. Dipakai loadTranslationsFromDatabase
+     * untuk menyalakan toggle yang benar saat lagu dibuka lagi.
+     */
+    private fun recordTranslationSource(context: Context, songId: String, source: TranslationSource) {
+        if (songId.isBlank()) return
+        recordScope.launch {
+            try {
+                context.dataStore.edit { prefs ->
+                    val current = prefs[PlainTranslatedSongIdsKey] ?: emptySet()
+                    prefs[PlainTranslatedSongIdsKey] =
+                        if (source == TranslationSource.PLAIN) current + songId else current - songId
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to record translation source")
+            }
+        }
+    }
 
     // Map of language codes to full names for better AI understanding
     private val LanguageCodeToName = mapOf(
@@ -195,7 +224,8 @@ object LyricsTranslationHelper {
         lyrics: List<LyricsEntry>,
         lyricsEntity: LyricsEntity?,
         targetLanguage: String,
-        mode: String
+        mode: String,
+        plainTranslatedSongIds: Set<String> = emptySet(),
     ) {
         if (lyricsEntity == null || lyricsEntity.translatedLyrics.isNullOrBlank()) {
             _hasActiveTranslations.value = false
@@ -236,10 +266,20 @@ object LyricsTranslationHelper {
             val cacheKey = getCacheKey(fullText, mode, targetLanguage)
             translationCache[cacheKey] = translatedLines
             _hasActiveTranslations.value = applied
-            // Terjemahan tersimpan tidak membawa info mesinnya (tidak ada
-            // kolom provider di DB) — anggap AI, sama seperti perilaku
-            // sebelumnya: toggle AI yang menyala saat lagu dibuka lagi.
-            _activeTranslationSource.value = if (applied) TranslationSource.AI else null
+            // Sumbernya ditebak dari catatan per lagu, bukan selalu AI:
+            // terjemahan tersimpan tidak membawa info mesinnya, dan pemuatan
+            // ulang inilah yang sebelumnya membalik toggle biasa yang baru
+            // ditekan menjadi AI (upsert translateLyrics memicu LaunchedEffect
+            // di lyrics view). Catatan diperbarui sebelum DB disimpan, jadi
+            // pemuatan ulang langsung menurunkan sumber yang benar.
+            _activeTranslationSource.value =
+                if (!applied) {
+                    null
+                } else if (lyricsEntity.id in plainTranslatedSongIds) {
+                    TranslationSource.PLAIN
+                } else {
+                    TranslationSource.AI
+                }
         }
     }
 
@@ -315,6 +355,9 @@ object LyricsTranslationHelper {
                         _hasActiveTranslations.value = applied
                         _activeTranslationSource.value = if (applied) source else null
                         _status.value = TranslationStatus.Success
+
+                        // Catat mesinnya sebelum menyimpan ke DB (lihat recordTranslationSource).
+                        if (applied) recordTranslationSource(context, songId, source)
 
                         // Persist cached translations to DB so loadTranslationsFromDatabase can't
                         // overwrite them with a stale empty entity (e.g. after an untranslate race).
@@ -492,6 +535,12 @@ object LyricsTranslationHelper {
                             // Cache the translations
                             val cacheKey = getCacheKey(fullText, mode, targetLanguage)
                             translationCache[cacheKey] = translatedLines
+
+                            // Catat mesinnya sebelum menyimpan ke DB: pemuatan ulang
+                            // yang dipicu upsert langsung menurunkan sumber yang benar.
+                            if (translatedLines.any { it.isNotBlank() }) {
+                                recordTranslationSource(context, songId, source)
+                            }
 
                             // Save to database if songId is provided
                             if (songId.isNotBlank() && database != null) {

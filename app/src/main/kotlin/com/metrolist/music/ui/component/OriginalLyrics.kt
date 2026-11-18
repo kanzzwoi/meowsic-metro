@@ -138,6 +138,7 @@ import com.metrolist.music.constants.LyricsTextSizeKey
 import com.metrolist.music.constants.OpenRouterApiKey
 import com.metrolist.music.constants.OpenRouterBaseUrlKey
 import com.metrolist.music.constants.OpenRouterModelKey
+import com.metrolist.music.constants.PlainTranslatedSongIdsKey
 import com.metrolist.music.constants.PlayerBackgroundStyle
 import com.metrolist.music.constants.PlayerBackgroundStyleKey
 import com.metrolist.music.constants.TranslateLanguageKey
@@ -225,6 +226,7 @@ fun OriginalLyrics(
     val openRouterModel by rememberPreference(OpenRouterModelKey, "google/gemini-2.5-flash-lite")
     val translateLanguage by rememberPreference(TranslateLanguageKey, "id")
     val translateMode by rememberPreference(TranslateModeKey, "Literal")
+    val plainTranslatedSongIds by rememberPreference(PlainTranslatedSongIdsKey, emptySet())
     val deeplFormality by rememberPreference(DeeplFormalityKey, "default")
     val aiSystemPrompt by rememberPreference(AiSystemPromptKey, "")
 
@@ -380,13 +382,14 @@ fun OriginalLyrics(
     }
 
     // Load translations from database on initial display
-    LaunchedEffect(lines, lyricsEntity, translateLanguage, translateMode) {
+    LaunchedEffect(lines, lyricsEntity, translateLanguage, translateMode, plainTranslatedSongIds) {
         if (lines.isNotEmpty() && lyricsEntity != null) {
             LyricsTranslationHelper.loadTranslationsFromDatabase(
                 lyrics = lines,
                 lyricsEntity = lyricsEntity,
                 targetLanguage = translateLanguage,
                 mode = translateMode,
+                plainTranslatedSongIds = plainTranslatedSongIds,
             )
         }
     }

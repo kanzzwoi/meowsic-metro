@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
@@ -223,6 +224,11 @@ val ListenTogetherInTopBarKey = booleanPreferencesKey("listenTogetherInTopBar")
 // Level & EXP — 1 menit putar = 5 EXP (10 EXP tiap 2 menit kumulatif),
 // naik level tiap 100 EXP.
 val LevelTotalExpKey = longPreferencesKey("levelTotalExp")
+
+/** Id lagu yang terakhir diterjemahkan biasa (Google Translate): dipakai
+ *  untuk menyalakan toggle yang benar saat lagu dibuka lagi, karena DB
+ *  tidak menyimpan info mesin penerjemahnya. */
+val PlainTranslatedSongIdsKey = stringSetPreferencesKey("plainTranslatedSongIds")
 
 // Session persistence for reconnection
 val ListenTogetherSessionTokenKey = stringPreferencesKey("listenTogetherSessionToken")
