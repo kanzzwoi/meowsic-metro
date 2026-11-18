@@ -142,7 +142,6 @@ import com.metrolist.music.constants.HideVideoSongsKey
 import com.metrolist.music.constants.HistoryDuration
 import com.metrolist.music.constants.LastFMUseNowPlaying
 import com.metrolist.music.constants.MediaSessionConstants
-import com.metrolist.music.constants.MediaSessionConstants.CommandAddToTargetPlaylist
 import com.metrolist.music.constants.MediaSessionConstants.CommandDismissPlayer
 import com.metrolist.music.constants.MediaSessionConstants.CommandToggleLike
 import com.metrolist.music.constants.MediaSessionConstants.CommandToggleRepeatMode
@@ -1641,9 +1640,9 @@ class MusicService :
                     .build(),
                 CommandButton
                     .Builder()
-                    .setDisplayName(getString(R.string.android_auto_target_playlist))
-                    .setIconResId(R.drawable.playlist_add)
-                    .setSessionCommand(CommandAddToTargetPlaylist)
+                    .setDisplayName(getString(if (player.repeatMode == Player.REPEAT_MODE_ONE) R.string.repeat_mode_off else R.string.repeat_mode_one))
+                    .setIconResId(if (player.repeatMode == Player.REPEAT_MODE_ONE) R.drawable.repeat_on else R.drawable.repeat)
+                    .setSessionCommand(CommandToggleRepeatMode)
                     .setEnabled(currentSong.value != null)
                     .build(),
                 CommandButton
