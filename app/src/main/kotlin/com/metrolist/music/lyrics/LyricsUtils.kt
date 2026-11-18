@@ -5,12 +5,26 @@
 
 package com.metrolist.music.lyrics
 
+import android.content.Context
 import android.text.format.DateUtils
+import com.atilika.kuromoji.dict.CharacterDefinitions
+import com.atilika.kuromoji.dict.ConnectionCosts
+import com.atilika.kuromoji.dict.InsertedDictionary
+import com.atilika.kuromoji.dict.TokenInfoDictionary
+import com.atilika.kuromoji.dict.UnknownDictionary
 import com.atilika.kuromoji.ipadic.Tokenizer
+import com.atilika.kuromoji.trie.DoubleArrayTrie
+import com.atilika.kuromoji.util.ResourceResolver
 import com.github.promeg.pinyinhelper.Pinyin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import timber.log.Timber
+import java.io.File
+import java.io.FilterInputStream
+import java.io.InputStream
+import java.net.URI
 import java.util.Locale
+import javax.net.ssl.HttpsURLConnection
 
 val LINE_REGEX = "((\\[\\d\\d:\\d\\d\\.\\d{2,3}\\] ?)+)(.*)".toRegex()
 val TIME_REGEX = "\\[(\\d\\d):(\\d\\d)\\.(\\d{2,3})\\]".toRegex()
@@ -31,6 +45,25 @@ private val BACKGROUND_REGEX = "^\\{bg\\}".toRegex()
 
 @Suppress("RegExpRedundantEscape")
 object LyricsUtils {
+    // Kamus Kuromoji tidak lagi ikut di APK (lihat JapaneseDictionaryInstaller):
+    // pertama kali romanisasi Jepang dipakai, kamus di-download dari Maven
+    // Central dan disimpan di noBackupFilesDir/japanese-dictionary.
+    // Dipanggil sekali dari App.onCreate.
+    @Volatile
+    private var appContext: Context? = null
+
+    fun init(context: Context) {
+        appContext = context.applicationContext
+    }
+
+    @Volatile
+    private var cachedTokenizer: Tokenizer? = null
+    private val tokenizerLock = Any()
+
+    @Volatile
+    private var lastDictionaryInstallFailureMs = 0L
+    private const val DICTIONARY_INSTALL_RETRY_COOLDOWN_MS = 5 * 60 * 1000L
+
     fun cleanTitleForSearch(title: String): String {
         return title.replace(Regex("\\s*[(\\[].*?[)\\]]"), "").trim()
     }
@@ -383,9 +416,92 @@ object LyricsUtils {
         "Ѓ", "ѓ", "Ѕ", "ѕ", "Ќ", "ќ"
     )
 
-    // Lazy initialized Tokenizer
-    private val kuromojiTokenizer: Tokenizer by lazy {
-        Tokenizer()
+    // Tokenizer hanya dibangun dari kamus yang sudah ter-download
+    // (JapaneseDictionaryInstaller). Tokenizer() bawaan Kuromoji TIDAK BOLEH
+    // dipakai lagi: konstruktor itu memuat kamus dari classpath, dan file
+    // .bin kamus sudah tidak ikut di APK.
+    private fun installedTokenizer(): Tokenizer? =
+        try {
+            cachedTokenizer ?: synchronized(tokenizerLock) {
+                cachedTokenizer ?: dictionaryInstaller()?.installedDirectory()?.let { directory ->
+                    try {
+                        InstalledDictionaryBuilder(directory).build().also { cachedTokenizer = it }
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
+
+    private fun dictionaryInstaller(): JapaneseDictionaryInstaller? {
+        val context = appContext ?: return null
+        return JapaneseDictionaryInstaller(
+            File(context.noBackupFilesDir, "japanese-dictionary"),
+            ::downloadDictionaryArtifact,
+        )
+    }
+
+    // Download artefak kamus dari Maven Central (verbatim Metrolist v14).
+    private fun downloadDictionaryArtifact(): InputStream {
+        val connection = URI(JAPANESE_DICTIONARY_URL).toURL().openConnection() as HttpsURLConnection
+        try {
+            connection.connectTimeout = 15_000
+            connection.readTimeout = 30_000
+            connection.instanceFollowRedirects = false
+            connection.connect()
+            if (connection.responseCode != HttpsURLConnection.HTTP_OK) {
+                error("Dictionary download failed with HTTP ${connection.responseCode}")
+            }
+            if (connection.contentLengthLong > 20L * 1024 * 1024) {
+                error("Dictionary archive exceeds size limit")
+            }
+            val stream = connection.inputStream
+            return object : FilterInputStream(stream) {
+                override fun close() {
+                    try {
+                        super.close()
+                    } finally {
+                        connection.disconnect()
+                    }
+                }
+            }
+        } catch (error: Exception) {
+            connection.disconnect()
+            throw error
+        }
+    }
+
+    // Coba install kamus (sekali jalan). Kalau gagal, percobaan ulang
+    // dijeda 5 menit supaya satu lagu Jepang yang offline tidak memicu
+    // download berulang di setiap baris lirik.
+    private fun prepareJapaneseDictionary(): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - lastDictionaryInstallFailureMs < DICTIONARY_INSTALL_RETRY_COOLDOWN_MS) return false
+        val installed = try {
+            dictionaryInstaller()?.install() != null
+        } catch (e: Exception) {
+            Timber.w(e, "Japanese dictionary preparation failed")
+            false
+        }
+        if (!installed) lastDictionaryInstallFailureMs = now
+        return installed
+    }
+
+    // Tokenizer dari folder kamus yang sudah ter-download (verbatim Metrolist v14).
+    private class InstalledDictionaryBuilder(
+        private val dictionaryDirectory: File,
+    ) : Tokenizer.Builder() {
+        override fun loadDictionaries() {
+            resolver = ResourceResolver { name -> File(dictionaryDirectory, name).inputStream() }
+            doubleArrayTrie = DoubleArrayTrie.newInstance(resolver)
+            connectionCosts = ConnectionCosts.newInstance(resolver)
+            tokenInfoDictionary = TokenInfoDictionary.newInstance(resolver)
+            characterDefinitions = CharacterDefinitions.newInstance(resolver)
+            unknownDictionary = UnknownDictionary.newInstance(resolver, characterDefinitions, totalFeatures)
+            insertedDictionary = InsertedDictionary(totalFeatures)
+        }
     }
 
     private val HEX_ENTITY_REGEX = "&#x([0-9a-fA-F]+);".toRegex()
@@ -903,7 +1019,15 @@ object LyricsUtils {
     } */
 
     suspend fun romanizeJapanese(text: String): String = withContext(Dispatchers.Default) {
-        val tokens = kuromojiTokenizer.tokenize(text)
+        if (text.isBlank()) return@withContext text
+        // Tanpa kamus terverifikasi, kanji dibiarkan apa adanya; teks kana
+        // saja tetap diromanisasi (verbatim Metrolist v14). Download kamus
+        // hanya terjadi di pemakaian pertama — dan hanya kalau romanisasi
+        // Jepang memang diaktifkan (defaultnya kini mati).
+        val tokenizer = installedTokenizer()
+            ?: withContext(Dispatchers.IO) { if (prepareJapaneseDictionary()) installedTokenizer() else null }
+            ?: return@withContext if (containsJapaneseKanji(text)) text else romanizeKana(text)
+        val tokens = tokenizer.tokenize(text)
         val romanizedTokens = tokens.mapIndexed { index, token ->
             val currentReading = if (token.reading.isNullOrEmpty() || token.reading == "*") {
                 token.surface
@@ -918,6 +1042,17 @@ object LyricsUtils {
             katakanaToRomaji(currentReading, nextTokenReading)
         }
         romanizedTokens.joinToString(" ")
+    }
+
+    private fun containsJapaneseKanji(text: String): Boolean =
+        text.any { it in '\u4E00'..'\u9FFF' }
+
+    // Romanisasi kana tanpa kamus: hiragana -> katakana, lalu katakana -> romaji.
+    private fun romanizeKana(text: String): String {
+        val katakana = text.map { char ->
+            if (char in '\u3041'..'\u3096') (char.code + 0x60).toChar() else char
+        }.joinToString("")
+        return katakanaToRomaji(katakana)
     }
 
     fun katakanaToRomaji(katakana: String?, nextKatakana: String? = null): String {
@@ -939,7 +1074,10 @@ object LyricsUtils {
             }
 
             if (!consumed && katakana[i] == 'ッ') {
-                val nextCharToDouble = nextKatakana?.getOrNull(0)
+                // Kalau nextKatakana tidak diberikan (mis. romanisasi kana
+                // satu baris utuh), pakai huruf berikutnya di string yang
+                // sama sebagai sumber penggandaan.
+                val nextCharToDouble = nextKatakana?.getOrNull(0) ?: katakana.getOrNull(i + 1)
                 if (nextCharToDouble != null) {
                     val nextCharRomaji = KANA_ROMAJI_MAP[nextCharToDouble.toString()]?.getOrNull(0)?.toString()
                         ?: nextCharToDouble.toString()

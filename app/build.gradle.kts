@@ -231,6 +231,10 @@ android {
             excludes += "META-INF/LICENSE.md"
             excludes += "META-INF/INDEX.LIST"
             excludes += "META-INF/io.netty.versions.properties"
+            // Kamus Kuromoji IPADIC (~33 MB) tidak ikut di APK; di-download
+            // sekali saat romanisasi Jepang pertama dipakai (lihat
+            // JapaneseDictionaryInstaller). Menghemat ~12 MB ukuran APK.
+            excludes += "com/atilika/kuromoji/ipadic/*.bin"
         }
     }
 }

@@ -322,7 +322,12 @@ fun OriginalLyrics(
                                 }
                             }
 
-                            newEntry.romanizedTextFlow.value = value
+                            // Jangan tampilkan hasil yang sama dengan baris
+                            // aslinya: romanisasi Jepang tanpa kamus
+                            // mengembalikan teks kanji apa adanya, dan tanpa
+                            // guard ini barisnya tampil dobel.
+                            newEntry.romanizedTextFlow.value =
+                                value?.takeIf { it.trim() != entry.text.trim() }
                         }
 
                         newEntry
@@ -351,7 +356,9 @@ fun OriginalLyrics(
                             "Macedonian" in enabledLanguages && isMacedonian(text) -> value = romanizeCyrillic(line, "Macedonian")
                         }
 
-                        newEntry.romanizedTextFlow.value = value
+                        // Sama seperti di atas: jangan tampilkan hasil yang
+                        // sama dengan baris aslinya.
+                        newEntry.romanizedTextFlow.value = value?.takeIf { it.trim() != line.trim() }
                     }
 
                     newEntry
