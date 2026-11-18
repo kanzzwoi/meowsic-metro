@@ -45,8 +45,22 @@ object LyricsTranslationHelper {
     private val _hasActiveTranslations = MutableStateFlow(false)
     val hasActiveTranslations: StateFlow<Boolean> = _hasActiveTranslations.asStateFlow()
 
-    private val _manualTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val manualTrigger: SharedFlow<Unit> = _manualTrigger.asSharedFlow()
+    /**
+     * Mesin mana yang menghasilkan terjemahan yang sedang tampil: PLAIN
+     * (Google Translate, tanpa key) atau AI (provider yang dipilih di
+     * pengaturan). null = tidak ada terjemahan aktif. Dua toggle di menu
+     * lirik membaca state ini supaya tidak pernah nyala keduanya.
+     */
+    enum class TranslationSource {
+        PLAIN,
+        AI,
+    }
+
+    private val _activeTranslationSource = MutableStateFlow<TranslationSource?>(null)
+    val activeTranslationSource: StateFlow<TranslationSource?> = _activeTranslationSource.asStateFlow()
+
+    private val _manualTrigger = MutableSharedFlow<TranslationSource>(extraBufferCapacity = 1)
+    val manualTrigger: SharedFlow<TranslationSource> = _manualTrigger.asSharedFlow()
 
     private val _clearTranslationsTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val clearTranslationsTrigger: SharedFlow<Unit> = _clearTranslationsTrigger.asSharedFlow()
@@ -87,13 +101,14 @@ object LyricsTranslationHelper {
         isCompositionActive = active
     }
 
-    fun triggerManualTranslation() {
-        _manualTrigger.tryEmit(Unit)
+    fun triggerManualTranslation(source: TranslationSource = TranslationSource.AI) {
+        _manualTrigger.tryEmit(source)
     }
 
     fun triggerClearTranslations() {
         _clearTranslationsTrigger.tryEmit(Unit)
         _hasActiveTranslations.value = false
+        _activeTranslationSource.value = null
         // Hapus juga cache memori: kalau tidak, terjemahan berikutnya (atau
         // "Muat ulang") langsung memakai cache lama tanpa fetch ulang — dan
         // translateLyrics malah menulis cache itu kembali ke DB. Sampah dari
@@ -184,6 +199,7 @@ object LyricsTranslationHelper {
     ) {
         if (lyricsEntity == null || lyricsEntity.translatedLyrics.isNullOrBlank()) {
             _hasActiveTranslations.value = false
+            _activeTranslationSource.value = null
             lyrics.forEach { it.translatedTextFlow.value = null }
             return
         }
@@ -191,6 +207,7 @@ object LyricsTranslationHelper {
         // Only load if language and mode match
         if (lyricsEntity.translationLanguage != targetLanguage || lyricsEntity.translationMode != mode) {
             _hasActiveTranslations.value = false
+            _activeTranslationSource.value = null
             lyrics.forEach { it.translatedTextFlow.value = null }
             return
         }
@@ -219,6 +236,10 @@ object LyricsTranslationHelper {
             val cacheKey = getCacheKey(fullText, mode, targetLanguage)
             translationCache[cacheKey] = translatedLines
             _hasActiveTranslations.value = applied
+            // Terjemahan tersimpan tidak membawa info mesinnya (tidak ada
+            // kolom provider di DB) — anggap AI, sama seperti perilaku
+            // sebelumnya: toggle AI yang menyala saat lagu dibuka lagi.
+            _activeTranslationSource.value = if (applied) TranslationSource.AI else null
         }
     }
 
@@ -238,6 +259,7 @@ object LyricsTranslationHelper {
         songId: String = "",
         database: MusicDatabase? = null,
         systemPrompt: String = "",
+        source: TranslationSource = TranslationSource.AI,
     ) {
         translationJob?.cancel()
         _status.value = TranslationStatus.Translating
@@ -291,6 +313,7 @@ object LyricsTranslationHelper {
                             }
                         }
                         _hasActiveTranslations.value = applied
+                        _activeTranslationSource.value = if (applied) source else null
                         _status.value = TranslationStatus.Success
 
                         // Persist cached translations to DB so loadTranslationsFromDatabase can't
@@ -505,6 +528,7 @@ object LyricsTranslationHelper {
                                         }
                                     }
                                     _hasActiveTranslations.value = applied
+                                    _activeTranslationSource.value = if (applied) source else null
                                     _status.value = TranslationStatus.Success
                                 }
 
@@ -519,6 +543,7 @@ object LyricsTranslationHelper {
                                         }
                                     }
                                     _hasActiveTranslations.value = applied
+                                    _activeTranslationSource.value = if (applied) source else null
                                     _status.value = TranslationStatus.Success
                                 }
                             }

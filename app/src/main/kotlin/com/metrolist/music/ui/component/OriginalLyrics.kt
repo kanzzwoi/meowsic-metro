@@ -395,13 +395,16 @@ fun OriginalLyrics(
 
     // Listen for manual trigger
     LaunchedEffect(showLyrics, lines.size) {
-        LyricsTranslationHelper.manualTrigger.collect {
+        LyricsTranslationHelper.manualTrigger.collect { source ->
             val isKeyless = aiProvider == "Google" || aiProvider == "DeepLFree" || aiProvider == "KNZAPI"
             val effectiveApiKey = if (aiProvider == "DeepL") deeplApiKey else openRouterApiKey
             if (showLyrics && lines.isNotEmpty()) {
-                // Tanpa key? Fallback ke Google gratis
+                // Toggle biasa selalu pakai Google Translate; toggle AI pakai
+                // provider yang dipilih di pengaturan. Tanpa key? Fallback ke Google gratis
                 val (useKey, useProvider) =
-                    if (isKeyless || effectiveApiKey.isNotBlank()) {
+                    if (source == LyricsTranslationHelper.TranslationSource.PLAIN) {
+                        "" to "Google"
+                    } else if (isKeyless || effectiveApiKey.isNotBlank()) {
                         openRouterApiKey to aiProvider
                     } else {
                         "" to "Google"
@@ -422,6 +425,7 @@ fun OriginalLyrics(
                     songId = currentSong?.id ?: "",
                     database = database,
                     systemPrompt = aiSystemPrompt,
+                    source = source,
                 )
             }
         }

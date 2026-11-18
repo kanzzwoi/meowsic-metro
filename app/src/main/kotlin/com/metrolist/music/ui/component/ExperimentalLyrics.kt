@@ -272,13 +272,17 @@ fun ExperimentalLyrics(
         currentSong,
         database
     ) {
-        LyricsTranslationHelper.manualTrigger.collectLatest {
+        LyricsTranslationHelper.manualTrigger.collectLatest { source ->
             val isKeyless = aiProvider == "Google" || aiProvider == "DeepLFree" || aiProvider == "KNZAPI"
             val effectiveApiKey = if (aiProvider == "DeepL") deeplApiKey else openRouterApiKey
             if (showLyrics && lines.isNotEmpty()) {
-                // Tanpa key? Fallback ke Google gratis, bukan toast error
+                // Toggle biasa selalu pakai Google Translate; toggle AI pakai
+                // provider yang dipilih di pengaturan. Tanpa key? Fallback ke
+                // Google gratis, bukan toast error
                 val (useKey, useProvider) =
-                    if (isKeyless || effectiveApiKey.isNotBlank()) {
+                    if (source == LyricsTranslationHelper.TranslationSource.PLAIN) {
+                        "" to "Google"
+                    } else if (isKeyless || effectiveApiKey.isNotBlank()) {
                         openRouterApiKey to aiProvider
                     } else {
                         "" to "Google"
@@ -299,6 +303,7 @@ fun ExperimentalLyrics(
                     songId = currentSong?.id ?: "",
                     database = database,
                     systemPrompt = aiSystemPrompt,
+                    source = source,
                 )
             }
         }

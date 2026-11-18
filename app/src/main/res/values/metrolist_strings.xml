@@ -823,6 +823,7 @@
     <string name="user_blocked_by_host">Blocked by host</string>
 
     <!-- AI Lyrics Translation -->
+    <string name="lyrics_translation">Lyrics translation</string>
     <string name="ai_lyrics_translation">AI lyrics translation</string>
     <string name="ai_translating_lyrics">Translating lyrics…</string>
     <string name="ai_lyrics_translated">Lyrics translated</string>

@@ -121,6 +121,26 @@ fun LyricsMenu(
     // correctly across menu open/close cycles and avoids the lyricsProvider() race condition.
     val hasTranslations by LyricsTranslationHelper.hasActiveTranslations.collectAsStateWithLifecycle()
 
+    // Mesin terjemahan yang sedang aktif (PLAIN = Google Translate, AI =
+    // provider di pengaturan). Dua toggle di bawah membaca ini supaya
+    // tidak pernah nyala keduanya.
+    val activeTranslationSource by LyricsTranslationHelper.activeTranslationSource.collectAsStateWithLifecycle()
+    val isPlainTranslationActive = hasTranslations && activeTranslationSource == LyricsTranslationHelper.TranslationSource.PLAIN
+    val isAiTranslationActive = hasTranslations && activeTranslationSource == LyricsTranslationHelper.TranslationSource.AI
+
+    // Hapus terjemahan yang sedang tampil (DB + layar + cache + flag).
+    // Dipakai saat toggle dimatikan maupun saat pindah mesin.
+    val clearActiveTranslations: () -> Unit = {
+        lyricsProvider()?.let { lyrics ->
+            val clearedLyrics = LyricsTranslationHelper.clearTranslations(lyrics)
+            database.query {
+                upsert(clearedLyrics)
+            }
+            // Resets hasActiveTranslations and clears in-memory translations
+            LyricsTranslationHelper.triggerClearTranslations()
+        }
+    }
+
     var showEditDialog by rememberSaveable {
         mutableStateOf(false)
     }
@@ -475,6 +495,57 @@ fun LyricsMenu(
         item {
             Material3MenuGroup(
                 items = buildList {
+                    // Terjemahan biasa: selalu Google Translate (gratis,
+                    // tanpa key) — di luar gerbang hasApiKey. Eksklusif
+                    // dengan toggle AI di bawah: menyalakan yang satu
+                    // mematikan yang lain.
+                    add(
+                        Material3MenuItemData(
+                            title = { Text(stringResource(R.string.lyrics_translation)) },
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.translate),
+                                    contentDescription = null,
+                                )
+                            },
+                            onClick = {
+                                if (isPlainTranslationActive) {
+                                    clearActiveTranslations()
+                                } else {
+                                    if (isAiTranslationActive) clearActiveTranslations()
+                                    LyricsTranslationHelper.triggerManualTranslation(LyricsTranslationHelper.TranslationSource.PLAIN)
+                                }
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = isPlainTranslationActive,
+                                    onCheckedChange = { newCheckedState ->
+                                        if (newCheckedState) {
+                                            if (isAiTranslationActive) clearActiveTranslations()
+                                            LyricsTranslationHelper.triggerManualTranslation(LyricsTranslationHelper.TranslationSource.PLAIN)
+                                        } else {
+                                            clearActiveTranslations()
+                                        }
+                                    },
+                                    thumbContent = {
+                                        Icon(
+                                            painter = painterResource(
+                                                id = if (isPlainTranslationActive) R.drawable.check else R.drawable.close
+                                            ),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(SwitchDefaults.IconSize)
+                                        )
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        uncheckedThumbColor = MaterialTheme.colorScheme.primaryContainer,
+                                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary
+                                    )
+                                )
+                            }
+                        )
+                    )
+
                     // Add translation toggle option if API key is configured
                     if (hasApiKey) {
                         add(
@@ -487,43 +558,33 @@ fun LyricsMenu(
                                     )
                                 },
                                 onClick = {
-                                    if (hasTranslations) {
+                                    if (isAiTranslationActive) {
                                         // Remove translations
-                                        lyricsProvider()?.let { lyrics ->
-                                            val clearedLyrics = LyricsTranslationHelper.clearTranslations(lyrics)
-                                            database.query {
-                                                upsert(clearedLyrics)
-                                            }
-                                            // Resets hasActiveTranslations and clears in-memory translations
-                                            LyricsTranslationHelper.triggerClearTranslations()
-                                        }
+                                        clearActiveTranslations()
                                     } else {
-                                        // Trigger translation
-                                        LyricsTranslationHelper.triggerManualTranslation()
+                                        // Pindah dari terjemahan biasa (kalau aktif),
+                                        // lalu terjemahkan dengan provider di pengaturan
+                                        if (isPlainTranslationActive) clearActiveTranslations()
+                                        LyricsTranslationHelper.triggerManualTranslation(LyricsTranslationHelper.TranslationSource.AI)
                                     }
                                 },
                                 trailingContent = {
                                     Switch(
-                                        checked = hasTranslations,
+                                        checked = isAiTranslationActive,
                                         onCheckedChange = { newCheckedState ->
                                             if (newCheckedState) {
                                                 // Enable translations – hasActiveTranslations updates when done
-                                                LyricsTranslationHelper.triggerManualTranslation()
+                                                if (isPlainTranslationActive) clearActiveTranslations()
+                                                LyricsTranslationHelper.triggerManualTranslation(LyricsTranslationHelper.TranslationSource.AI)
                                             } else {
                                                 // Disable translations – triggerClearTranslations resets hasActiveTranslations
-                                                lyricsProvider()?.let { lyrics ->
-                                                    val clearedLyrics = LyricsTranslationHelper.clearTranslations(lyrics)
-                                                    database.query {
-                                                        upsert(clearedLyrics)
-                                                    }
-                                                    LyricsTranslationHelper.triggerClearTranslations()
-                                                }
+                                                clearActiveTranslations()
                                             }
                                         },
                                         thumbContent = {
                                             Icon(
                                                 painter = painterResource(
-                                                    id = if (hasTranslations) R.drawable.check else R.drawable.close
+                                                    id = if (isAiTranslationActive) R.drawable.check else R.drawable.close
                                                 ),
                                                 contentDescription = null,
                                                 modifier = Modifier.size(SwitchDefaults.IconSize)
