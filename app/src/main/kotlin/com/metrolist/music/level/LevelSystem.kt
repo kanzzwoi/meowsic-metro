@@ -58,6 +58,25 @@ fun levelForTotalExp(totalExp: Long): Int =
 fun sanitizeTotalExp(totalExp: Long): Long =
     if (totalExp in 0..MAX_TOTAL_EXP) totalExp else 0L
 
+/** Label yang tampil sebagai pengganti angka level kalau level-nya tidak valid
+ *  (di atas 2000 / bukan angka) — dipakai server + aplikasi untuk menandai cheater. */
+const val SHAME_LEVEL_LABEL = "pro🇮🇱🏳️‍🌈"
+
+/** true kalau level-nya angka valid (1..2000): badge + border boleh tampil. */
+fun isValidLevel(level: String): Boolean {
+    val n = level.toIntOrNull()
+    return n != null && n in 1..MAX_LEVEL
+}
+
+/**
+ * Angka level yang tampil di Together (1..2000), atau [SHAME_LEVEL_LABEL]
+ * kalau level-nya tidak valid. Null kalau level belum diketahui ("").
+ */
+fun displayLevel(level: String): String? {
+    if (level.isBlank()) return null
+    return if (isValidLevel(level)) level.toIntOrNull().toString() else SHAME_LEVEL_LABEL
+}
+
 /** EXP yang sudah terkumpul di dalam level saat ini (0-99). */
 fun expIntoLevel(totalExp: Long): Long = totalExp.coerceAtLeast(0L) % EXP_PER_LEVEL
 

@@ -109,6 +109,8 @@ import com.metrolist.music.constants.SecretPfpUnlockedKey
 import com.metrolist.music.level.SECRET_PFPS
 import com.metrolist.music.level.TOGETHER_BORDER_LEVELS
 import com.metrolist.music.level.borderDrawableRes
+import com.metrolist.music.level.displayLevel
+import com.metrolist.music.level.isValidLevel
 import com.metrolist.music.level.levelForTotalExp
 import com.metrolist.music.level.pfpDrawableRes
 import com.metrolist.music.level.tierForLevel
@@ -928,13 +930,18 @@ private fun UserAvatar(
                 .width(72.dp)
                 .clickable(enabled = isClickable, onClick = onClick),
     ) {
-        // Angka level di atas avatar; sembunyi kalau level belum diketahui.
-        level.takeIf { it.isNotBlank() }?.toIntOrNull()?.let { lvl ->
+        // Angka level di atas avatar; level tidak valid tampil sebagai label khusus.
+        displayLevel(level)?.let { text ->
             Text(
-                text = lvl.toString(),
+                text = text,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = tierForLevel(lvl).accent,
+                color =
+                    if (isValidLevel(level)) {
+                        tierForLevel(level.toIntOrNull() ?: 1).accent
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
             )
             Spacer(modifier = Modifier.height(2.dp))
         }
@@ -996,12 +1003,15 @@ private fun UserAvatar(
 
             // Border level (WebP 1:1) digambar di atas avatar, sedikit lebih besar
             // supaya ring-nya melingkari avatar dan bintang di ujungnya tetap kelihatan.
-            borderDrawableRes(border)?.let { borderRes ->
-                Image(
-                    painter = painterResource(borderRes),
-                    contentDescription = null,
-                    modifier = Modifier.size(72.dp),
-                )
+            // Level tidak valid (cheater): border disembunyikan.
+            if (level.isBlank() || isValidLevel(level)) {
+                borderDrawableRes(border)?.let { borderRes ->
+                    Image(
+                        painter = painterResource(borderRes),
+                        contentDescription = null,
+                        modifier = Modifier.size(72.dp),
+                    )
+                }
             }
 
             if (user.isHost || isCurrentUser) {
@@ -1040,7 +1050,7 @@ private fun UserAvatar(
             horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            level.takeIf { it.isNotBlank() }?.toIntOrNull()?.let { lvl ->
+            level.takeIf { isValidLevel(it) }?.toIntOrNull()?.let { lvl ->
                 Image(
                     painter = painterResource(tierForLevel(lvl).badgeRes),
                     contentDescription = null,
@@ -1660,7 +1670,7 @@ private fun ChatPanel(messages: List<RoomChatClient.ChatMessage>, expanded: Bool
                 Box(modifier = Modifier.fillMaxWidth().height(if (messages.isEmpty()) 80.dp else 220.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerLowest).padding(8.dp)) {
                     if (messages.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Belum ada pesan", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     else LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
-                        items(messages) { msg -> val isMe = msg.senderId == currentUserId; val time = remember(msg.timestamp) { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(msg.timestamp)) }; Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start) { Surface(shape = RoundedCornerShape(16.dp), color = if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth(0.78f)) { Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) { if (!isMe) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) { profiles[msg.senderId]?.level?.takeIf { it.isNotBlank() }?.toIntOrNull()?.let { lvl -> Image(painter = painterResource(tierForLevel(lvl).badgeRes), contentDescription = null, modifier = Modifier.size(14.dp)) }; Text(msg.senderName, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); profiles[msg.senderId]?.level?.takeIf { it.isNotBlank() }?.toIntOrNull()?.let { lvl -> Text("($lvl)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFFFFD54F)) } }; Text(msg.text, style = MaterialTheme.typography.bodyMedium); Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.End)) } } } }
+                        items(messages) { msg -> val isMe = msg.senderId == currentUserId; val time = remember(msg.timestamp) { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(msg.timestamp)) }; Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start) { Surface(shape = RoundedCornerShape(16.dp), color = if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth(0.78f)) { Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) { if (!isMe) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) { profiles[msg.senderId]?.level?.takeIf { isValidLevel(it) }?.toIntOrNull()?.let { lvl -> Image(painter = painterResource(tierForLevel(lvl).badgeRes), contentDescription = null, modifier = Modifier.size(14.dp)) }; Text(msg.senderName, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary); displayLevel(profiles[msg.senderId]?.level.orEmpty())?.let { Text("($it)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFFFFD54F)) } }; Text(msg.text, style = MaterialTheme.typography.bodyMedium); Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.End)) } } } }
                     }
                 }
                 Spacer(Modifier.height(10.dp))
