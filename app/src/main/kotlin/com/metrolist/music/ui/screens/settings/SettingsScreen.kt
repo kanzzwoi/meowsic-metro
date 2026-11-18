@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
@@ -27,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -298,6 +300,28 @@ fun SettingsScreen(
             )
         )
 
+        // Header (tombol back + judul) ikut scroll bersama konten, bukan
+        // menempel di atas layar. Balok hitamnya sudah tidak ada, jadi
+        // header yang mengambang di atas kartu yang lewat bakal kelihatan
+        // aneh. TopAppBar yang sama, tanpa warna latar dan tanpa insets
+        // (status bar sudah ditangani Spacer di atas).
+        TopAppBar(
+            title = { Text(stringResource(R.string.settings)) },
+            navigationIcon = {
+                IconButton(
+                    onClick = navController::navigateUp,
+                    onLongClick = navController::backToMain
+                ) {
+                    Icon(
+                        painterResource(R.drawable.arrow_back),
+                        contentDescription = null
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+            windowInsets = WindowInsets(0, 0, 0, 0),
+        )
+
         SettingsSearchField(
             query = query,
             onQueryChange = { query = it },
@@ -458,19 +482,4 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
     }
-
-    TopAppBar(
-        title = { Text(stringResource(R.string.settings)) },
-        navigationIcon = {
-            IconButton(
-                onClick = navController::navigateUp,
-                onLongClick = navController::backToMain
-            ) {
-                Icon(
-                    painterResource(R.drawable.arrow_back),
-                    contentDescription = null
-                )
-            }
-        }
-    )
 }
