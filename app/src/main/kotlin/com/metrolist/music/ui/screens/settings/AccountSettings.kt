@@ -10,8 +10,9 @@ import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,14 +22,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -48,15 +50,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.metrolist.innertube.YouTube
@@ -81,51 +84,99 @@ import com.metrolist.music.viewmodels.AccountSettingsViewModel
 import com.metrolist.music.viewmodels.HomeViewModel
 
 /**
- * Kartu aksi besar: ikon di atas, label di bawah. Dipakai untuk baris atas
- * (Login / Masuk dengan token) dan baris bawah (Pengaturan / Join saluran).
+ * Kartu grup: satu permukaan untuk beberapa baris yang berhubungan,
+ * dipisah divider tipis. Dipakai untuk akun, preferensi, dan aksi lain.
  */
 @Composable
-private fun ProfileActionTile(
-    icon: Painter,
-    label: String,
-    onClick: () -> Unit,
+private fun ProfileGroupCard(
     modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     Surface(
-        modifier = modifier
-            .height(96.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(24.dp),
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Icon(
-                painter = icon,
-                contentDescription = null,
-                modifier = Modifier.size(28.dp),
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = label.uppercase(),
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+        Column(Modifier.padding(vertical = 6.dp)) {
+            content()
         }
     }
 }
 
-/** Baris toggle berbentuk pill: ikon, label, lalu switch di kanan. */
+/** Divider antar baris di dalam kartu grup (tidak melewati ikon). */
+@Composable
+private fun ProfileDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(start = 70.dp),
+        thickness = 1.dp,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+    )
+}
+
+/** Lingkaran ikon aksen untuk baris di dalam kartu grup. */
+@Composable
+private fun ProfileRowIcon(
+    icon: Painter,
+    enabled: Boolean = true,
+) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(
+                if (enabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = icon,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = if (enabled) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+        )
+    }
+}
+
+/** Baris aksi di dalam kartu grup: ikon, label, chevron. */
+@Composable
+private fun ProfileRow(
+    icon: Painter,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 60.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ProfileRowIcon(icon = icon)
+        Spacer(Modifier.width(14.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            painter = painterResource(R.drawable.navigate_next),
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Baris toggle di dalam kartu grup: ikon, label, switch. */
 @Composable
 private fun ProfileToggleRow(
     icon: Painter,
@@ -134,52 +185,38 @@ private fun ProfileToggleRow(
     enabled: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    Surface(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 56.dp)
-            .clip(RoundedCornerShape(28.dp)),
-        shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 0.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+            .heightIn(min = 60.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                painter = icon,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = if (enabled) MaterialTheme.colorScheme.onSurface
-                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-            )
-            Spacer(Modifier.width(12.dp))
-            Text(
-                text = label.uppercase(),
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = if (enabled) MaterialTheme.colorScheme.onSurface
-                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Switch(
-                enabled = enabled,
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-                thumbContent = {
-                    Icon(
-                        painter = painterResource(
-                            id = if (checked) R.drawable.check else R.drawable.close,
-                        ),
-                        contentDescription = null,
-                        modifier = Modifier.size(SwitchDefaults.IconSize),
-                    )
-                },
-            )
-        }
+        ProfileRowIcon(icon = icon, enabled = enabled)
+        Spacer(Modifier.width(14.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
+            color = if (enabled) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Switch(
+            enabled = enabled,
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            thumbContent = {
+                Icon(
+                    painter = painterResource(
+                        id = if (checked) R.drawable.check else R.drawable.close,
+                    ),
+                    contentDescription = null,
+                    modifier = Modifier.size(SwitchDefaults.IconSize),
+                )
+            },
+        )
     }
 }
 
@@ -222,24 +259,69 @@ fun AccountSettings(
             .padding(20.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 8.dp, end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+        // ---- header identitas: avatar, nama, email ----
+        Box(
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(
-                text = stringResource(id = R.string.app_name),
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                modifier = Modifier.padding(start = 4.dp)
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            IconButton(onClick = onClose) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                if (isLoggedIn && accountImageUrl != null) {
+                    AsyncImage(
+                        model = accountImageUrl,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_toolbar_account),
+                            contentDescription = null,
+                            modifier = Modifier.size(36.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = if (isLoggedIn) accountName.ifBlank { stringResource(R.string.account) }
+                    else stringResource(id = R.string.app_name),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (isLoggedIn && accountEmail.isNotBlank()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = accountEmail,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier.align(Alignment.TopEnd),
+            ) {
                 Icon(painterResource(R.drawable.close), contentDescription = null)
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(20.dp))
 
         // Logout confirmation dialog
         if (showLogoutDialog) {
@@ -362,35 +444,30 @@ fun AccountSettings(
             )
         }
 
-        // ---- baris atas: login / masuk dengan token ----
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+        // ---- grup akun ----
+        ProfileGroupCard {
             if (isLoggedIn && accountImageUrl != null) {
-                // Sudah login: tampilkan akun aktif sebagai tile pertama.
-                ProfileActionTile(
+                // Sudah login: baris akun aktif (buka halaman akun).
+                ProfileRow(
                     icon = painterResource(R.drawable.ic_toolbar_account),
                     label = accountName.ifBlank { stringResource(R.string.account) },
                     onClick = {
                         onClose()
                         navController.navigate("account")
                     },
-                    modifier = Modifier.weight(1f),
                 )
             } else {
-                ProfileActionTile(
+                ProfileRow(
                     icon = painterResource(R.drawable.login),
                     label = stringResource(R.string.login),
                     onClick = {
                         onClose()
                         navController.navigate("login")
                     },
-                    modifier = Modifier.weight(1f),
                 )
             }
-
-            ProfileActionTile(
+            ProfileDivider()
+            ProfileRow(
                 icon = painterResource(R.drawable.token),
                 label = stringResource(R.string.advanced_login),
                 onClick = {
@@ -398,70 +475,58 @@ fun AccountSettings(
                     else if (!showToken) showToken = true
                     else showTokenEditor = true
                 },
-                modifier = Modifier.weight(1f),
             )
-        }
-
-        if (isLoggedIn) {
-            Spacer(Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                ProfileActionTile(
+            if (isLoggedIn) {
+                ProfileDivider()
+                ProfileRow(
                     icon = painterResource(R.drawable.account),
                     label = stringResource(R.string.switch_youtube_channel),
                     onClick = {
                         onClose()
                         navController.navigate("switch_channel")
                     },
-                    modifier = Modifier.weight(1f),
                 )
-                Spacer(Modifier.weight(1f))
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
 
-        // ---- toggle pill ----
-        ProfileToggleRow(
-            icon = painterResource(R.drawable.cached),
-            label = stringResource(R.string.more_content),
-            checked = useLoginForBrowse,
-            enabled = isLoggedIn,
-            onCheckedChange = {
-                YouTube.useLoginForBrowse = it
-                onUseLoginForBrowseChange(it)
-            },
-        )
+        // ---- grup preferensi ----
+        ProfileGroupCard {
+            ProfileToggleRow(
+                icon = painterResource(R.drawable.cached),
+                label = stringResource(R.string.more_content),
+                checked = useLoginForBrowse,
+                enabled = isLoggedIn,
+                onCheckedChange = {
+                    YouTube.useLoginForBrowse = it
+                    onUseLoginForBrowseChange(it)
+                },
+            )
+            ProfileDivider()
+            ProfileToggleRow(
+                icon = painterResource(R.drawable.cached),
+                label = stringResource(R.string.yt_sync),
+                checked = ytmSync,
+                enabled = isLoggedIn,
+                onCheckedChange = onYtmSyncChange,
+            )
+        }
 
         Spacer(Modifier.height(12.dp))
 
-        ProfileToggleRow(
-            icon = painterResource(R.drawable.cached),
-            label = stringResource(R.string.yt_sync),
-            checked = ytmSync,
-            enabled = isLoggedIn,
-            onCheckedChange = onYtmSyncChange,
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        // ---- baris bawah: pengaturan / join saluran ----
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            ProfileActionTile(
+        // ---- grup lainnya ----
+        ProfileGroupCard {
+            ProfileRow(
                 icon = painterResource(R.drawable.settings),
                 label = stringResource(R.string.settings),
                 onClick = {
                     onClose()
                     navController.navigate("settings")
                 },
-                modifier = Modifier.weight(1f),
             )
-            ProfileActionTile(
+            ProfileDivider()
+            ProfileRow(
                 icon = painterResource(R.drawable.whatsapp),
                 label = stringResource(R.string.join_channel),
                 onClick = {
@@ -472,12 +537,11 @@ fun AccountSettings(
                         )
                     }
                 },
-                modifier = Modifier.weight(1f),
             )
         }
 
         // ---- tombol dukungan (Saweria) ----
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(16.dp))
         Button(
             onClick = {
                 onClose()
@@ -487,11 +551,17 @@ fun AccountSettings(
                     )
                 }
             },
-            shape = RoundedCornerShape(28.dp),
+            shape = RoundedCornerShape(20.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
         ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_heart),
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(8.dp))
             Text(
                 text = stringResource(R.string.support_with_saweria),
                 style = MaterialTheme.typography.titleMedium,
@@ -501,15 +571,13 @@ fun AccountSettings(
 
         // ---- tombol logout (hanya kalau sudah login) ----
         if (isLoggedIn) {
-            Spacer(Modifier.height(12.dp))
-            OutlinedButton(
+            Spacer(Modifier.height(4.dp))
+            TextButton(
                 onClick = {
                     Timber.d("[LOGOUT] User clicked logout button, showing dialog")
                     showLogoutDialog = true
                 },
-                shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                colors = ButtonDefaults.textButtonColors(
                     contentColor = MaterialTheme.colorScheme.error,
                 ),
                 modifier = Modifier.fillMaxWidth(),
