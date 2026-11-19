@@ -6,8 +6,10 @@
 package com.metrolist.music.ui.screens.library
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -27,6 +30,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -47,12 +51,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -836,10 +844,8 @@ fun LibraryMixScreen(
                             key = "likedPlaylist",
                             contentType = { CONTENT_TYPE_PLAYLIST },
                         ) {
-                            PlaylistGridItem(
+                            AutoPlaylistPill(
                                 playlist = likedPlaylist,
-                                fillMaxWidth = true,
-                                autoPlaylist = true,
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
@@ -857,10 +863,8 @@ fun LibraryMixScreen(
                             key = "downloadedPlaylist",
                             contentType = { CONTENT_TYPE_PLAYLIST },
                         ) {
-                            PlaylistGridItem(
+                            AutoPlaylistPill(
                                 playlist = downloadPlaylist,
-                                fillMaxWidth = true,
-                                autoPlaylist = true,
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
@@ -879,10 +883,8 @@ fun LibraryMixScreen(
                             key = "cachedPlaylist",
                             contentType = { CONTENT_TYPE_PLAYLIST },
                         ) {
-                            PlaylistGridItem(
+                            AutoPlaylistPill(
                                 playlist = cachedPlaylist,
-                                fillMaxWidth = true,
-                                autoPlaylist = true,
                                 modifier =
                                 Modifier
                                     .fillMaxWidth()
@@ -901,10 +903,8 @@ fun LibraryMixScreen(
                             key = "TopPlaylist",
                             contentType = { CONTENT_TYPE_PLAYLIST },
                         ) {
-                            PlaylistGridItem(
+                            AutoPlaylistPill(
                                 playlist = topPlaylist,
-                                fillMaxWidth = true,
-                                autoPlaylist = true,
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
@@ -922,10 +922,8 @@ fun LibraryMixScreen(
                             key = "uploadedPlaylist",
                             contentType = { CONTENT_TYPE_PLAYLIST },
                         ) {
-                            PlaylistGridItem(
+                            AutoPlaylistPill(
                                 playlist = uploadedPlaylist,
-                                fillMaxWidth = true,
-                                autoPlaylist = true,
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
@@ -1116,6 +1114,65 @@ fun LibraryMixScreen(
             LevelTiersDialog(
                 totalExp = totalExp,
                 onDismiss = { showTiersDialog = false },
+            )
+        }
+    }
+}
+
+@Composable
+private fun AutoPlaylistPill(
+    playlist: Playlist,
+    modifier: Modifier = Modifier,
+) {
+    val name = playlist.playlist.name
+    val (background, painter, iconTint) =
+        when {
+            name == stringResource(R.string.liked) ->
+                Triple(Color(0xFFFE98AF), R.drawable.favorite_border, Color(0xFFE53935))
+
+            name == stringResource(R.string.offline) ->
+                Triple(Color(0xFF4BAF4F), R.drawable.ic_lib_downloaded, Color.Black)
+
+            name == stringResource(R.string.cached_playlist) ->
+                Triple(Color(0xFFFFEB3D), R.drawable.ic_lib_cached, Color.Black)
+
+            name == stringResource(R.string.uploaded_playlist) ->
+                Triple(Color(0xFFFFA726), R.drawable.ic_lib_uploaded, Color.Black)
+
+            name.startsWith(stringResource(R.string.my_top)) ->
+                Triple(Color(0xFF01BDD4), R.drawable.ic_lib_top, Color.Black)
+
+            else ->
+                Triple(MaterialTheme.colorScheme.surfaceContainerHigh, R.drawable.queue_music, Color.Black)
+        }
+
+    Box(
+        contentAlignment = Alignment.CenterStart,
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(background)
+                .padding(horizontal = 16.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(
+                painter = painterResource(painter),
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(28.dp),
+            )
+            Text(
+                text = name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
