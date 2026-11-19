@@ -35,6 +35,15 @@ object KnzApiService {
 
     private const val BASE_URL = "https://www.knzapi.zone.id/api/ai/gemini"
 
+    /**
+     * Batas baris per panggilan. Gemini di balik KNZAPI sering menolak /
+     * mendeskripsikan lagu utuh ("can't reproduce the full set of lyrics"):
+     * 30 baris sekaligus gagal 5 dari 6 percobaan langsung, 10 baris lolos
+     * 6 dari 6 (prompt default maupun custom). Lirik panjang dipotong per
+     * 10 baris lalu digabung lagi.
+     */
+    private const val MAX_LINES_PER_REQUEST = 10
+
     private val client =
         OkHttpClient
             .Builder()
@@ -177,11 +186,12 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
                 val lineCount = text.lines().size
                 // System prompt custom (kalau diisi) MENGGANTIKAN default yang
                 // ketat — makanya model bisa jawab prosa. Selalu tempel aturan
-                // JSON di belakangnya, jadi format {"lines": [...]} tetap
-                // dijaga apa pun isi prompt custom-nya.
+                // JSON + larangan deskripsi di belakangnya, jadi format
+                // {"lines": [...]} tetap dijaga dan model tidak beralih ke
+                // mode mendeskripsikan lagu apa pun isi prompt custom-nya.
                 val systemPrompt =
                     customSystemPrompt.takeIf(String::isNotBlank)?.replace("{lineCount}", lineCount.toString())
-                        ?.let { "$it\n\nAlways reply with ONLY a JSON object {\"lines\": [...]} containing exactly $lineCount strings, no other text." }
+                        ?.let { "$it\n\nAlways reply with ONLY a JSON object {\"lines\": [...]} containing exactly $lineCount strings, no other text. NEVER describe, summarize, or discuss the song or its themes — translate the lyrics ONLY." }
                         ?: defaultSystemPrompt(lineCount)
                 val url = BASE_URL +
                     "?chat=${URLEncoder.encode(userPrompt(text, targetLanguage, mode), "UTF-8")}" +
@@ -218,6 +228,12 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
     /**
      * Terjemahkan text (bisa multi-baris digabung \n). Mengembalikan satu
      * terjemahan per baris input, posisinya dipertahankan.
+     *
+     * Lirik panjang dipotong per [MAX_LINES_PER_REQUEST] baris: satu
+     * panggilan untuk lagu utuh sering dibalas prosa/penolakan oleh model
+     * di balik KNZAPI, sementara 10 baris per panggilan lolos. Tiap potong
+     * di-retry sendiri; satu potong gagal = seluruh terjemahan gagal,
+     * seperti sebelumnya.
      */
     suspend fun translate(
         text: String,
@@ -228,15 +244,39 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
     ): Result<List<String>> =
         withContext(Dispatchers.IO) {
             if (text.isBlank()) return@withContext Result.failure(Exception("Input text is empty"))
-            var attempt = 0
-            var lastError: Exception? = null
-            while (attempt < maxRetries) {
-                val result = fetch(text, targetLanguage, mode, customSystemPrompt)
-                if (result.isSuccess) return@withContext result
-                lastError = result.exceptionOrNull() as? Exception
-                attempt++
-                if (attempt < maxRetries) delay(500L * attempt)
+            val lines = text.lines()
+            if (lines.size <= MAX_LINES_PER_REQUEST) {
+                return@withContext translateChunk(text, targetLanguage, mode, customSystemPrompt, maxRetries)
             }
-            Result.failure(lastError ?: Exception("KNZAPI request failed"))
+            val translated = mutableListOf<String>()
+            for (chunk in lines.chunked(MAX_LINES_PER_REQUEST)) {
+                val result =
+                    translateChunk(chunk.joinToString("\n"), targetLanguage, mode, customSystemPrompt, maxRetries)
+                if (result.isFailure) {
+                    return@withContext Result.failure(result.exceptionOrNull() ?: Exception("KNZAPI request failed"))
+                }
+                translated += result.getOrThrow()
+            }
+            Result.success(translated)
         }
+
+    /** Satu potong lirik (<= [MAX_LINES_PER_REQUEST] baris), dengan retry. */
+    private suspend fun translateChunk(
+        text: String,
+        targetLanguage: String,
+        mode: String,
+        customSystemPrompt: String,
+        maxRetries: Int,
+    ): Result<List<String>> {
+        var attempt = 0
+        var lastError: Exception? = null
+        while (attempt < maxRetries) {
+            val result = fetch(text, targetLanguage, mode, customSystemPrompt)
+            if (result.isSuccess) return result
+            lastError = result.exceptionOrNull() as? Exception
+            attempt++
+            if (attempt < maxRetries) delay(500L * attempt)
+        }
+        return Result.failure(lastError ?: Exception("KNZAPI request failed"))
+    }
 }
