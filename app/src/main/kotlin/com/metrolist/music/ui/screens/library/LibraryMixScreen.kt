@@ -7,6 +7,8 @@ package com.metrolist.music.ui.screens.library
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -1119,6 +1121,7 @@ fun LibraryMixScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AutoPlaylistPill(
     playlist: Playlist,
@@ -1131,19 +1134,19 @@ private fun AutoPlaylistPill(
                 Triple(Color(0xFFFE98AF), R.drawable.favorite_border, Color(0xFFE53935))
 
             name == stringResource(R.string.offline) ->
-                Triple(Color(0xFF4BAF4F), R.drawable.ic_lib_downloaded, Color.Black)
+                Triple(Color(0xFF4BAF4F), R.drawable.ic_lib_downloaded, Color.White)
 
             name == stringResource(R.string.cached_playlist) ->
-                Triple(Color(0xFFFFEB3D), R.drawable.ic_lib_cached, Color.Black)
+                Triple(Color(0xFFFFEB3D), R.drawable.ic_lib_cached, Color.White)
 
             name == stringResource(R.string.uploaded_playlist) ->
-                Triple(Color(0xFFFFA726), R.drawable.ic_lib_uploaded, Color.Black)
+                Triple(Color(0xFFFFA726), R.drawable.ic_lib_uploaded, Color.White)
 
             name.startsWith(stringResource(R.string.my_top)) ->
-                Triple(Color(0xFF01BDD4), R.drawable.ic_lib_top, Color.Black)
+                Triple(Color(0xFF01BDD4), R.drawable.ic_lib_top, Color.White)
 
             else ->
-                Triple(MaterialTheme.colorScheme.surfaceContainerHigh, R.drawable.queue_music, Color.Black)
+                Triple(MaterialTheme.colorScheme.surfaceContainerHigh, R.drawable.queue_music, Color.White)
         }
 
     Box(
@@ -1151,28 +1154,31 @@ private fun AutoPlaylistPill(
         modifier =
             modifier
                 .fillMaxWidth()
-                .height(64.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .background(background)
-                .padding(horizontal = 16.dp),
+                .height(52.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(background.copy(alpha = 0.30f))
+                .border(1.dp, Color.White.copy(alpha = 0.50f), RoundedCornerShape(10.dp))
+                .padding(horizontal = 12.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Icon(
                 painter = painterResource(painter),
                 contentDescription = null,
                 tint = iconTint,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(24.dp),
             )
             Text(
                 text = name,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black,
+                color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).basicMarquee(),
             )
         }
     }
