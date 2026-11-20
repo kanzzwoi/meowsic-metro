@@ -1153,11 +1153,12 @@ private fun AutoPlaylistPill(
         modifier =
             modifier
                 .fillMaxWidth()
-                .height(52.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .height(44.dp)
+                .clip(RoundedCornerShape(8.dp))
                 .background(background.copy(alpha = 0.30f))
-                .border(1.dp, Color.White.copy(alpha = 0.50f), RoundedCornerShape(10.dp))
-                .padding(horizontal = 12.dp),
+                .border(1.dp, Color.White.copy(alpha = 0.50f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1167,27 +1168,27 @@ private fun AutoPlaylistPill(
                 contentAlignment = Alignment.Center,
                 modifier =
                     Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .border(1.dp, Color.White.copy(alpha = 0.50f), RoundedCornerShape(10.dp)),
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(1.dp, Color.White.copy(alpha = 0.50f), RoundedCornerShape(8.dp)),
             ) {
                 Icon(
                     painter = painterResource(painter),
                     contentDescription = null,
                     tint = iconTint,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(20.dp),
                 )
             }
             Box(
                 modifier =
                     Modifier
                         .width(1.dp)
-                        .height(24.dp)
+                        .height(20.dp)
                         .background(Color.White.copy(alpha = 0.50f)),
             )
             Text(
                 text = name,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 maxLines = 1,
