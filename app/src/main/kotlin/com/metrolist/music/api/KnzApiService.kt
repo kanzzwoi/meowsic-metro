@@ -231,8 +231,10 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
      *
      * Lirik panjang dipotong per [MAX_LINES_PER_REQUEST] baris: satu
      * panggilan untuk lagu utuh sering dibalas prosa/penolakan oleh model
-     * di balik KNZAPI, sementara 10 baris per panggilan lolos. Tiap potong
-     * di-retry sendiri; satu potong gagal = seluruh terjemahan gagal,
+     * di balik KNZAPI. Potongan yang tetap gagal setelah retry dipecah
+     * lagi jadi dua (rekursif, sampai satu baris): potongan kecil hampir
+     * selalu lolos — mis. "I Wanna Be Yours" gagal di 10 baris tapi lolos
+     * di 5 baris. Satu baris yang tetap gagal = seluruh terjemahan gagal,
      * seperti sebelumnya.
      */
     suspend fun translate(
@@ -244,21 +246,43 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
     ): Result<List<String>> =
         withContext(Dispatchers.IO) {
             if (text.isBlank()) return@withContext Result.failure(Exception("Input text is empty"))
-            val lines = text.lines()
-            if (lines.size <= MAX_LINES_PER_REQUEST) {
-                return@withContext translateChunk(text, targetLanguage, mode, customSystemPrompt, maxRetries)
-            }
-            val translated = mutableListOf<String>()
-            for (chunk in lines.chunked(MAX_LINES_PER_REQUEST)) {
-                val result =
-                    translateChunk(chunk.joinToString("\n"), targetLanguage, mode, customSystemPrompt, maxRetries)
-                if (result.isFailure) {
-                    return@withContext Result.failure(result.exceptionOrNull() ?: Exception("KNZAPI request failed"))
-                }
-                translated += result.getOrThrow()
-            }
-            Result.success(translated)
+            translateLines(text.lines(), targetLanguage, mode, customSystemPrompt, maxRetries)
         }
+
+    /**
+     * Terjemahkan daftar baris. Potongan <= [MAX_LINES_PER_REQUEST] baris
+     * dikirim sekali (dengan retry); kalau tetap gagal, potongan dipecah
+     * dua dan masing-masing dicoba lagi, sampai satu baris.
+     */
+    private suspend fun translateLines(
+        lines: List<String>,
+        targetLanguage: String,
+        mode: String,
+        customSystemPrompt: String,
+        maxRetries: Int,
+    ): Result<List<String>> {
+        if (lines.size <= MAX_LINES_PER_REQUEST) {
+            val result =
+                translateChunk(lines.joinToString("\n"), targetLanguage, mode, customSystemPrompt, maxRetries)
+            if (result.isSuccess || lines.size <= 1) return result
+            val mid = lines.size / 2
+            val first = translateLines(lines.subList(0, mid), targetLanguage, mode, customSystemPrompt, maxRetries)
+            if (first.isFailure) return first
+            val second =
+                translateLines(lines.subList(mid, lines.size), targetLanguage, mode, customSystemPrompt, maxRetries)
+            if (second.isFailure) return second
+            return Result.success(first.getOrThrow() + second.getOrThrow())
+        }
+        val translated = mutableListOf<String>()
+        for (chunk in lines.chunked(MAX_LINES_PER_REQUEST)) {
+            val result = translateLines(chunk, targetLanguage, mode, customSystemPrompt, maxRetries)
+            if (result.isFailure) {
+                return Result.failure(result.exceptionOrNull() ?: Exception("KNZAPI request failed"))
+            }
+            translated += result.getOrThrow()
+        }
+        return Result.success(translated)
+    }
 
     /** Satu potong lirik (<= [MAX_LINES_PER_REQUEST] baris), dengan retry. */
     private suspend fun translateChunk(
