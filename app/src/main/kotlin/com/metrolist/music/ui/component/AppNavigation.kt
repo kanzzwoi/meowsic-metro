@@ -56,11 +56,11 @@ import com.metrolist.music.constants.FloatingNavBarGap
 import com.metrolist.music.constants.NavigationBarHeight
 import com.metrolist.music.constants.SlimNavBarHeight
 import com.metrolist.music.ui.screens.Screens
-import dev.chrisbanes.haze.HazeBlurStyle
-import dev.chrisbanes.haze.HazeColorEffect
 import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeBlur
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.HazeColorEffect
+import dev.chrisbanes.haze.blur.hazeBlur
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
