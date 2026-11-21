@@ -226,18 +226,6 @@ fun SettingsScreen(
                 onClick = { navController.navigate("settings/backup_restore") },
             )
         )
-        add(
-            SettingsSearchEntry(
-                title = stringResource(R.string.import_playlist),
-                subtitle = stringResource(R.string.settings_desc_import_playlist),
-                keywords = listOf(
-                    "impor", "import", "playlist", "spotify", "apple",
-                    "deezer", "tidal", "amazon", "youtube",
-                ),
-                icon = painterResource(R.drawable.download),
-                onClick = { navController.navigate("playlist_import") },
-            )
-        )
         if (isAndroid12OrLater) {
             add(
                 SettingsSearchEntry(
@@ -416,11 +404,6 @@ fun SettingsScreen(
                     icon = painterResource(R.drawable.restore),
                     title = { Text(stringResource(R.string.backup_restore)) },
                     onClick = { navController.navigate("settings/backup_restore") }
-                ),
-                Material3SettingsItem(
-                    icon = painterResource(R.drawable.download),
-                    title = { Text(stringResource(R.string.import_playlist)) },
-                    onClick = { navController.navigate("playlist_import") }
                 )
             )
         )
