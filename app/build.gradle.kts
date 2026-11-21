@@ -299,6 +299,9 @@ dependencies {
     implementation(libs.compose.animation)
     implementation(libs.compose.reorderable)
 
+    implementation(libs.haze)
+    implementation(libs.haze.blur)
+
     implementation(libs.viewmodel.compose)
     implementation(libs.lifecycle.process)
 

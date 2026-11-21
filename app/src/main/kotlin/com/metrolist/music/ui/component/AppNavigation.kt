@@ -56,6 +56,11 @@ import com.metrolist.music.constants.FloatingNavBarGap
 import com.metrolist.music.constants.NavigationBarHeight
 import com.metrolist.music.constants.SlimNavBarHeight
 import com.metrolist.music.ui.screens.Screens
+import dev.chrisbanes.haze.HazeBlurStyle
+import dev.chrisbanes.haze.HazeColorEffect
+import dev.chrisbanes.haze.HazeInput
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeBlur
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
@@ -165,6 +170,7 @@ fun AppNavigationBar(
     onSearchLongClick: (() -> Unit)? = null,
     onHomeLongHold: (() -> Unit)? = null,
     glass: Boolean = false,
+    hazeState: HazeState? = null,
 ) {
     val containerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.surfaceContainer
     val contentColor = if (pureBlack) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
@@ -181,7 +187,7 @@ fun AppNavigationBar(
         // dan label tidak terdorong keluar area.
         verticalArrangement = Arrangement.Center,
     ) {
-        GlassNavBarContainer(glass = glass, pureBlack = pureBlack, slimNav = slimNav) {
+        GlassNavBarContainer(glass = glass, pureBlack = pureBlack, slimNav = slimNav, hazeState = hazeState) {
             // Isi pil dibangun manual (Row + item), BUKAN NavigationBar Material3.
             // NavigationBar punya tinggi minimum 80dp dan padding inset sendiri;
             // saat dipaksa muat di pil 58dp, ikonnya terpotong dan hanya label
@@ -308,6 +314,7 @@ private fun GlassNavBarContainer(
     glass: Boolean,
     pureBlack: Boolean,
     slimNav: Boolean,
+    hazeState: HazeState? = null,
     content: @Composable () -> Unit,
 ) {
     if (!glass) {
@@ -342,6 +349,25 @@ private fun GlassNavBarContainer(
     val density = LocalDensity.current
     val systemBottom = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
 
+    // Style blur nav bar: blur beneran (Haze). blurEnabled(true) wajib karena
+    // di Android 11 ke bawah blur mati secara default dan cuma diganti scrim;
+    // dengan ini Haze memakai jalur RenderScript di HP lama. Kalau blur nggak
+    // tersedia, fallback-nya tint gelap yang sama kayak pil kaca sebelumnya.
+    val navHazeStyle = remember {
+        HazeBlurStyle {
+            blurEnabled(true)
+            blurRadius(18.dp)
+            noiseFactor(0f)
+            backgroundColor(Color(0xFF2A2E36).copy(alpha = 0.45f))
+            colorEffects(
+                listOf(
+                    HazeColorEffect.tint(Color.White.copy(alpha = 0.08f)),
+                ),
+            )
+            fallbackColorEffect(HazeColorEffect.tint(Color(0xFF2A2E36).copy(alpha = 0.72f)))
+        }
+    }
+
     // STRUKTUR: jarak mengapung dan tinggi pil dipisah total.
     // Padding bawah (gap + area tombol sistem) dipasang di Box luar, bukan di
     // dalam pil. Sebelumnya padding ditaruh di dalam Column yang ikut di-clip
@@ -363,7 +389,18 @@ private fun GlassNavBarContainer(
                     .height(pillHeight)
                     .shadow(elevation = 10.dp, shape = RoundedCornerShape(percent = 50), clip = false)
                     .clip(RoundedCornerShape(percent = 50))
-                    .background(glassTint)
+                    .then(
+                        if (hazeState != null) {
+                            // Blur beneran dari konten di belakang pil (wallpaper +
+                            // isi layar, ditandai hazeSource di MainActivity).
+                            Modifier.hazeBlur(
+                                input = HazeInput.Sources(hazeState),
+                                style = navHazeStyle,
+                            )
+                        } else {
+                            Modifier.background(glassTint)
+                        },
+                    )
                     .border(
                         width = 1.dp,
                         color = rimColor,

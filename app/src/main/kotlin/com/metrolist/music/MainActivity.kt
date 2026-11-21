@@ -167,6 +167,9 @@ import com.metrolist.music.constants.PreferredLyricsProvider
 import com.metrolist.music.constants.PreferredLyricsProviderKey
 import com.metrolist.music.constants.PureBlackKey
 import com.metrolist.music.constants.LiquidBackgroundKey
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import com.metrolist.music.constants.LiquidBackgroundDefaultMigrationKey
 import com.metrolist.music.constants.SYSTEM_DEFAULT
 import com.metrolist.music.constants.SelectedThemeColorKey
@@ -771,6 +774,8 @@ class MainActivity : FragmentActivity() {
         }
 
         val liquidBackgroundEnabled by rememberPreference(LiquidBackgroundKey, defaultValue = true)
+        // State blur Haze buat nav bar kaca: sumber blur = wallpaper + isi layar.
+        val hazeState = rememberHazeState()
         // Wallpaper latar: biru (default), pink, merah, ungu, hitam pekat.
         val wallpaperStylePref by rememberPreference(WallpaperStyleKey, defaultValue = "blue")
         val wallpaperRes: Int? =
@@ -836,11 +841,15 @@ class MainActivity : FragmentActivity() {
                 // di bawahnya punya latar solid sendiri yang menutupinya.
                 // Wallpaper selalu tampil (toggle "liquid glass" sudah tidak
                 // dipakai UI); hanya gambarnya yang mengikuti pilihan Tema.
-                LiquidGradientBackground(
-                    darkTheme = useDarkTheme,
-                    seedColor = themeColor,
-                    wallpaperRes = wallpaperRes,
-                )
+                Box(
+                    modifier = Modifier.fillMaxSize().hazeSource(hazeState),
+                ) {
+                    LiquidGradientBackground(
+                        darkTheme = useDarkTheme,
+                        seedColor = themeColor,
+                        wallpaperRes = wallpaperRes,
+                    )
+                }
 
                 val density = LocalDensity.current
                 val configuration = LocalWindowInfo.current
@@ -1374,6 +1383,7 @@ class MainActivity : FragmentActivity() {
                                         pureBlack = pureBlack,
                                         slimNav = slimNav,
                                         glass = liquidBackgroundEnabled,
+                                        hazeState = hazeState,
                                         onSearchLongClick = onSearchLongClick,
                                         onHomeLongHold = { showAccountDialog = true },
                                         modifier =
@@ -1495,7 +1505,7 @@ class MainActivity : FragmentActivity() {
                                     onHomeLongHold = { showAccountDialog = true },
                                 )
                             }
-                            Box(Modifier.weight(1f)) {
+                            Box(Modifier.weight(1f).hazeSource(hazeState)) {
                                 // NavHost with animations (Material 3 Expressive style)
                                 NavHost(
                                     navController = navController,
