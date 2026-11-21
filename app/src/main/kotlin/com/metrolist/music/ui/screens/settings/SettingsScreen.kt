@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -292,9 +293,13 @@ fun SettingsScreen(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
     ) {
+        // Spacer ini cuma buat status bar: header Pengaturan ada DI DALAM
+        // kolom scroll (bukan overlay), jadi tidak ada bar 64dp yang perlu
+        // dihindari. Sebelumnya pakai playerAwareWindowInsets yang ikut
+        // menghitung AppBarHeight 64dp, makanya ada space kosong gede di atas.
         Spacer(
             Modifier.windowInsetsPadding(
-                LocalPlayerAwareWindowInsets.current.only(
+                WindowInsets.statusBars.only(
                     WindowInsetsSides.Top
                 )
             )
