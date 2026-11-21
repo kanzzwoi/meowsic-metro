@@ -299,6 +299,11 @@ class MainActivity : FragmentActivity() {
                 com.metrolist.music.playback.PlaybackLog.log("activity", "onServiceConnected: ${name?.className}")
                 reconnectAttempts = 0
                 isServiceBound = true
+                // Service bisa hidup di background karena promotion ditolak
+                // Android 12+ saat restart sistem. Activity sudah di depan di
+                // titik ini, jadi coba naikkan lagi ke foreground supaya
+                // playback tidak mati mendadak.
+                MusicService.promoteForeground(this@MainActivity)
                 if (service is MusicBinder) {
                     playerConnection = PlayerConnection(this@MainActivity, service, database, lifecycleScope)
                     playerConnectionSnapshot = playerConnection

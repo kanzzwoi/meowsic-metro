@@ -619,8 +619,20 @@ class MusicService :
         // On some OEMs (e.g. MIUI), even a DataStore read can be slow
         // enough to miss the window, so we promote before any I/O.
         ensureForegroundChannelExists()
-        if (!ensureStartedAsForegroundOrStop()) {
-            return
+        if (!ensureStartedAsForegroundOrStop(stopOnFailure = false)) {
+            // Android 12+ menolak startForeground saat service di-restart
+            // sistem dari background (proses dibunuh karena RAM, lalu restart
+            // tanpa activity di depan). Jangan bunuh service: lanjutkan init
+            // supaya antrean + posisi yang tersimpan di disk bisa dipulihkan.
+            // Promotion dicoba lagi begitu app di depan (MainActivity
+            // memanggil promoteForeground saat bind) atau ada event media.
+            // Kalau tidak ada state tersimpan, tidak ada yang dipulihkan —
+            // berhenti seperti sebelumnya.
+            if (!hasPersistedPlaybackState()) {
+                stopSelf()
+                return
+            }
+            Timber.tag(TAG).w("Foreground ditolak saat start; lanjut tanpa foreground (state tersimpan ada)")
         }
 
         // Read ALL startup preferences in one shot so that subsequent code
@@ -4262,19 +4274,25 @@ class MusicService :
      * [Context.startForegroundService] requires [startForeground] to succeed quickly. If we cannot
      * enter the foreground state, stop immediately so the system does not ANR the app process.
      */
-    private fun ensureStartedAsForegroundOrStop(): Boolean =
+    private fun ensureStartedAsForegroundOrStop(stopOnFailure: Boolean = true): Boolean =
         startForegroundSafely(
             notification = createFallbackForegroundNotification(),
-            deniedMessage = "Foreground service start not allowed; stopping service to avoid ANR",
-            failureMessage = "Failed to enter foreground; stopping service to avoid ANR",
+            deniedMessage = if (stopOnFailure) "Foreground service start not allowed; stopping service to avoid ANR" else "Foreground service start not allowed",
+            failureMessage = if (stopOnFailure) "Failed to enter foreground; stopping service to avoid ANR" else "Failed to enter foreground",
+            stopOnFailure = stopOnFailure,
         )
 
-    private fun ensureForegroundWithLatestNotificationOrStop(): Boolean =
+    /** Ada antrean/posisi tersimpan di disk yang layak dipulihkan setelah restart. */
+    private fun hasPersistedPlaybackState(): Boolean =
+        filesDir.resolve(PERSISTENT_QUEUE_FILE).exists() ||
+            filesDir.resolve(PERSISTENT_PLAYER_STATE_FILE).exists()
+
+    private fun ensureForegroundWithLatestNotificationOrStop(stopOnFailure: Boolean = true): Boolean =
         startForegroundSafely(
             notification = latestMediaNotification ?: createFallbackForegroundNotification(),
-            deniedMessage = "Foreground promotion denied during notification update; stopping service",
-            failureMessage = "Failed to promote service during notification update; stopping service",
-            stopOnFailure = true,
+            deniedMessage = if (stopOnFailure) "Foreground promotion denied during notification update; stopping service" else "Foreground promotion denied during notification update",
+            failureMessage = if (stopOnFailure) "Failed to promote service during notification update; stopping service" else "Failed to promote service during notification update",
+            stopOnFailure = stopOnFailure,
         )
 
     private fun tryEnsureForegroundWithLatestNotification(): Boolean =
@@ -4517,8 +4535,21 @@ class MusicService :
         val isNotificationDismissal =
             intent?.getBooleanExtra(MediaNotification.NOTIFICATION_DISMISSED_EVENT_KEY, false) == true
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !isNotificationDismissal) {
-            if (!ensureForegroundWithLatestNotificationOrStop()) {
-                return START_NOT_STICKY
+            if (!ensureForegroundWithLatestNotificationOrStop(stopOnFailure = false)) {
+                // Restart dari background ditolak Android 12+: jangan bunuh
+                // service kalau lagi main, masih ada antrean, atau ada state
+                // tersimpan. Tahan hidup dan biarkan super mengembalikan
+                // START_STICKY supaya sistem mencoba restart lagi; promotion
+                // diulang saat app di depan. Service yang benar-benar idle
+                // tetap berhenti.
+                val keepAlive =
+                    (::player.isInitialized && (player.isPlaying || player.mediaItemCount > 0)) ||
+                        hasPersistedPlaybackState()
+                if (!keepAlive) {
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
+                Timber.tag(TAG).w("Foreground ditolak saat onStartCommand; tahan service hidup")
             }
         }
 
@@ -4771,7 +4802,7 @@ class MusicService :
             return
         }
 
-        if (player.isPlaying) {
+        if (player.isPlaying || player.mediaItemCount > 0) {
             Timber.tag(TAG).w("Keeping playback alive after denied foreground restart request")
             return
         }
