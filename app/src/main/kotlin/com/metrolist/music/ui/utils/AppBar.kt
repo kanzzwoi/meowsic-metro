@@ -59,7 +59,10 @@ class AppBarScrollBehavior(
                         state.contentOffset = 0f
                     }
                 }
-                state.heightOffset += consumed.y
+                // SENGAJA: heightOffset tidak lagi diubah. Top bar harus nempel
+                // di atas dan tidak ikut gerak saat konten di-scroll; kalau bar
+                // ikut naik-turun, bar yang transparan menimpa konten di
+                // bawahnya (banner/judul) dan kelihatan nge-bug.
                 return Offset.Zero
             }
         }
