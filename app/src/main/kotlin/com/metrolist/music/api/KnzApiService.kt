@@ -35,15 +35,6 @@ object KnzApiService {
 
     private const val BASE_URL = "https://www.knzapi.zone.id/api/ai/gemini"
 
-    /**
-     * Batas baris per panggilan. Gemini di balik KNZAPI sering menolak /
-     * mendeskripsikan lagu utuh ("can't reproduce the full set of lyrics"):
-     * 30 baris sekaligus gagal 5 dari 6 percobaan langsung, 10 baris lolos
-     * 6 dari 6 (prompt default maupun custom). Lirik panjang dipotong per
-     * 10 baris lalu digabung lagi.
-     */
-    private const val MAX_LINES_PER_REQUEST = 10
-
     private val client =
         OkHttpClient
             .Builder()
@@ -186,12 +177,11 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
                 val lineCount = text.lines().size
                 // System prompt custom (kalau diisi) MENGGANTIKAN default yang
                 // ketat — makanya model bisa jawab prosa. Selalu tempel aturan
-                // JSON + larangan deskripsi di belakangnya, jadi format
-                // {"lines": [...]} tetap dijaga dan model tidak beralih ke
-                // mode mendeskripsikan lagu apa pun isi prompt custom-nya.
+                // JSON di belakangnya, jadi format {"lines": [...]} tetap
+                // dijaga apa pun isi prompt custom-nya.
                 val systemPrompt =
                     customSystemPrompt.takeIf(String::isNotBlank)?.replace("{lineCount}", lineCount.toString())
-                        ?.let { "$it\n\nAlways reply with ONLY a JSON object {\"lines\": [...]} containing exactly $lineCount strings, no other text. NEVER describe, summarize, or discuss the song or its themes — translate the lyrics ONLY." }
+                        ?.let { "$it\n\nAlways reply with ONLY a JSON object {\"lines\": [...]} containing exactly $lineCount strings, no other text." }
                         ?: defaultSystemPrompt(lineCount)
                 val url = BASE_URL +
                     "?chat=${URLEncoder.encode(userPrompt(text, targetLanguage, mode), "UTF-8")}" +
@@ -228,14 +218,6 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
     /**
      * Terjemahkan text (bisa multi-baris digabung \n). Mengembalikan satu
      * terjemahan per baris input, posisinya dipertahankan.
-     *
-     * Lirik panjang dipotong per [MAX_LINES_PER_REQUEST] baris: satu
-     * panggilan untuk lagu utuh sering dibalas prosa/penolakan oleh model
-     * di balik KNZAPI. Potongan yang tetap gagal setelah retry dipecah
-     * lagi jadi dua (rekursif, sampai satu baris): potongan kecil hampir
-     * selalu lolos — mis. "I Wanna Be Yours" gagal di 10 baris tapi lolos
-     * di 5 baris. Satu baris yang tetap gagal = seluruh terjemahan gagal,
-     * seperti sebelumnya.
      */
     suspend fun translate(
         text: String,
@@ -246,61 +228,15 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
     ): Result<List<String>> =
         withContext(Dispatchers.IO) {
             if (text.isBlank()) return@withContext Result.failure(Exception("Input text is empty"))
-            translateLines(text.lines(), targetLanguage, mode, customSystemPrompt, maxRetries)
-        }
-
-    /**
-     * Terjemahkan daftar baris. Potongan <= [MAX_LINES_PER_REQUEST] baris
-     * dikirim sekali (dengan retry); kalau tetap gagal, potongan dipecah
-     * dua dan masing-masing dicoba lagi, sampai satu baris.
-     */
-    private suspend fun translateLines(
-        lines: List<String>,
-        targetLanguage: String,
-        mode: String,
-        customSystemPrompt: String,
-        maxRetries: Int,
-    ): Result<List<String>> {
-        if (lines.size <= MAX_LINES_PER_REQUEST) {
-            val result =
-                translateChunk(lines.joinToString("\n"), targetLanguage, mode, customSystemPrompt, maxRetries)
-            if (result.isSuccess || lines.size <= 1) return result
-            val mid = lines.size / 2
-            val first = translateLines(lines.subList(0, mid), targetLanguage, mode, customSystemPrompt, maxRetries)
-            if (first.isFailure) return first
-            val second =
-                translateLines(lines.subList(mid, lines.size), targetLanguage, mode, customSystemPrompt, maxRetries)
-            if (second.isFailure) return second
-            return Result.success(first.getOrThrow() + second.getOrThrow())
-        }
-        val translated = mutableListOf<String>()
-        for (chunk in lines.chunked(MAX_LINES_PER_REQUEST)) {
-            val result = translateLines(chunk, targetLanguage, mode, customSystemPrompt, maxRetries)
-            if (result.isFailure) {
-                return Result.failure(result.exceptionOrNull() ?: Exception("KNZAPI request failed"))
+            var attempt = 0
+            var lastError: Exception? = null
+            while (attempt < maxRetries) {
+                val result = fetch(text, targetLanguage, mode, customSystemPrompt)
+                if (result.isSuccess) return@withContext result
+                lastError = result.exceptionOrNull() as? Exception
+                attempt++
+                if (attempt < maxRetries) delay(500L * attempt)
             }
-            translated += result.getOrThrow()
+            Result.failure(lastError ?: Exception("KNZAPI request failed"))
         }
-        return Result.success(translated)
-    }
-
-    /** Satu potong lirik (<= [MAX_LINES_PER_REQUEST] baris), dengan retry. */
-    private suspend fun translateChunk(
-        text: String,
-        targetLanguage: String,
-        mode: String,
-        customSystemPrompt: String,
-        maxRetries: Int,
-    ): Result<List<String>> {
-        var attempt = 0
-        var lastError: Exception? = null
-        while (attempt < maxRetries) {
-            val result = fetch(text, targetLanguage, mode, customSystemPrompt)
-            if (result.isSuccess) return result
-            lastError = result.exceptionOrNull() as? Exception
-            attempt++
-            if (attempt < maxRetries) delay(500L * attempt)
-        }
-        return Result.failure(lastError ?: Exception("KNZAPI request failed"))
-    }
 }
