@@ -1285,7 +1285,12 @@ class MainActivity : FragmentActivity() {
                                         colors =
                                             TopAppBarDefaults.topAppBarColors(
                                                 containerColor = Color.Transparent,
-                                                scrolledContainerColor = Color.Transparent,
+                                                // Bar transparan saat diam (wallpaper kelihatan),
+                                                // tapi harus jadi solid begitu konten di-scroll
+                                                // ke bawahnya — kalau tetap transparan, banner/
+                                                // judul yang lewat di bawah bar kelihatan
+                                                // menembus bar dan bar-nya kesannya ikut gerak.
+                                                scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                                                 titleContentColor = MaterialTheme.colorScheme.onSurface,
                                                 actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 navigationIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
