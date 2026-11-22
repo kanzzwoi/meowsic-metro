@@ -186,6 +186,14 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
                 val url = BASE_URL +
                     "?chat=${URLEncoder.encode(userPrompt(text, targetLanguage, mode), "UTF-8")}" +
                     "&prompt=${URLEncoder.encode(systemPrompt, "UTF-8")}"
+                // Log diagnosis: request debug vs github ditentukan sepenuhnya
+                // oleh input ini (lirik + bahasa + mode + prompt custom).
+                // Kalau lirik yang disimpan kedua app beda, request-nya beda
+                // dan model bisa jawab beda — log ini yang membuktikannya.
+                com.metrolist.music.playback.PlaybackLog.log(
+                    "lyrics",
+                    "KNZAPI req lines=$lineCount lang=$targetLanguage mode=$mode customPrompt=${customSystemPrompt.isNotBlank()} chars=${text.length} head=${text.lines().take(3).joinToString(" | ")}",
+                )
                 val req =
                     Request
                         .Builder()
@@ -194,6 +202,10 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
                         .build()
                 client.newCall(req).execute().use { resp ->
                     val body = resp.body?.string().orEmpty()
+                    com.metrolist.music.playback.PlaybackLog.log(
+                        "lyrics",
+                        "KNZAPI resp code=${resp.code} bodyLen=${body.length} head=${body.take(300)}",
+                    )
                     if (!resp.isSuccessful) {
                         return@withContext Result.failure(Exception("KNZAPI request failed (${resp.code})"))
                     }
@@ -204,6 +216,10 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
                     }
                     val responseText =
                         obj["result"]?.jsonObject?.get("response")?.jsonPrimitive?.contentOrNull.orEmpty()
+                    com.metrolist.music.playback.PlaybackLog.log(
+                        "lyrics",
+                        "KNZAPI model head=${responseText.take(300)}",
+                    )
                     if (responseText.isBlank()) {
                         return@withContext Result.failure(Exception("No translation received"))
                     }
@@ -211,6 +227,7 @@ Output MUST be a JSON object {"lines": [...]} with EXACTLY $lineCount strings.""
                 }
             } catch (e: Exception) {
                 Timber.w(e, "KNZAPI translate failed")
+                com.metrolist.music.playback.PlaybackLog.log("lyrics", "KNZAPI fail: ${e.message}")
                 Result.failure(e)
             }
         }
