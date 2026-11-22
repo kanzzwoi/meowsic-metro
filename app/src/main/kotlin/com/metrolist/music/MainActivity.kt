@@ -167,7 +167,11 @@ import com.metrolist.music.constants.PreferredLyricsProvider
 import com.metrolist.music.constants.PreferredLyricsProviderKey
 import com.metrolist.music.constants.PureBlackKey
 import com.metrolist.music.constants.LiquidBackgroundKey
+import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.HazeColorEffect
+import dev.chrisbanes.haze.blur.hazeBlur
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import com.metrolist.music.constants.LiquidBackgroundDefaultMigrationKey
@@ -781,6 +785,24 @@ class MainActivity : FragmentActivity() {
         val liquidBackgroundEnabled by rememberPreference(LiquidBackgroundKey, defaultValue = true)
         // State blur Haze buat nav bar kaca: sumber blur = wallpaper + isi layar.
         val hazeState = rememberHazeState()
+        // Style blur top bar: SAMA kayak pil nav bar (blur beneran Haze).
+        // Bar jadi kaca buram di atas wallpaper — ditempel ke background,
+        // jadi konten yang di-scroll ke bawahnya cuma kelihatan blur,
+        // nggak nembus dan nggak perlu blok hitam solid.
+        val topBarHazeStyle = remember {
+            HazeBlurStyle {
+                blurEnabled(true)
+                blurRadius(18.dp)
+                noiseFactor(0f)
+                backgroundColor(Color(0xFF2A2E36).copy(alpha = 0.45f))
+                colorEffects(
+                    listOf(
+                        HazeColorEffect.tint(Color.White.copy(alpha = 0.08f)),
+                    ),
+                )
+                fallbackColorEffect(HazeColorEffect.tint(Color(0xFF2A2E36).copy(alpha = 0.72f)))
+            }
+        }
         // Wallpaper latar: biru (default), pink, merah, ungu, hitam pekat.
         val wallpaperStylePref by rememberPreference(WallpaperStyleKey, defaultValue = "blue")
         val wallpaperRes: Int? =
@@ -1285,18 +1307,21 @@ class MainActivity : FragmentActivity() {
                                         colors =
                                             TopAppBarDefaults.topAppBarColors(
                                                 containerColor = Color.Transparent,
-                                                // Bar transparan saat diam (wallpaper kelihatan),
-                                                // tapi harus jadi solid begitu konten di-scroll
-                                                // ke bawahnya — kalau tetap transparan, banner/
-                                                // judul yang lewat di bawah bar kelihatan
-                                                // menembus bar dan bar-nya kesannya ikut gerak.
-                                                scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                                // Container tetap transparan supaya blur Haze
+                                                // di modifier yang jadi latar bar — bar nempel
+                                                // di atas kayak kaca buram, bukan blok hitam.
+                                                scrolledContainerColor = Color.Transparent,
                                                 titleContentColor = MaterialTheme.colorScheme.onSurface,
                                                 actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 navigationIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                             ),
                                         modifier =
-                                            Modifier.windowInsetsPadding(
+                                            Modifier
+                                                .hazeBlur(
+                                                    input = HazeInput.Sources(hazeState),
+                                                    style = topBarHazeStyle,
+                                                )
+                                                .windowInsetsPadding(
                                                 if (showRail) {
                                                     WindowInsets(left = NavigationBarHeight)
                                                         .add(cutoutInsets.only(WindowInsetsSides.Start))
