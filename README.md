@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="fastlane/metadata/android/en-US/images/icon.png" alt="Meowsic app icon" width="200" />
-
-# Meowsic
+<img src="fastlane/metadata/android/en-US/images/icon.png" alt="Meowsic logo" width="280" />
 
 ### YouTube Music client for Android
 
