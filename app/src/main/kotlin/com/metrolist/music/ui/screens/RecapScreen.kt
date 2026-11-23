@@ -70,7 +70,6 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.graphics.drawscope.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -278,7 +277,7 @@ private fun RecapStory(
     // Unduh slide yang sedang tampil sebagai PNG ke galeri. Timer
     // dijeda dulu supaya slide tidak keburu pindah saat menyimpan.
     val onDownload: () -> Unit = {
-        if (saving) return
+        if (saving) return@onDownload
         saving = true
         scope.launch {
             paused = true
@@ -331,10 +330,15 @@ private fun RecapStory(
                     Modifier
                         .fillMaxSize()
                         .drawWithContent {
+                            // Rekam isi slide ke GraphicsLayer untuk
+                            // unduhan, lalu gambar normal ke layar.
+                            // (DrawScope.drawLayer sudah dihapus di
+                            // Compose 1.12 — pola record + drawContent
+                            // ini penggantinya.)
                             graphicsLayer.record {
                                 this@drawWithContent.drawContent()
                             }
-                            drawLayer(graphicsLayer)
+                            drawContent()
                         },
             ) {
                 RecapSlideContent(slide = slide, data = data)
@@ -606,21 +610,6 @@ private fun RecapClosingSlide() {
     }
 }
 
-/**
- * Slide 1 — 10 lagu + jumlah putar + dua statistik (gabungan slide
- * 1 dan 2 lama, mengikuti struktur referensi Spotify Wrapped: daftar
- * peringkat di atas, dua angka besar berdampingan di bawah — tapi
- * dengan gradient oranye->merah dan styling Meowsic sendiri, bukan
- * tiruan Spotify). Hero #1 dibuang: baris + kartu statistik tidak
- * muat bersama hero dalam anggaran 584dp (dengan hero jadi 604dp).
- * Anggaran (ruang konten 584dp): judul 56 + celah 8 + baris 10 x 38
- * + 9 x 4 = 416 + celah 8 + kartu statistik 74 = 562dp. Muat tanpa
- * scroll, sisa 22dp.
- * Meowsic tidak mencatat genre per lagu (SongEntity tidak punya field
- * genre), jadi statistik kedua bukan genre melainkan jumlah total lagu
- * berbeda yang diputar sepanjang 2026 (data.totalSongs).
- */
-@Composable
 /**
  * Slide 1 — 5 lagu gaya kartu "My Top Songs" Spotify Wrapped: angka
  * rank besar, artwork persegi 64dp dengan border putih tipis, judul +
