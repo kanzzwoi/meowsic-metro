@@ -66,7 +66,6 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -104,6 +103,7 @@ import java.io.FileOutputStream
 // pengguna), sengaja ditulis sebagai konstanta di sini, bukan string
 // resource — raport ini memang berbahasa Indonesia.
 private const val RECAP_COVER_BRAND = "MEOWSIC"
+private const val RECAP_WATERMARK_BRAND = "meowsic"
 private const val RECAP_COVER_YEAR_PILL = "RAPORT TAHUN 2026"
 private const val RECAP_WEBSITE = "meowsic.web.id"
 private const val RECAP_TOP_SONGS_TITLE = "5 Lagu Favorit"
@@ -533,11 +533,13 @@ private fun RecapSlideTitle(
 }
 
 /**
- * Slide 0 — cover. Konten dipusatkan vertikal, total ~380dp
+ * Slide 0 — cover. Konten dipusatkan vertikal, total ~370dp
  * (logo 200 + celah 20 + MEOWSIC ~54 + celah 16 + pill 40 +
- * celah 12 + pill web 36), jauh di bawah ruang konten 584dp.
- * Logo pakai meowsic_logo (kepala kucing transparan) yang di-tint
- * putih — BUKAN ic_launcher_foreground yang background-nya putih.
+ * footer 40), jauh di bawah ruang konten 584dp.
+ * Logo pakai meowsic_logo (kepala kucing transparan) APA ADANYA
+ * tanpa tint — BUKAN ic_launcher_foreground yang background-nya
+ * putih. Footer watermark di bawah (logo + "meowsic" +
+ * meowsic.web.id) menggantikan pill web supaya URL tidak dobel.
  */
 @Composable
 private fun RecapCoverSlide() {
@@ -546,7 +548,6 @@ private fun RecapCoverSlide() {
         Image(
             painter = painterResource(R.drawable.meowsic_logo),
             contentDescription = null,
-            colorFilter = ColorFilter.tint(Color.White),
             modifier =
                 Modifier
                     .size(200.dp)
@@ -566,19 +567,16 @@ private fun RecapCoverSlide() {
             text = RECAP_COVER_YEAR_PILL,
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )
-        Spacer(Modifier.height(12.dp))
-        RecapPill(
-            text = RECAP_WEBSITE,
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-            alpha = 0.10f,
-        )
         Spacer(Modifier.weight(1f))
+        RecapWatermarkFooter()
     }
 }
 
 /**
- * Slide 5 — penutup. Konten dipusatkan vertikal, total ~280dp
- * (logo 96 + celah 20 + teks ~96 + celah 16 + pill web 36).
+ * Slide 5 — penutup. Konten dipusatkan vertikal, total ~252dp
+ * (logo 96 + celah 20 + teks ~96 + footer 40). Logo APA ADANYA
+ * tanpa tint. Footer watermark di bawah menggantikan pill web
+ * supaya URL tidak dobel.
  */
 @Composable
 private fun RecapClosingSlide() {
@@ -587,7 +585,6 @@ private fun RecapClosingSlide() {
         Image(
             painter = painterResource(R.drawable.meowsic_logo),
             contentDescription = null,
-            colorFilter = ColorFilter.tint(Color.White),
             modifier =
                 Modifier
                     .size(96.dp)
@@ -602,13 +599,8 @@ private fun RecapClosingSlide() {
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(Modifier.height(16.dp))
-        RecapPill(
-            text = RECAP_WEBSITE,
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-            alpha = 0.10f,
-        )
         Spacer(Modifier.weight(1f))
+        RecapWatermarkFooter()
     }
 }
 
@@ -621,10 +613,10 @@ private fun RecapClosingSlide() {
  * meniru logo + URL di bawah referensi.
  * Anggaran (ruang konten 584dp): judul 56 + celah 8 + 5 baris x 64
  * + 4 x 8 = 352 + celah 12 + kartu statistik 86 + Spacer weight
- * (sisa ~42dp) + footer watermark 28 = 542dp. Muat tanpa scroll.
+ * (sisa ~30dp) + footer watermark 40 = 554dp. Muat tanpa scroll.
  * Catatan: artwork referensi ~100dp tidak muat (5 x 100 + 4 x 8 =
- * 532, + judul 56 + celah 8 + celah 12 + kartu 86 + footer 28 =
- * 722dp > 584dp), jadi 64dp.
+ * 532, + judul 56 + celah 8 + celah 12 + kartu 86 + footer 40 =
+ * 734dp > 584dp), jadi 64dp.
  */
 @Composable
 private fun RecapTopSongsSlide(data: RecapData) {
@@ -733,8 +725,9 @@ private fun RecapRankLarge(rank: Int) {
 
 /**
  * Watermark footer ala referensi Wrapped (logo + URL di bawah):
- * logo Meowsic putih 28dp + "MEOWSIC" tebal di kiri, "meowsic.web.id"
- * kecil di kanan. Dipakai slide lagu dan slide artis. Tinggi ~28dp.
+ * logo Meowsic ASLI tanpa tint 40dp + "meowsic" tebal di kiri,
+ * "meowsic.web.id" kecil di kanan. Ada di SEMUA slide (0-5).
+ * Tinggi ~40dp.
  */
 @Composable
 private fun RecapWatermarkFooter() {
@@ -745,13 +738,12 @@ private fun RecapWatermarkFooter() {
         Image(
             painter = painterResource(R.drawable.meowsic_logo),
             contentDescription = null,
-            colorFilter = ColorFilter.tint(Color.White),
-            modifier = Modifier.size(28.dp),
+            modifier = Modifier.size(40.dp),
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = RECAP_COVER_BRAND,
-            style = MaterialTheme.typography.titleSmall,
+            text = RECAP_WATERMARK_BRAND,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = Color.White,
         )
@@ -841,7 +833,7 @@ private fun RecapStat(
  * daftar, footer watermark sama seperti slide lagu.
  * Anggaran (ruang konten 584dp): judul 56 + celah 8 + 5 baris x 64
  * + 4 x 8 = 352 + celah 12 + kartu statistik 86 + Spacer weight
- * (sisa ~42dp) + footer watermark 28 = 542dp. Muat tanpa scroll.
+ * (sisa ~30dp) + footer watermark 40 = 554dp. Muat tanpa scroll.
  */
 @Composable
 private fun RecapTopArtistsSlide(data: RecapData) {
@@ -922,8 +914,9 @@ private val RECAP_RADIAL_ALBUM_CENTERS =
  * lingkaran (y 4..34, lebar 110dp); #2-#5 di BAWAH lingkaran
  * (y 201..231 samping, 321..351 bawah; lebar 92dp) — tepi label
  * samping (96/224) tidak menyentuh judul tengah (98..222).
- * Total blok 360dp ≤ 584dp, sisa diserap Spacer weight atas-bawah
- * supaya blok terpusat vertikal.
+ * Total blok 360dp + footer 40 = 400dp ≤ 584dp, sisa diserap
+ * Spacer weight atas-bawah supaya blok terpusat vertikal
+ * (footer watermark menempel di bawah).
  */
 @Composable
 private fun RecapTopAlbumsSlide(data: RecapData) {
@@ -999,6 +992,7 @@ private fun RecapTopAlbumsSlide(data: RecapData) {
             )
         }
         Spacer(Modifier.weight(1f))
+        RecapWatermarkFooter()
     }
 }
 
@@ -1046,9 +1040,10 @@ private fun RecapRadialAlbumLabel(
  * penutup yang geser ke 5.
  * Anggaran (ruang konten 584dp, tanpa scroll): thumbnail 154 +
  * celah 20 + dua kolom ~204 (header ~24 + celah 8 + 5 baris x 28
- * + 4 x 8) + celah 20 + kartu statistik 86 = ~484dp. Muat, sisa
- * ~100dp — blok dibesarkan dari ~396dp supaya slide tidak kelihatan
- * hampa di layar panjang (ruang kosong atas-bawah tinggal ~22dp di
+ * + 4 x 8) + celah 20 + kartu statistik 86 = ~484dp, lalu Spacer
+ * weight + footer watermark 40 = ~524dp. Muat, sisa ~60dp — blok
+ * dibesarkan dari ~396dp supaya slide tidak kelihatan hampa di
+ * layar panjang (ruang kosong atas-bawah tinggal ~22dp di
  * frame 9:16).
  */
 @Composable
@@ -1093,6 +1088,7 @@ private fun RecapSummarySlide(data: RecapData) {
             totalSongs = data.totalSongs,
         )
         Spacer(Modifier.weight(1f))
+        RecapWatermarkFooter()
     }
 }
 
