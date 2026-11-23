@@ -70,6 +70,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -1227,6 +1228,26 @@ private fun formatRecapTotalMinutes(totalMs: Long): String =
     formatIndonesianNumber(totalMs / 60_000)
 
 /**
+ * Potong bitmap slide ke rasio 9:16 (tengah) supaya hasil unduhan
+ * langsung pas buat story WA/IG. Tampilan di app tetap full-layar
+ * (kayak story IG); yang dipendekin cuma file unduhannya.
+ * Hanya dipotong kalau bitmap lebih panjang dari 9:16 (HP portrait
+ * ~20:9). Layar yang lebih pendek dari 9:16 (landscape/tablet)
+ * dibiarkan utuh supaya konten tidak kepotong samping.
+ * Blok konten slide terpusat vertikal, jadi crop tengah tidak
+ * memotong isi (ruang atas-bawah yang terpotong hanya gradient).
+ */
+private fun cropRecapToNineSixteen(bitmap: ImageBitmap): ImageBitmap {
+    val androidBitmap = bitmap.asAndroidBitmap()
+    val targetHeight = (androidBitmap.width * 16f / 9f).toInt()
+    if (androidBitmap.height <= targetHeight) return bitmap
+    val y = (androidBitmap.height - targetHeight) / 2
+    return Bitmap
+        .createBitmap(androidBitmap, 0, y, androidBitmap.width, targetHeight)
+        .asImageBitmap()
+}
+
+/**
  * Simpan bitmap slide Raport sebagai PNG ke Pictures/Meowsic
  * (masuk galeri), mengikuti pola downloadStatsImage di StatsShare.kt
  * (MediaStore + IS_PENDING di API 29+), tapi ke koleksi Images
@@ -1239,6 +1260,8 @@ suspend fun downloadRecapImage(
     fileName: String,
 ): Boolean =
     withContext(Dispatchers.IO) {
+        // Hasil unduhan dipotong ke 9:16 (tengah) biar pas buat story.
+        val cropped = cropRecapToNineSixteen(bitmap)
         runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val values =
@@ -1257,7 +1280,7 @@ suspend fun downloadRecapImage(
                         values,
                     ) ?: return@runCatching false
                 context.contentResolver.openOutputStream(uri)?.use { out ->
-                    bitmap.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
+                    cropped.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
                 } ?: return@runCatching false
                 val complete =
                     ContentValues().apply {
@@ -1276,7 +1299,7 @@ suspend fun downloadRecapImage(
                 dir.mkdirs()
                 val file = File(dir, "$fileName.png")
                 FileOutputStream(file).use { out ->
-                    bitmap.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
+                    cropped.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
                 }
                 MediaScannerConnection.scanFile(
                     context,
