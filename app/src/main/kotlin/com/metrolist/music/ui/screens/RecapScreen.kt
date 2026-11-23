@@ -23,6 +23,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -88,9 +89,7 @@ import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import com.metrolist.music.R
 import com.metrolist.music.viewmodels.RecapAlbum
-import com.metrolist.music.viewmodels.RecapArtist
 import com.metrolist.music.viewmodels.RecapData
-import com.metrolist.music.viewmodels.RecapSong
 import com.metrolist.music.viewmodels.RecapUiState
 import com.metrolist.music.viewmodels.RecapViewModel
 import kotlinx.coroutines.Dispatchers
@@ -106,7 +105,7 @@ import java.io.FileOutputStream
 private const val RECAP_COVER_BRAND = "MEOWSIC"
 private const val RECAP_COVER_YEAR_PILL = "RAPORT TAHUN 2026"
 private const val RECAP_WEBSITE = "meowsic.web.id"
-private const val RECAP_TOP_SONGS_TITLE = "10 Lagu Favorit"
+private const val RECAP_TOP_SONGS_TITLE = "5 Lagu Favorit"
 private const val RECAP_TOP_SONGS_SUBTITLE = "lagu yang paling sering kamu putar"
 private const val RECAP_TOP_ARTISTS_TITLE = "5 Artis Favorit"
 private const val RECAP_TOP_ARTISTS_SUBTITLE = "artis yang paling sering kamu dengarkan"
@@ -620,6 +619,21 @@ private fun RecapClosingSlide() {
  * berbeda yang diputar sepanjang 2026 (data.totalSongs).
  */
 @Composable
+/**
+ * Slide 1 — 5 lagu gaya kartu "My Top Songs" Spotify Wrapped: angka
+ * rank besar, artwork persegi 64dp dengan border putih tipis, judul +
+ * artis, tanpa jumlah putar per baris (referensi tidak punya, dan
+ * baris ketiga tidak muat). Kartu statistik Menit/Total Lagu tetap
+ * (Total Lagu = semua lagu berbeda 2026, bukan 5). Footer watermark
+ * meniru logo + URL di bawah referensi.
+ * Anggaran (ruang konten 584dp): judul 56 + celah 8 + 5 baris x 64
+ * + 4 x 8 = 352 + celah 12 + kartu statistik 74 + Spacer weight
+ * (sisa ~54dp) + footer watermark 28 = 530dp. Muat tanpa scroll.
+ * Catatan: artwork referensi ~100dp tidak muat (5 x 100 + 4 x 8 =
+ * 532, + judul 56 + celah 8 + celah 12 + kartu 74 + footer 28 =
+ * 710dp > 584dp), jadi 64dp.
+ */
+@Composable
 private fun RecapTopSongsSlide(data: RecapData) {
     RecapSlideBackground(slide = 1) {
         RecapSlideTitle(
@@ -627,71 +641,133 @@ private fun RecapTopSongsSlide(data: RecapData) {
             subtitle = RECAP_TOP_SONGS_SUBTITLE,
         )
         Spacer(Modifier.height(8.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            data.topSongs.forEachIndexed { index, song ->
-                RecapSongRow(
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            data.topSongs.take(5).forEachIndexed { index, song ->
+                RecapTopListRow(
                     rank = index + 1,
-                    song = song,
-                    showCount = true,
-                    rowHeight = 38.dp,
+                    thumbnailUrl = song.thumbnailUrl,
+                    title = song.title,
+                    subtitle = song.artist,
                 )
             }
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
         RecapSongStatsCard(
             totalTimeMs = data.totalTimeMs,
             totalSongs = data.totalSongs,
         )
+        Spacer(Modifier.weight(1f))
+        RecapWatermarkFooter()
     }
 }
 
+/**
+ * Baris daftar gaya kartu "My Top Songs" Spotify Wrapped: angka rank
+ * besar di kiri, artwork persegi 64dp dengan border putih tipis,
+ * lalu judul tebal + subjudul di bawahnya, terpusat vertikal
+ * terhadap artwork. Dipakai slide lagu dan slide artis.
+ * Border digambar sebagai overlay Box di atas artwork (bukan
+ * Modifier.border yang digabung dengan clip) supaya garis 1dp tampil
+ * penuh — border yang digabung dengan clip hanya menyisakan setengah
+ * garis (separuhnya tertutup gambar / terpotong clip).
+ */
 @Composable
-private fun RecapSongRow(
+private fun RecapTopListRow(
     rank: Int,
-    song: RecapSong,
-    showCount: Boolean,
-    rowHeight: Dp,
+    thumbnailUrl: String?,
+    title: String,
+    subtitle: String,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(rowHeight),
+                .height(64.dp),
     ) {
-        RecapRank(rank = rank)
-        RecapArtwork(
-            url = song.thumbnailUrl,
-            size = rowHeight,
-            shape = RoundedCornerShape(8.dp),
-        )
-        Spacer(Modifier.width(10.dp))
+        RecapRankLarge(rank = rank)
+        Spacer(Modifier.width(8.dp))
+        Box(modifier = Modifier.size(64.dp)) {
+            RecapArtwork(
+                url = thumbnailUrl,
+                size = 64.dp,
+                shape = RoundedCornerShape(8.dp),
+            )
+            Box(
+                modifier =
+                    Modifier
+                        .matchParentSize()
+                        .border(
+                            width = 1.dp,
+                            color = Color.White.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(8.dp),
+                        ),
+            )
+        }
+        Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = song.title,
-                style = MaterialTheme.typography.titleSmall,
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = song.artist,
+                text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White.copy(alpha = 0.7f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (showCount) {
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = "${song.playCount}x diputar",
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-            )
-        }
+    }
+}
+
+/** Angka rank besar (~30sp) gaya referensi Wrapped, dipakai baris lagu/artis. */
+@Composable
+private fun RecapRankLarge(rank: Int) {
+    Text(
+        text = "$rank",
+        fontSize = 30.sp,
+        fontWeight = FontWeight.Bold,
+        color = Color.White,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.width(36.dp),
+    )
+}
+
+/**
+ * Watermark footer ala referensi Wrapped (logo + URL di bawah):
+ * logo Meowsic putih 28dp + "MEOWSIC" tebal di kiri, "meowsic.web.id"
+ * kecil di kanan. Dipakai slide lagu dan slide artis. Tinggi ~28dp.
+ */
+@Composable
+private fun RecapWatermarkFooter() {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Image(
+            painter = painterResource(R.drawable.meowsic_logo),
+            contentDescription = null,
+            colorFilter = ColorFilter.tint(Color.White),
+            modifier = Modifier.size(28.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = RECAP_COVER_BRAND,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = RECAP_WEBSITE,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.75f),
+        )
     }
 }
 
@@ -765,93 +841,37 @@ private fun RecapStat(
 }
 
 /**
- * Slide 2 — 5 artis (gabungan slide 2 dan 3 lama: tiap baris
- * menampilkan nama + lagu teratas + jumlah putar, hero #1 tetap
- * ada). Anggaran (ruang konten 584dp): judul 56 + celah 8 + hero
- * 204 (artwork 120 + celah 8 + nama ~28 + celah 4 + sub ~20 +
- * celah 4 + jumlah ~20) + celah 12 + baris #2-#5 4 x 48 + 3 x 6
- * = 210 + celah 8 + kartu statistik 74 = 572dp. Muat tanpa scroll,
- * sisa 12dp. Sisa ruang dibagi rata atas-bawah lewat Spacer weight
- * supaya blok konten terpusat.
+ * Slide 2 — 5 artis, semua baris seragam gaya "My Top Songs" (hero
+ * #1 DIHAPUS — #1 sekarang tampil sebagai baris biasa seperti #2-#5).
+ * Tiap baris: rank besar + artwork persegi 64dp border putih tipis +
+ * nama + "Lagu teratas: <judul>". Kartu Total Artis tetap di bawah
+ * daftar, footer watermark sama seperti slide lagu.
+ * Anggaran (ruang konten 584dp): judul 56 + celah 8 + 5 baris x 64
+ * + 4 x 8 = 352 + celah 12 + kartu statistik 74 + Spacer weight
+ * (sisa ~54dp) + footer watermark 28 = 530dp. Muat tanpa scroll.
  */
 @Composable
 private fun RecapTopArtistsSlide(data: RecapData) {
     RecapSlideBackground(slide = 2) {
-        Spacer(Modifier.weight(1f))
         RecapSlideTitle(
             title = RECAP_TOP_ARTISTS_TITLE,
             subtitle = RECAP_TOP_ARTISTS_SUBTITLE,
         )
         Spacer(Modifier.height(8.dp))
-        val topArtist = data.topArtists.firstOrNull()
-        if (topArtist != null) {
-            RecapTopItemHero(
-                thumbnailUrl = topArtist.thumbnailUrl,
-                title = topArtist.name,
-                subtitle = "Lagu teratas: ${topArtist.topSong.title}",
-                subtitle2 = "${topArtist.playCount}x diputar",
-                circular = true,
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            data.topArtists.drop(1).forEachIndexed { index, artist ->
-                RecapArtistRow(
-                    rank = index + 2,
-                    artist = artist,
-                    rowHeight = 48.dp,
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            data.topArtists.take(5).forEachIndexed { index, artist ->
+                RecapTopListRow(
+                    rank = index + 1,
+                    thumbnailUrl = artist.thumbnailUrl,
+                    title = artist.name,
+                    subtitle = "Lagu teratas: ${artist.topSong.title}",
                 )
             }
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
         RecapArtistStatsCard(totalArtists = data.totalArtists)
         Spacer(Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun RecapArtistRow(
-    rank: Int,
-    artist: RecapArtist,
-    rowHeight: Dp,
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(rowHeight),
-    ) {
-        RecapRank(rank = rank)
-        RecapArtwork(
-            url = artist.thumbnailUrl,
-            size = 44.dp,
-            shape = CircleShape,
-        )
-        Spacer(Modifier.width(10.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = artist.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = "Lagu teratas: ${artist.topSong.title}",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.7f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Spacer(Modifier.width(8.dp))
-        RecapPill(
-            text = "${artist.playCount}x",
-            modifier = Modifier,
-            alpha = 0.15f,
-        )
+        RecapWatermarkFooter()
     }
 }
 
