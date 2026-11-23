@@ -5,7 +5,6 @@
 
 package com.metrolist.music.ui.screens
 
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
@@ -216,95 +215,9 @@ fun StatsScreen(
     val statsSubtitleHeight =
         with(LocalDensity.current) { MaterialTheme.typography.bodySmall.lineHeight.toDp() }
 
-    // Dialog Bagikan (ala Metrolist v14): kartu statistik dirender jadi
-    // gambar 1080px, ditampilkan sebagai pratinjau dulu, baru dibagikan
-    // atau diunduh. Render + muat sampul dikerjakan dialognya sendiri.
-    var showStatsShareDialog by remember { mutableStateOf(false) }
-    val statsSummary = stringResource(R.string.stats_share_summary)
-    val statsPlaysLabel = stringResource(R.string.stats_share_plays)
-    val statsTimeLabel = stringResource(R.string.stats_share_time)
-    val statsTopSongsLabel = stringResource(R.string.stats_share_top_songs)
-    val statsTopAlbumsLabel = stringResource(R.string.stats_share_top_albums)
-    val statsTopArtistsLabel = stringResource(R.string.stats_share_top_artists)
-    val statsEmptyMessage = stringResource(R.string.stats_share_empty)
-    val statsPeriodLabel =
-        when (selectedOption) {
-            OptionStats.CONTINUOUS ->
-                when (StatPeriod.entries.getOrNull(indexChips)) {
-                    StatPeriod.WEEK_1 -> pluralStringResource(R.plurals.n_week, 1, 1)
-                    StatPeriod.MONTH_1 -> pluralStringResource(R.plurals.n_month, 1, 1)
-                    StatPeriod.MONTH_3 -> pluralStringResource(R.plurals.n_month, 3, 3)
-                    StatPeriod.MONTH_6 -> pluralStringResource(R.plurals.n_month, 6, 6)
-                    StatPeriod.YEAR_1 -> pluralStringResource(R.plurals.n_year, 1, 1)
-                    StatPeriod.ALL -> stringResource(R.string.filter_all)
-                    null -> stringResource(R.string.continuous)
-                }
-            OptionStats.WEEKS -> stringResource(R.string.weeks)
-            OptionStats.MONTHS -> stringResource(R.string.months)
-            OptionStats.YEARS -> stringResource(R.string.years)
-        }
-    val shareSongItems =
-        remember(mostPlayedSongsStats) {
-            mostPlayedSongsStats.take(3).map { song ->
-                val artist =
-                    song.artistName ?: song.artists.joinToString(", ") { it.name }
-                val times =
-                    context.getString(R.string.stats_share_times_played, song.songCountListened)
-                StatsShareItem(
-                    id = song.id,
-                    title = song.title,
-                    subtitle = if (artist.isBlank()) times else "$artist • $times",
-                    thumbnailUrl = song.thumbnailUrl,
-                )
-            }
-        }
-    val shareAlbumItems =
-        remember(mostPlayedAlbums) {
-            mostPlayedAlbums.take(3).map { album ->
-                val artist = album.artists.joinToString(", ") { it.name }
-                val count = album.songCountListened ?: 0
-                val times = context.getString(R.string.stats_share_times_played, count)
-                StatsShareItem(
-                    id = album.id,
-                    title = album.title,
-                    subtitle = if (artist.isBlank()) times else "$artist • $times",
-                    thumbnailUrl = album.thumbnailUrl,
-                )
-            }
-        }
-    val shareArtistItems =
-        remember(mostPlayedArtists) {
-            mostPlayedArtists.take(3).map { artist ->
-                val times =
-                    context.getString(R.string.stats_share_times_played, artist.songCount)
-                StatsShareItem(
-                    id = artist.id,
-                    title = artist.artist.name,
-                    subtitle = times,
-                    thumbnailUrl = artist.artist.thumbnailUrl,
-                    circular = true,
-                )
-            }
-        }
-    val shareSections =
-        remember(shareSongItems, shareAlbumItems, shareArtistItems) {
-            listOfNotNull(
-                (statsTopSongsLabel to shareSongItems).takeIf { it.second.isNotEmpty() },
-                (statsTopAlbumsLabel to shareAlbumItems).takeIf { it.second.isNotEmpty() },
-                (statsTopArtistsLabel to shareArtistItems).takeIf { it.second.isNotEmpty() },
-            )
-        }
-    val shareTotalPlays =
-        remember(mostPlayedSongsStats) { mostPlayedSongsStats.sumOf { it.songCountListened } }
-    val shareTotalTimeMs =
-        remember(mostPlayedSongsStats) { mostPlayedSongsStats.sumOf { it.timeListened ?: 0L } }
-    val openStatsShare: () -> Unit = {
-        if (shareSongItems.isEmpty() && shareAlbumItems.isEmpty() && shareArtistItems.isEmpty()) {
-            Toast.makeText(context, statsEmptyMessage, Toast.LENGTH_SHORT).show()
-        } else {
-            showStatsShareDialog = true
-        }
-    }
+    // Raport tahunan ala story (lihat RecapScreen): tombol Bagikan
+    // membuka Raport Meowsic 2026, bukan lagi dialog bagikan statistik.
+    var showRecap by remember { mutableStateOf(false) }
 
     var showTimeTransfer by rememberSaveable { mutableStateOf(false) }
     var prevOptionOrdinal by rememberSaveable { mutableStateOf<OptionStats?>(null) }
@@ -816,7 +729,7 @@ fun StatsScreen(
                         ),
             ) {
                 ExtendedFloatingActionButton(
-                    onClick = openStatsShare,
+                    onClick = { showRecap = true },
                     icon = {
                         Icon(
                             painter = painterResource(R.drawable.share),
@@ -946,17 +859,8 @@ fun StatsScreen(
         },
     )
 
-    if (showStatsShareDialog) {
-        StatsShareDialog(
-            sections = shareSections,
-            period = statsPeriodLabel,
-            summary = statsSummary,
-            plays = shareTotalPlays.toString(),
-            duration = formatStatsDuration(shareTotalTimeMs),
-            playsLabel = statsPlaysLabel,
-            timeLabel = statsTimeLabel,
-            onDismiss = { showStatsShareDialog = false },
-        )
+    if (showRecap) {
+        RecapScreen(onDismiss = { showRecap = false })
     }
 }
 
