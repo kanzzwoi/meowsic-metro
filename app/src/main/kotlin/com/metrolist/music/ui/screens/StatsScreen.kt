@@ -215,7 +215,7 @@ fun StatsScreen(
     val statsSubtitleHeight =
         with(LocalDensity.current) { MaterialTheme.typography.bodySmall.lineHeight.toDp() }
 
-    // Raport tahunan ala story (lihat RecapScreen): tombol Bagikan
+    // Raport tahunan ala story (lihat RecapScreen): tombol Wrapped
     // membuka Raport Meowsic 2026, bukan lagi dialog bagikan statistik.
     var showRecap by remember { mutableStateOf(false) }
 
@@ -416,7 +416,7 @@ fun StatsScreen(
 
             // Tombol Acak full-width ala v14 (di sana di bawah judul +
             // ringkasan, sebelum carousel). Acak pindah ke sini supaya
-            // tombol melayang di bawah hanya Bagikan, seperti v14.
+            // tombol melayang di bawah hanya Wrapped, seperti v14.
             if (!isSearching) {
                 item(key = "shuffle_most_played") {
                     Column(
@@ -706,13 +706,13 @@ fun StatsScreen(
                 }
             }
 
-            // Ruang bawah 96dp ala v14 supaya tombol Bagikan yang melayang
+            // Ruang bawah 96dp ala v14 supaya tombol Wrapped yang melayang
             // tidak menutupi baris terakhir saat daftar di-scroll mentok.
             item(key = "bottom_spacing") {
                 Spacer(Modifier.height(96.dp))
             }
         }
-        // Hanya tombol Bagikan yang melayang, ala v14. Acak sudah pindah
+        // Hanya tombol Wrapped yang melayang, ala v14. Acak sudah pindah
         // ke tombol full-width di atas; dua tombol bertumpuk menutupi
         // konten seperti sebelumnya.
         if (mostPlayedSongsStats.isNotEmpty() && !isSearching) {
@@ -736,7 +736,7 @@ fun StatsScreen(
                             contentDescription = null,
                         )
                     },
-                    text = { Text(stringResource(R.string.share)) },
+                    text = { Text(stringResource(R.string.recap_wrapped)) },
                     modifier = Modifier.padding(16.dp),
                 )
             }

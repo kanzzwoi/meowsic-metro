@@ -163,6 +163,7 @@
     <string name="stats_share_summary">Your most played songs and albums.</string>
     <string name="stats_share_plays">Plays</string>
     <string name="stats_share_time">Listening time</string>
+    <string name="recap_wrapped">Wrapped</string>
     <string name="stats_share_top_songs">Top songs</string>
     <string name="stats_share_top_albums">Top albums</string>
     <string name="stats_share_top_artists">Top artists</string>
