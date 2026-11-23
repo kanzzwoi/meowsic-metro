@@ -22,6 +22,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -62,6 +63,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -88,7 +90,6 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import com.metrolist.music.R
-import com.metrolist.music.viewmodels.RecapAlbum
 import com.metrolist.music.viewmodels.RecapData
 import com.metrolist.music.viewmodels.RecapUiState
 import com.metrolist.music.viewmodels.RecapViewModel
@@ -109,8 +110,9 @@ private const val RECAP_TOP_SONGS_TITLE = "5 Lagu Favorit"
 private const val RECAP_TOP_SONGS_SUBTITLE = "lagu yang paling sering kamu putar"
 private const val RECAP_TOP_ARTISTS_TITLE = "5 Artis Favorit"
 private const val RECAP_TOP_ARTISTS_SUBTITLE = "artis yang paling sering kamu dengarkan"
-private const val RECAP_TOP_ALBUMS_TITLE = "5 Album Favorit"
-private const val RECAP_TOP_ALBUMS_SUBTITLE = "album yang paling sering kamu putar"
+// Judul tengah slide album radial, ditumpuk 2 baris seperti
+// "7 DEADLY SONGS" di referensi (header atas slide dihapus).
+private const val RECAP_TOP_ALBUMS_CENTER_TITLE = "5 ALBUM\nFAVORIT"
 private const val RECAP_CLOSING_TEXT =
     "RAPORT ANDA TELAH USAI. AYOK PUSH LAGI LAGUNYA UNTUK TAHUN DEPAN."
 private const val RECAP_MINUTES_LABEL = "Menit Mendengarkan"
@@ -900,81 +902,144 @@ private fun RecapArtistStatsCard(totalArtists: Int) {
 }
 
 /**
- * Slide 3 — 5 album. Anggaran: judul 56 + celah 8 + hero 180
- * (artwork 120 + celah 8 + nama ~28 + celah 4 + sub ~20) + celah 12
- * + baris 4 x 48 + 3 x 6 = 210, total 466dp; sisa ruang dibagi rata
- * atas-bawah lewat Spacer weight supaya blok konten terpusat.
+ * Pusat 5 lingkaran slide album radial (Box 320x360, koordinat
+ * lokal): pentagon dengan #1 di atas, sudut -90/-18/54/126/162
+ * terhadap pusat radial C=(160,188), jari-jari elips Rx=116/Ry=108.
+ */
+private val RECAP_RADIAL_ALBUM_CENTERS =
+    listOf(
+        160.dp to 80.dp, // #1 atas
+        270.dp to 155.dp, // #2 kanan atas
+        228.dp to 275.dp, // #3 kanan bawah
+        92.dp to 275.dp, // #4 kiri bawah
+        50.dp to 155.dp, // #5 kiri atas
+    )
+
+/**
+ * Slide 3 — 5 album, layout radial seperti referensi
+ * "7 Deadly Songs": 5 artwork LINGKARAN mengelilingi judul tengah,
+ * garis tipis dari tengah ke tiap lingkaran. Tiap item HANYA nama
+ * album (tebal) + artis — tanpa deskripsi, tanpa jumlah putar.
+ * Header atas dihapus, judul tengah yang jadi judul slide.
+ *
+ * Geometri (Box 320x360; lingkaran 88dp, jari-jari 44dp):
+ * pusat lingkaran di atas; judul tengah "5 ALBUM / FAVORIT" 26sp
+ * tebal, lebar 124dp di (98,156) — 2 baris x 32dp = 64dp, tengahnya
+ * di y=188 = pusat radial. Celah: 32dp ke lingkaran atas (bawahnya
+ * 124), 11dp ke lingkaran bawah (atasnya 231), ~19dp ke lingkaran
+ * samping (tepi 79/241 di y=188, judul 98..222). Label: #1 di ATAS
+ * lingkaran (y 4..34, lebar 110dp); #2-#5 di BAWAH lingkaran
+ * (y 201..231 samping, 321..351 bawah; lebar 92dp) — tepi label
+ * samping (96/224) tidak menyentuh judul tengah (98..222).
+ * Total blok 360dp ≤ 584dp, sisa diserap Spacer weight atas-bawah
+ * supaya blok terpusat vertikal.
  */
 @Composable
 private fun RecapTopAlbumsSlide(data: RecapData) {
     RecapSlideBackground(slide = 3) {
         Spacer(Modifier.weight(1f))
-        RecapSlideTitle(
-            title = RECAP_TOP_ALBUMS_TITLE,
-            subtitle = RECAP_TOP_ALBUMS_SUBTITLE,
-        )
-        Spacer(Modifier.height(8.dp))
-        val topAlbum = data.topAlbums.firstOrNull()
-        if (topAlbum != null) {
-            RecapTopItemHero(
-                thumbnailUrl = topAlbum.thumbnailUrl,
-                title = topAlbum.title,
-                subtitle = topAlbum.artist,
-                circular = false,
-            )
-        }
-        Spacer(Modifier.height(12.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            data.topAlbums.drop(1).forEachIndexed { index, album ->
-                RecapAlbumRow(rank = index + 2, album = album)
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(360.dp),
+        ) {
+            // Garis tipis dari tengah ke tiap lingkaran, digambar
+            // dulu supaya berada di belakang artwork dan judul.
+            Canvas(modifier = Modifier.matchParentSize()) {
+                val center = Offset(160.dp.toPx(), 188.dp.toPx())
+                RECAP_RADIAL_ALBUM_CENTERS.forEach { (x, y) ->
+                    drawLine(
+                        color = Color.White.copy(alpha = 0.25f),
+                        start = center,
+                        end = Offset(x.toPx(), y.toPx()),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+                }
             }
+            data.topAlbums.take(5).forEachIndexed { index, album ->
+                val (cx, cy) = RECAP_RADIAL_ALBUM_CENTERS[index]
+                // Artwork lingkaran; kotak putih 14% di belakangnya
+                // jadi placeholder kalau thumbnail null.
+                Box(
+                    modifier =
+                        Modifier
+                            .offset(x = cx - 44.dp, y = cy - 44.dp)
+                            .size(88.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.14f)),
+                ) {
+                    RecapArtwork(
+                        url = album.thumbnailUrl,
+                        size = 88.dp,
+                        shape = CircleShape,
+                    )
+                }
+                // Label: #1 di atas lingkaran, sisanya di bawah.
+                // Tinggi label 30dp (13sp/16 + 11sp/14).
+                val (labelX, labelY, labelWidth) =
+                    if (index == 0) {
+                        Triple(cx - 55.dp, cy - 44.dp - 32.dp, 110.dp)
+                    } else {
+                        Triple(cx - 46.dp, cy + 44.dp + 2.dp, 92.dp)
+                    }
+                RecapRadialAlbumLabel(
+                    title = album.title,
+                    artist = album.artist,
+                    modifier =
+                        Modifier
+                            .offset(x = labelX, y = labelY)
+                            .width(labelWidth),
+                )
+            }
+            // Judul tengah (di atas garis radial).
+            Text(
+                text = RECAP_TOP_ALBUMS_CENTER_TITLE,
+                fontSize = 26.sp,
+                lineHeight = 32.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                modifier =
+                    Modifier
+                        .offset(x = 98.dp, y = 156.dp)
+                        .width(124.dp),
+            )
         }
         Spacer(Modifier.weight(1f))
     }
 }
 
+/** Label satu album radial: nama album tebal + artis, rata tengah. */
 @Composable
-private fun RecapAlbumRow(
-    rank: Int,
-    album: RecapAlbum,
+private fun RecapRadialAlbumLabel(
+    title: String,
+    artist: String,
+    modifier: Modifier = Modifier,
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(48.dp),
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier,
     ) {
-        RecapRank(rank = rank)
-        RecapArtwork(
-            url = album.thumbnailUrl,
-            size = 48.dp,
-            shape = RoundedCornerShape(12.dp),
-        )
-        Spacer(Modifier.width(10.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = album.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = album.artist,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.7f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Spacer(Modifier.width(8.dp))
         Text(
-            text = "${album.playCount}x",
-            style = MaterialTheme.typography.bodySmall,
+            text = title,
+            fontSize = 13.sp,
+            lineHeight = 16.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            text = artist,
+            fontSize = 11.sp,
+            lineHeight = 14.sp,
+            color = Color.White.copy(alpha = 0.7f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -1114,101 +1179,6 @@ private fun RecapSummaryRankColumn(
             }
         }
     }
-}
-
-/** Item #1 sebagai hero besar di tengah: artwork 120dp + nama + sub
- * (+ baris kedua opsional, mis. jumlah putar di slide artis). */
-@Composable
-private fun RecapTopItemHero(
-    thumbnailUrl: String?,
-    title: String,
-    subtitle: String,
-    circular: Boolean,
-    subtitle2: String? = null,
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Box {
-            RecapArtwork(
-                url = thumbnailUrl,
-                size = 120.dp,
-                shape = if (circular) CircleShape else RoundedCornerShape(16.dp),
-            )
-            RecapRankBadge(
-                modifier =
-                    Modifier
-                        .align(Alignment.TopStart)
-                        .offset(x = (-6).dp, y = (-6).dp),
-            )
-        }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color.White.copy(alpha = 0.75f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (subtitle2 != null) {
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = subtitle2,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    }
-}
-
-/** Badge "#1" putih menempel di sudut artwork hero. */
-@Composable
-private fun RecapRankBadge(modifier: Modifier = Modifier) {
-    Box(
-        modifier =
-            modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color.White)
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "#1",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = Color.Black,
-        )
-    }
-}
-
-@Composable
-private fun RecapRank(rank: Int) {
-    Text(
-        text = "$rank",
-        style = MaterialTheme.typography.headlineSmall,
-        fontWeight = FontWeight.Bold,
-        color = Color.White,
-        modifier = Modifier.width(32.dp),
-    )
 }
 
 /**
