@@ -113,13 +113,15 @@ private const val RECAP_TOP_ALBUMS_TITLE = "5 Album Favorit"
 private const val RECAP_TOP_ALBUMS_SUBTITLE = "album yang paling sering kamu putar"
 private const val RECAP_CLOSING_TEXT =
     "RAPORT ANDA TELAH USAI. AYOK PUSH LAGI LAGUNYA UNTUK TAHUN DEPAN."
-private const val RECAP_TOTAL_TIME_LABEL = "total mendengarkan di 2026"
+private const val RECAP_MINUTES_LABEL = "Menit Mendengarkan"
+private const val RECAP_TOTAL_SONGS_LABEL = "Total Lagu"
+private const val RECAP_TOTAL_ARTISTS_LABEL = "Total Artis"
 private const val RECAP_EMPTY_TEXT = "Belum ada data 2026"
 private const val RECAP_SAVED_MESSAGE = "Tersimpan di galeri"
 private const val RECAP_SAVE_FAILED_MESSAGE = "Gagal menyimpan"
 
 private const val SLIDE_DURATION_MS = 5000
-private const val SLIDE_COUNT = 7
+private const val SLIDE_COUNT = 5
 
 // Jarak atas konten slide: dicadangkan untuk segmen progres + tombol
 // (status bar ~24dp + padding 4 + segmen 4 + tombol 40 + padding 4).
@@ -137,11 +139,9 @@ private val RECAP_SLIDE_GRADIENTS =
     listOf(
         Color(0xFF5B21B6) to Color(0xFF1E1040), // 0 cover: ungu gelap
         Color(0xFFEA580C) to Color(0xFF991B1B), // 1 lagu: oranye -> merah
-        Color(0xFF0F766E) to Color(0xFF064E3B), // 2 lagu+jumlah: teal -> hijau gelap
-        Color(0xFFDB2777) to Color(0xFF6D28D9), // 3 artis: pink -> ungu
-        Color(0xFF7C3AED) to Color(0xFF4C1D95), // 4 artis+lagu: violet
-        Color(0xFF4338CA) to Color(0xFF1E3A8A), // 5 album: indigo -> biru
-        Color(0xFF3B0764) to Color(0xFF1E1B4B), // 6 penutup: ungu gelap
+        Color(0xFFDB2777) to Color(0xFF6D28D9), // 2 artis: pink -> ungu
+        Color(0xFF4338CA) to Color(0xFF1E3A8A), // 3 album: indigo -> biru
+        Color(0xFF3B0764) to Color(0xFF1E1B4B), // 4 penutup: ungu gelap
     )
 
 /**
@@ -418,11 +418,9 @@ private fun RecapSlideContent(
 ) {
     when (slide) {
         0 -> RecapCoverSlide()
-        1 -> RecapTopSongsSlide(data = data, showCounts = false)
-        2 -> RecapTopSongsSlide(data = data, showCounts = true)
-        3 -> RecapTopArtistsSlide(data = data, showTopSong = false)
-        4 -> RecapTopArtistsSlide(data = data, showTopSong = true)
-        5 -> RecapTopAlbumsSlide(data = data)
+        1 -> RecapTopSongsSlide(data = data)
+        2 -> RecapTopArtistsSlide(data = data)
+        3 -> RecapTopAlbumsSlide(data = data)
         else -> RecapClosingSlide()
     }
 }
@@ -565,12 +563,12 @@ private fun RecapCoverSlide() {
 }
 
 /**
- * Slide 6 — penutup. Konten dipusatkan vertikal, total ~280dp
+ * Slide 4 — penutup. Konten dipusatkan vertikal, total ~280dp
  * (logo 96 + celah 20 + teks ~96 + celah 16 + pill web 36).
  */
 @Composable
 private fun RecapClosingSlide() {
-    RecapSlideBackground(slide = 6) {
+    RecapSlideBackground(slide = 4) {
         Spacer(Modifier.weight(1f))
         Image(
             painter = painterResource(R.drawable.meowsic_logo),
@@ -601,95 +599,42 @@ private fun RecapClosingSlide() {
 }
 
 /**
- * Slide 1/2 — 10 lagu. Anggaran (ruang konten 584dp):
- * judul 56 + celah 8 + hero 72 + celah 10 + baris #2-#10
- * 9 x 44 + 8 x 4 = 428 (slide 1) = 574dp; slide 2 pakai baris
- * 36dp (9 x 36 + 8 x 4 = 356) + celah 8 + kartu total 68 = 578dp.
- * Keduanya muat tanpa scroll.
+ * Slide 1 — 10 lagu + jumlah putar + dua statistik (gabungan slide
+ * 1 dan 2 lama, mengikuti struktur referensi Spotify Wrapped: daftar
+ * peringkat di atas, dua angka besar berdampingan di bawah — tapi
+ * dengan gradient oranye->merah dan styling Meowsic sendiri, bukan
+ * tiruan Spotify). Hero #1 dibuang: baris + kartu statistik tidak
+ * muat bersama hero dalam anggaran 584dp (dengan hero jadi 604dp).
+ * Anggaran (ruang konten 584dp): judul 56 + celah 8 + baris 10 x 38
+ * + 9 x 4 = 416 + celah 8 + kartu statistik 74 = 562dp. Muat tanpa
+ * scroll, sisa 22dp.
+ * Meowsic tidak mencatat genre per lagu (SongEntity tidak punya field
+ * genre), jadi statistik kedua bukan genre melainkan jumlah total lagu
+ * berbeda yang diputar sepanjang 2026 (data.totalSongs).
  */
 @Composable
-private fun RecapTopSongsSlide(
-    data: RecapData,
-    showCounts: Boolean,
-) {
-    RecapSlideBackground(slide = if (showCounts) 2 else 1) {
+private fun RecapTopSongsSlide(data: RecapData) {
+    RecapSlideBackground(slide = 1) {
         RecapSlideTitle(
             title = RECAP_TOP_SONGS_TITLE,
             subtitle = RECAP_TOP_SONGS_SUBTITLE,
         )
         Spacer(Modifier.height(8.dp))
-        val topSong = data.topSongs.firstOrNull()
-        if (topSong != null) {
-            RecapSongHero(song = topSong, showCount = showCounts)
-        }
-        Spacer(Modifier.height(10.dp))
-        val rowHeight = if (showCounts) 38.dp else 44.dp
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            data.topSongs.drop(1).forEachIndexed { index, song ->
+            data.topSongs.forEachIndexed { index, song ->
                 RecapSongRow(
-                    rank = index + 2,
+                    rank = index + 1,
                     song = song,
-                    showCount = showCounts,
-                    rowHeight = rowHeight,
+                    showCount = true,
+                    rowHeight = 38.dp,
                 )
             }
         }
-        if (showCounts) {
-            Spacer(Modifier.height(8.dp))
-            RecapTotalTimeCard(totalTimeMs = data.totalTimeMs)
-        }
-    }
-}
-
-/** Lagu #1 sebagai hero: artwork 72dp + badge #1 + judul/artis. */
-@Composable
-private fun RecapSongHero(
-    song: RecapSong,
-    showCount: Boolean,
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Box {
-            RecapArtwork(
-                url = song.thumbnailUrl,
-                size = 72.dp,
-                shape = RoundedCornerShape(12.dp),
-            )
-            RecapRankBadge(
-                modifier =
-                    Modifier
-                        .align(Alignment.TopStart)
-                        .offset(x = (-6).dp, y = (-6).dp),
-            )
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = song.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = song.artist,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.75f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (showCount) {
-                Text(
-                    text = "${song.playCount}x diputar",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                )
-            }
-        }
+        Spacer(Modifier.height(8.dp))
+        RecapSongStatsCard(
+            totalTimeMs = data.totalTimeMs,
+            totalSongs = data.totalSongs,
+        )
     }
 }
 
@@ -743,47 +688,88 @@ private fun RecapSongRow(
     }
 }
 
-/** Kartu total waktu di slide 2: nilai besar + label sebaris. Tinggi 68dp. */
+/**
+ * Kartu dua statistik di bawah daftar lagu: "Menit Mendengarkan"
+ * (total menit, pemisah ribuan gaya Indonesia) dan "Total Lagu"
+ * (jumlah lagu berbeda yang diputar 2026). Tinggi ~74dp
+ * (padding 12 atas-bawah + label ~16 + celah 2 + angka ~32).
+ */
 @Composable
-private fun RecapTotalTimeCard(totalTimeMs: Long) {
+private fun RecapSongStatsCard(
+    totalTimeMs: Long,
+    totalSongs: Int,
+) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(Color.White.copy(alpha = 0.14f))
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = formatRecapTotalTime(totalTimeMs),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-            )
-            Text(
-                text = RECAP_TOTAL_TIME_LABEL,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.8f),
-            )
-        }
+        RecapStat(
+            label = RECAP_MINUTES_LABEL,
+            value = formatRecapTotalMinutes(totalTimeMs),
+            modifier = Modifier.weight(1f),
+        )
+        Box(
+            modifier =
+                Modifier
+                    .width(1.dp)
+                    .height(40.dp)
+                    .background(Color.White.copy(alpha = 0.2f)),
+        )
+        RecapStat(
+            label = RECAP_TOTAL_SONGS_LABEL,
+            value = formatIndonesianNumber(totalSongs.toLong()),
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun RecapStat(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.padding(horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.75f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
 /**
- * Slide 3/4 — 5 artis. Anggaran: judul 56 + celah 8 + hero 180
- * (artwork 120 + celah 8 + nama ~28 + celah 4 + sub ~20) + celah 12
- * + baris #2-#5 4 x 48 + 3 x 6 = 210 (slide 3) = 466dp; slide 4
- * pakai baris 52dp (226) = 482dp. Sisa ruang dibagi rata atas-bawah
- * lewat Spacer weight supaya blok konten terpusat.
+ * Slide 2 — 5 artis (gabungan slide 2 dan 3 lama: tiap baris
+ * menampilkan nama + lagu teratas + jumlah putar, hero #1 tetap
+ * ada). Anggaran (ruang konten 584dp): judul 56 + celah 8 + hero
+ * 204 (artwork 120 + celah 8 + nama ~28 + celah 4 + sub ~20 +
+ * celah 4 + jumlah ~20) + celah 12 + baris #2-#5 4 x 48 + 3 x 6
+ * = 210 + celah 8 + kartu statistik 74 = 572dp. Muat tanpa scroll,
+ * sisa 12dp. Sisa ruang dibagi rata atas-bawah lewat Spacer weight
+ * supaya blok konten terpusat.
  */
 @Composable
-private fun RecapTopArtistsSlide(
-    data: RecapData,
-    showTopSong: Boolean,
-) {
-    RecapSlideBackground(slide = if (showTopSong) 4 else 3) {
+private fun RecapTopArtistsSlide(data: RecapData) {
+    RecapSlideBackground(slide = 2) {
         Spacer(Modifier.weight(1f))
         RecapSlideTitle(
             title = RECAP_TOP_ARTISTS_TITLE,
@@ -795,24 +781,23 @@ private fun RecapTopArtistsSlide(
             RecapTopItemHero(
                 thumbnailUrl = topArtist.thumbnailUrl,
                 title = topArtist.name,
-                subtitle =
-                    if (showTopSong) "Lagu teratas: ${topArtist.topSong.title}"
-                    else "${topArtist.playCount}x diputar",
+                subtitle = "Lagu teratas: ${topArtist.topSong.title}",
+                subtitle2 = "${topArtist.playCount}x diputar",
                 circular = true,
             )
         }
         Spacer(Modifier.height(12.dp))
-        val rowHeight = if (showTopSong) 52.dp else 48.dp
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             data.topArtists.drop(1).forEachIndexed { index, artist ->
                 RecapArtistRow(
                     rank = index + 2,
                     artist = artist,
-                    showTopSong = showTopSong,
-                    rowHeight = rowHeight,
+                    rowHeight = 48.dp,
                 )
             }
         }
+        Spacer(Modifier.height(8.dp))
+        RecapArtistStatsCard(totalArtists = data.totalArtists)
         Spacer(Modifier.weight(1f))
     }
 }
@@ -821,7 +806,6 @@ private fun RecapTopArtistsSlide(
 private fun RecapArtistRow(
     rank: Int,
     artist: RecapArtist,
-    showTopSong: Boolean,
     rowHeight: Dp,
 ) {
     Row(
@@ -848,34 +832,55 @@ private fun RecapArtistRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text =
-                    if (showTopSong) "Lagu teratas: ${artist.topSong.title}"
-                    else "${artist.playCount}x diputar",
+                text = "Lagu teratas: ${artist.topSong.title}",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White.copy(alpha = 0.7f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (showTopSong) {
-            Spacer(Modifier.width(8.dp))
-            RecapPill(
-                text = "${artist.playCount}x",
-                modifier = Modifier,
-                alpha = 0.15f,
-            )
-        }
+        Spacer(Modifier.width(8.dp))
+        RecapPill(
+            text = "${artist.playCount}x",
+            modifier = Modifier,
+            alpha = 0.15f,
+        )
     }
 }
 
 /**
- * Slide 5 — 5 album. Anggaran sama seperti slide 3: judul 56 +
- * celah 8 + hero 180 + celah 12 + baris 4 x 48 + 3 x 6 = 210, total
- * 466dp; sisa ruang dibagi rata atas-bawah lewat Spacer weight.
+ * Kartu satu statistik di bawah daftar artis: "Total Artis" (jumlah
+ * artis berbeda yang diputar 2026), full-width, gaya sama seperti
+ * kartu statistik slide lagu. Tinggi ~74dp (sama seperti kartu lagu).
+ */
+@Composable
+private fun RecapArtistStatsCard(totalArtists: Int) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color.White.copy(alpha = 0.14f))
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RecapStat(
+            label = RECAP_TOTAL_ARTISTS_LABEL,
+            value = formatIndonesianNumber(totalArtists.toLong()),
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+/**
+ * Slide 3 — 5 album. Anggaran: judul 56 + celah 8 + hero 180
+ * (artwork 120 + celah 8 + nama ~28 + celah 4 + sub ~20) + celah 12
+ * + baris 4 x 48 + 3 x 6 = 210, total 466dp; sisa ruang dibagi rata
+ * atas-bawah lewat Spacer weight supaya blok konten terpusat.
  */
 @Composable
 private fun RecapTopAlbumsSlide(data: RecapData) {
-    RecapSlideBackground(slide = 5) {
+    RecapSlideBackground(slide = 3) {
         Spacer(Modifier.weight(1f))
         RecapSlideTitle(
             title = RECAP_TOP_ALBUMS_TITLE,
@@ -947,13 +952,15 @@ private fun RecapAlbumRow(
     }
 }
 
-/** Item #1 sebagai hero besar di tengah: artwork 120dp + nama + sub. */
+/** Item #1 sebagai hero besar di tengah: artwork 120dp + nama + sub
+ * (+ baris kedua opsional, mis. jumlah putar di slide artis). */
 @Composable
 private fun RecapTopItemHero(
     thumbnailUrl: String?,
     title: String,
     subtitle: String,
     circular: Boolean,
+    subtitle2: String? = null,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -993,6 +1000,19 @@ private fun RecapTopItemHero(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
+        if (subtitle2 != null) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = subtitle2,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 
@@ -1058,11 +1078,28 @@ private fun RecapArtwork(
     )
 }
 
-/** Total waktu (ms) jadi "123 jam", atau "45 menit" kalau belum sejam. */
-private fun formatRecapTotalTime(totalMs: Long): String {
-    val totalMinutes = totalMs / 60_000
-    return if (totalMinutes >= 60) "${totalMinutes / 60} jam" else "$totalMinutes menit"
+/**
+ * Angka gaya Indonesia: kelompokkan per 3 digit dengan titik
+ * ("720" tetap "720", 12000 jadi "12.000", 94222 jadi "94.222").
+ */
+private fun formatIndonesianNumber(value: Long): String {
+    val digits = value.toString()
+    val out = StringBuilder()
+    var count = 0
+    for (i in digits.indices.reversed()) {
+        if (count == 3) {
+            out.append('.')
+            count = 0
+        }
+        out.append(digits[i])
+        count++
+    }
+    return out.reverse().toString()
 }
+
+/** Total waktu (ms) jadi total menit, mis. "720" atau "12.000". */
+private fun formatRecapTotalMinutes(totalMs: Long): String =
+    formatIndonesianNumber(totalMs / 60_000)
 
 /**
  * Simpan bitmap slide Raport sebagai PNG ke Pictures/Meowsic

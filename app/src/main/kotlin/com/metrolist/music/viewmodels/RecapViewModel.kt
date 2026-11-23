@@ -55,6 +55,13 @@ data class RecapAlbum(
 data class RecapData(
     val topSongs: List<RecapSong>,
     val totalTimeMs: Long,
+    // Jumlah lagu BERBEDA yang diputar sepanjang tahun (bukan top 10):
+    // dipakai statistik "Total Lagu" di slide lagu. Meowsic tidak
+    // mencatat genre per lagu, jadi ini pengganti "Genre Teratas".
+    val totalSongs: Int,
+    // Jumlah artis BERBEDA yang diputar sepanjang tahun (sebelum
+    // take(5)): dipakai statistik "Total Artis" di slide artis.
+    val totalArtists: Int,
     val topArtists: List<RecapArtist>,
     val topAlbums: List<RecapAlbum>,
 )
@@ -104,10 +111,16 @@ constructor(
 
         // Satu lagu yang punya beberapa artis dihitung penuh untuk tiap
         // artisnya, sama seperti statistik artis di layar Statistik.
-        val topArtists =
+        // Jumlah grup artis (sebelum take(5)) = total artis berbeda
+        // sepanjang tahun, dipakai statistik "Total Artis".
+        val artistGroups =
             songs
                 .flatMap { song -> song.artists.map { artist -> artist to song } }
                 .groupBy({ it.first.id }, { it.second })
+        val totalArtists = artistGroups.size
+
+        val topArtists =
+            artistGroups
                 .map { (artistId, artistSongs) ->
                     val artist = artistSongs.first().artists.first { it.id == artistId }
                     val topSong =
@@ -152,6 +165,9 @@ constructor(
             RecapData(
                 topSongs = topSongs,
                 totalTimeMs = songs.sumOf { it.timeListened ?: 0L },
+                // Daftar lengkap 2026 (hasil DAO limit -1), bukan top 10.
+                totalSongs = songs.size,
+                totalArtists = totalArtists,
                 topArtists = topArtists,
                 topAlbums = topAlbums,
             ),
