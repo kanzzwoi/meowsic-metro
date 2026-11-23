@@ -277,28 +277,29 @@ private fun RecapStory(
     // Unduh slide yang sedang tampil sebagai PNG ke galeri. Timer
     // dijeda dulu supaya slide tidak keburu pindah saat menyimpan.
     val onDownload: () -> Unit = {
-        if (saving) return@onDownload
-        saving = true
-        scope.launch {
-            paused = true
-            try {
-                // Tunggu transisi fade (300ms) selesai supaya yang
-                // terekam benar-benar slide sekarang, bukan sisa slide
-                // sebelumnya.
-                delay(350)
-                val bitmap = graphicsLayer.toImageBitmap()
-                val fileName = "meowsic-raport-2026-slide-${currentSlide + 1}"
-                val ok = downloadRecapImage(context, bitmap, fileName)
-                Toast.makeText(
-                    context,
-                    if (ok) RECAP_SAVED_MESSAGE else RECAP_SAVE_FAILED_MESSAGE,
-                    Toast.LENGTH_SHORT,
-                ).show()
-            } catch (_: Exception) {
-                Toast.makeText(context, RECAP_SAVE_FAILED_MESSAGE, Toast.LENGTH_SHORT).show()
-            } finally {
-                paused = false
-                saving = false
+        if (!saving) {
+            saving = true
+            scope.launch {
+                paused = true
+                try {
+                    // Tunggu transisi fade (300ms) selesai supaya yang
+                    // terekam benar-benar slide sekarang, bukan sisa slide
+                    // sebelumnya.
+                    delay(350)
+                    val bitmap = graphicsLayer.toImageBitmap()
+                    val fileName = "meowsic-raport-2026-slide-${currentSlide + 1}"
+                    val ok = downloadRecapImage(context, bitmap, fileName)
+                    Toast.makeText(
+                        context,
+                        if (ok) RECAP_SAVED_MESSAGE else RECAP_SAVE_FAILED_MESSAGE,
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                } catch (_: Exception) {
+                    Toast.makeText(context, RECAP_SAVE_FAILED_MESSAGE, Toast.LENGTH_SHORT).show()
+                } finally {
+                    paused = false
+                    saving = false
+                }
             }
         }
     }
