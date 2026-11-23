@@ -975,6 +975,10 @@ private fun RecapAlbumRow(
 @Composable
 private fun RecapSummarySlide(data: RecapData) {
     RecapSlideBackground(slide = 4) {
+        // Blok ringkasan (~396dp) jauh lebih pendek dari ruang konten
+        // (584dp) — Spacer weight atas-bawah supaya blok terpusat
+        // vertikal, bukan nempel di atas dengan bawah kosong.
+        Spacer(Modifier.weight(1f))
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth(),
@@ -1009,6 +1013,7 @@ private fun RecapSummarySlide(data: RecapData) {
             totalTimeMs = data.totalTimeMs,
             totalSongs = data.totalSongs,
         )
+        Spacer(Modifier.weight(1f))
     }
 }
 
