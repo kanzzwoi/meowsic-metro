@@ -8,19 +8,24 @@ package com.metrolist.music.viewmodels
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.metrolist.innertube.YouTube
 import com.metrolist.music.constants.HideVideoSongsKey
 import com.metrolist.music.db.MusicDatabase
 import com.metrolist.music.db.entities.SongWithStats
 import com.metrolist.music.utils.dataStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transform
+import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import javax.inject.Inject
 
@@ -97,6 +102,16 @@ constructor(
                         buildRecap(
                             if (hideVideoSongs) songs.filter { !it.isVideo } else songs,
                         )
+                    }.transform { state ->
+                        emit(state)
+                        // Foto artis yang belum ada di DB diambil dari
+                        // halaman artisnya (bukan dari lagu), lalu
+                        // disimpan ke DB supaya layar Statistik ikut
+                        // kebagian fotonya.
+                        if (state is RecapUiState.Ready) {
+                            val enriched = enrichArtistThumbnails(state.data)
+                            if (enriched != state.data) emit(RecapUiState.Ready(enriched))
+                        }
                     }
             }.stateIn(viewModelScope, SharingStarted.Lazily, RecapUiState.Loading)
 
@@ -173,6 +188,39 @@ constructor(
             ),
         )
     }
+
+    // Foto artis yang belum ada di DB diambil dari halaman artis
+    // YouTube Music — mekanisme yang sama dengan ArtistViewModel
+    // (YouTube.artist -> page.artist.thumbnail) — lalu disimpan ke
+    // baris artis di DB. Artis ya foto artisnya, bukan artwork lagu.
+    // Kalau fetch gagal (offline / id bukan browse id), thumbnail
+    // dibiarkan kosong seperti sebelumnya; tidak ada fallback lain.
+    private suspend fun enrichArtistThumbnails(data: RecapData): RecapData =
+        withContext(Dispatchers.IO) {
+            if (data.topArtists.none { it.thumbnailUrl.isNullOrBlank() }) return@withContext data
+            val artists =
+                data.topArtists.map { artist ->
+                    if (!artist.thumbnailUrl.isNullOrBlank()) return@map artist
+                    val fetchedThumbnail =
+                        YouTube.artist(artist.id).getOrNull()?.artist?.thumbnail
+                            ?.takeIf { it.isNotBlank() } ?: return@map artist
+                    try {
+                        val existing = database.artist(artist.id).firstOrNull()?.artist
+                        if (existing != null) {
+                            database.update(
+                                existing.copy(
+                                    thumbnailUrl = fetchedThumbnail,
+                                    lastUpdateTime = LocalDateTime.now(),
+                                ),
+                            )
+                        }
+                    } catch (_: Exception) {
+                        // DB gagal ditulis: foto tetap dipakai di slide ini.
+                    }
+                    artist.copy(thumbnailUrl = fetchedThumbnail)
+                }
+            data.copy(topArtists = artists)
+        }
 
     private fun SongWithStats.toRecapSong() =
         RecapSong(
