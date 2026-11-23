@@ -1036,8 +1036,9 @@ private fun RecapRadialAlbumLabel(
 
 /**
  * Slide 4 — ringkasan (baru): dua thumbnail #1 berdampingan di atas
- * (kiri lagu #1, kanan artis #1), lalu dua kolom "Top Artists" /
- * "Top Songs" masing-masing 5 baris, lalu kartu statistik yang sama
+ * (kiri lagu #1, kanan artis #1), lalu dua kolom "Top Songs" /
+ * "Top Artists" masing-masing 5 baris (lagu di kiri di bawah
+ * thumbnail lagu, artis di kanan di bawah foto artis), lalu kartu
  * seperti slide lagu (Menit Mendengarkan + Total Lagu — duplikasi
  * dengan slide lagu ini disengaja, meniru kartu referensi Spotify
  * Wrapped). Slide 0-3 dan penutup tidak diubah, hanya indeks
@@ -1073,13 +1074,13 @@ private fun RecapSummarySlide(data: RecapData) {
             modifier = Modifier.fillMaxWidth(),
         ) {
             RecapSummaryRankColumn(
-                header = RECAP_SUMMARY_TOP_ARTISTS,
-                items = data.topArtists.take(5).map { it.name },
+                header = RECAP_SUMMARY_TOP_SONGS,
+                items = data.topSongs.take(5).map { it.title },
                 modifier = Modifier.weight(1f),
             )
             RecapSummaryRankColumn(
-                header = RECAP_SUMMARY_TOP_SONGS,
-                items = data.topSongs.take(5).map { it.title },
+                header = RECAP_SUMMARY_TOP_ARTISTS,
+                items = data.topArtists.take(5).map { it.name },
                 modifier = Modifier.weight(1f),
             )
         }
