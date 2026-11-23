@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -116,12 +117,16 @@ private const val RECAP_CLOSING_TEXT =
 private const val RECAP_MINUTES_LABEL = "Menit Mendengarkan"
 private const val RECAP_TOTAL_SONGS_LABEL = "Total Lagu"
 private const val RECAP_TOTAL_ARTISTS_LABEL = "Total Artis"
+// Label kolom slide ringkasan: mengikuti kata-kata pengguna secara
+// literal (sama seperti referensi Spotify Wrapped).
+private const val RECAP_SUMMARY_TOP_ARTISTS = "Top Artists"
+private const val RECAP_SUMMARY_TOP_SONGS = "Top Songs"
 private const val RECAP_EMPTY_TEXT = "Belum ada data 2026"
 private const val RECAP_SAVED_MESSAGE = "Tersimpan di galeri"
 private const val RECAP_SAVE_FAILED_MESSAGE = "Gagal menyimpan"
 
 private const val SLIDE_DURATION_MS = 5000
-private const val SLIDE_COUNT = 5
+private const val SLIDE_COUNT = 6
 
 // Jarak atas konten slide: dicadangkan untuk segmen progres + tombol
 // (status bar ~24dp + padding 4 + segmen 4 + tombol 40 + padding 4).
@@ -141,7 +146,8 @@ private val RECAP_SLIDE_GRADIENTS =
         Color(0xFFEA580C) to Color(0xFF991B1B), // 1 lagu: oranye -> merah
         Color(0xFFDB2777) to Color(0xFF6D28D9), // 2 artis: pink -> ungu
         Color(0xFF4338CA) to Color(0xFF1E3A8A), // 3 album: indigo -> biru
-        Color(0xFF3B0764) to Color(0xFF1E1B4B), // 4 penutup: ungu gelap
+        Color(0xFFDC2626) to Color(0xFF4C1D95), // 4 ringkasan: merah -> ungu gelap
+        Color(0xFF3B0764) to Color(0xFF1E1B4B), // 5 penutup: ungu gelap
     )
 
 /**
@@ -421,6 +427,7 @@ private fun RecapSlideContent(
         1 -> RecapTopSongsSlide(data = data)
         2 -> RecapTopArtistsSlide(data = data)
         3 -> RecapTopAlbumsSlide(data = data)
+        4 -> RecapSummarySlide(data = data)
         else -> RecapClosingSlide()
     }
 }
@@ -563,12 +570,12 @@ private fun RecapCoverSlide() {
 }
 
 /**
- * Slide 4 — penutup. Konten dipusatkan vertikal, total ~280dp
+ * Slide 5 — penutup. Konten dipusatkan vertikal, total ~280dp
  * (logo 96 + celah 20 + teks ~96 + celah 16 + pill web 36).
  */
 @Composable
 private fun RecapClosingSlide() {
-    RecapSlideBackground(slide = 4) {
+    RecapSlideBackground(slide = 5) {
         Spacer(Modifier.weight(1f))
         Image(
             painter = painterResource(R.drawable.meowsic_logo),
@@ -949,6 +956,138 @@ private fun RecapAlbumRow(
             fontWeight = FontWeight.Bold,
             color = Color.White,
         )
+    }
+}
+
+/**
+ * Slide 4 — ringkasan (baru): dua thumbnail #1 berdampingan di atas
+ * (kiri lagu #1, kanan artis #1), lalu dua kolom "Top Artists" /
+ * "Top Songs" masing-masing 5 baris, lalu kartu statistik yang sama
+ * seperti slide lagu (Menit Mendengarkan + Total Lagu — duplikasi
+ * dengan slide lagu ini disengaja, meniru kartu referensi Spotify
+ * Wrapped). Slide 0-3 dan penutup tidak diubah, hanya indeks
+ * penutup yang geser ke 5.
+ * Anggaran (ruang konten 584dp, tanpa scroll): thumbnail 154 +
+ * celah 12 + dua kolom ~144 (header ~20 + celah 8 + 5 baris x 20
+ * + 4 x 4) + celah 12 + kartu statistik 74 = ~396dp. Muat, sisa
+ * ~188dp.
+ */
+@Composable
+private fun RecapSummarySlide(data: RecapData) {
+    RecapSlideBackground(slide = 4) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            RecapSummaryThumbnail(
+                url = data.topSongs.firstOrNull()?.thumbnailUrl,
+                modifier = Modifier.weight(1f),
+            )
+            RecapSummaryThumbnail(
+                url = data.topArtists.firstOrNull()?.thumbnailUrl,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            RecapSummaryRankColumn(
+                header = RECAP_SUMMARY_TOP_ARTISTS,
+                items = data.topArtists.take(5).map { it.name },
+                modifier = Modifier.weight(1f),
+            )
+            RecapSummaryRankColumn(
+                header = RECAP_SUMMARY_TOP_SONGS,
+                items = data.topSongs.take(5).map { it.title },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        RecapSongStatsCard(
+            totalTimeMs = data.totalTimeMs,
+            totalSongs = data.totalSongs,
+        )
+    }
+}
+
+/**
+ * Satu thumbnail ringkasan: persegi sudut membulat (bukan lingkaran,
+ * untuk lagu #1 maupun artis #1), ukuran sedang — lebar mengikuti
+ * Row (154dp di layar 360dp) dan tinggi = lebar (aspectRatio 1).
+ * Kalau URL null, yang tampil kotak placeholder warna tembus pandang.
+ * allowHardware(false) sama seperti RecapArtwork: supaya artwork
+ * tidak kosong di hasil unduhan GraphicsLayer.
+ */
+@Composable
+private fun RecapSummaryThumbnail(
+    url: String?,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val request =
+        remember(url) {
+            ImageRequest.Builder(context)
+                .data(url)
+                .allowHardware(false)
+                .build()
+        }
+    Box(
+        modifier =
+            modifier
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color.White.copy(alpha = 0.14f)),
+    ) {
+        AsyncImage(
+            model = request,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
+}
+
+/** Satu kolom peringkat ringkasan: header + 5 baris "rank nama". */
+@Composable
+private fun RecapSummaryRankColumn(
+    header: String,
+    items: List<String>,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = header,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(4.dp))
+        items.forEachIndexed { index, item ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "${index + 1}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.width(18.dp),
+                )
+                Text(
+                    text = item,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
     }
 }
 
