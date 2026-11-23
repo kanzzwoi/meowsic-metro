@@ -8,6 +8,10 @@ package com.metrolist.music.ui.screens
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas as AndroidCanvas
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.Environment
@@ -1249,6 +1253,75 @@ private fun cropRecapToNineSixteen(bitmap: ImageBitmap): ImageBitmap {
 }
 
 /**
+ * Gambar ulang watermark footer ke bitmap hasil unduhan.
+ *
+ * Kenapa perlu: footer watermark di layar nempel di PALING BAWAH
+ * kolom slide (anak terakhir, di bawah Spacer weight), sementara
+ * cropRecapToNineSixteen motong 160px atas + 160px bawah layar
+ * 720x1600 — footer (40dp + padding bawah 12dp + nav bar) hidup
+ * persis di zona bawah yang kepotong itu, jadi unduhan 9:16 selalu
+ * kehilangan watermark walau di layar ada. Tidak ada crop persegi
+ * yang bisa memuat ujung atas konten sekaligus footer (bentangnya
+ * ~1324px > 1280px), jadi footer digambar ulang di sini dengan
+ * Canvas: logo asli + "meowsic" tebal + "meowsic.web.id", ukurannya
+ * diskalakan dari lebar bitmap (desain 360dp) supaya sama di semua
+ * HP. Tampilan di aplikasi TIDAK berubah.
+ */
+private fun drawRecapWatermarkOnBitmap(
+    context: Context,
+    bitmap: ImageBitmap,
+): ImageBitmap {
+    val androidBitmap = bitmap.asAndroidBitmap().copy(Bitmap.Config.ARGB_8888, true)
+    val canvas = AndroidCanvas(androidBitmap)
+    // Lebar desain slide 360dp — semua ukuran footer diskalakan dari sini.
+    val scale = androidBitmap.width / 360f
+    val margin = 20f * scale
+    val logoSize = 40f * scale
+    val bottomMargin = 16f * scale
+    val logoTop = androidBitmap.height - bottomMargin - logoSize
+    val centerY = logoTop + logoSize / 2f
+
+    val logo = BitmapFactory.decodeResource(context.resources, R.drawable.meowsic_logo)
+    if (logo != null) {
+        val scaledLogo =
+            Bitmap.createScaledBitmap(logo, logoSize.toInt(), logoSize.toInt(), true)
+        canvas.drawBitmap(scaledLogo, margin, logoTop, null)
+        if (scaledLogo != logo) scaledLogo.recycle()
+        logo.recycle()
+    }
+
+    // Baseline teks: dipusatkan vertikal terhadap logo.
+    fun baseline(paint: Paint): Float =
+        centerY - (paint.ascent() + paint.descent()) / 2f
+
+    val brandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        typeface = Typeface.DEFAULT_BOLD
+        textSize = 16f * scale
+    }
+    canvas.drawText(
+        RECAP_WATERMARK_BRAND,
+        margin + logoSize + 8f * scale,
+        baseline(brandPaint),
+        brandPaint,
+    )
+
+    val urlPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        alpha = (0.75f * 255).toInt()
+        textSize = 12f * scale
+    }
+    urlPaint.textAlign = Paint.Align.RIGHT
+    canvas.drawText(
+        RECAP_WEBSITE,
+        androidBitmap.width - margin,
+        baseline(urlPaint),
+        urlPaint,
+    )
+    return androidBitmap.asImageBitmap()
+}
+
+/**
  * Simpan bitmap slide Raport sebagai PNG ke Pictures/Meowsic
  * (masuk galeri), mengikuti pola downloadStatsImage di StatsShare.kt
  * (MediaStore + IS_PENDING di API 29+), tapi ke koleksi Images
@@ -1263,6 +1336,19 @@ suspend fun downloadRecapImage(
     withContext(Dispatchers.IO) {
         // Hasil unduhan dipotong ke 9:16 (tengah) biar pas buat story.
         val cropped = cropRecapToNineSixteen(bitmap)
+        // Crop tengah motong footer watermark kalau bitmap lebih tinggi
+        // dari 9:16 — di situ watermark digambar ulang di bawah
+        // (lihat drawRecapWatermarkOnBitmap). Kalau bitmap sudah 9:16
+        // atau lebih pendek, footer sudah ada di bitmap, jadi jangan
+        // digambar dobel.
+        val androidBitmap = bitmap.asAndroidBitmap()
+        val targetHeight = (androidBitmap.width * 16f / 9f).toInt()
+        val finalBitmap =
+            if (androidBitmap.height > targetHeight) {
+                drawRecapWatermarkOnBitmap(context, cropped)
+            } else {
+                cropped
+            }
         runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val values =
@@ -1281,7 +1367,7 @@ suspend fun downloadRecapImage(
                         values,
                     ) ?: return@runCatching false
                 context.contentResolver.openOutputStream(uri)?.use { out ->
-                    cropped.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
+                    finalBitmap.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
                 } ?: return@runCatching false
                 val complete =
                     ContentValues().apply {
@@ -1300,7 +1386,7 @@ suspend fun downloadRecapImage(
                 dir.mkdirs()
                 val file = File(dir, "$fileName.png")
                 FileOutputStream(file).use { out ->
-                    cropped.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
+                    finalBitmap.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, out)
                 }
                 MediaScannerConnection.scanFile(
                     context,
