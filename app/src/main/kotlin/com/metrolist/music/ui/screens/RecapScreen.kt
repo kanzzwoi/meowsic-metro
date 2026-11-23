@@ -620,11 +620,11 @@ private fun RecapClosingSlide() {
  * (Total Lagu = semua lagu berbeda 2026, bukan 5). Footer watermark
  * meniru logo + URL di bawah referensi.
  * Anggaran (ruang konten 584dp): judul 56 + celah 8 + 5 baris x 64
- * + 4 x 8 = 352 + celah 12 + kartu statistik 74 + Spacer weight
- * (sisa ~54dp) + footer watermark 28 = 530dp. Muat tanpa scroll.
+ * + 4 x 8 = 352 + celah 12 + kartu statistik 86 + Spacer weight
+ * (sisa ~42dp) + footer watermark 28 = 542dp. Muat tanpa scroll.
  * Catatan: artwork referensi ~100dp tidak muat (5 x 100 + 4 x 8 =
- * 532, + judul 56 + celah 8 + celah 12 + kartu 74 + footer 28 =
- * 710dp > 584dp), jadi 64dp.
+ * 532, + judul 56 + celah 8 + celah 12 + kartu 86 + footer 28 =
+ * 722dp > 584dp), jadi 64dp.
  */
 @Composable
 private fun RecapTopSongsSlide(data: RecapData) {
@@ -781,7 +781,7 @@ private fun RecapSongStatsCard(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(Color.White.copy(alpha = 0.14f))
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RecapStat(
@@ -840,8 +840,8 @@ private fun RecapStat(
  * nama + "Lagu teratas: <judul>". Kartu Total Artis tetap di bawah
  * daftar, footer watermark sama seperti slide lagu.
  * Anggaran (ruang konten 584dp): judul 56 + celah 8 + 5 baris x 64
- * + 4 x 8 = 352 + celah 12 + kartu statistik 74 + Spacer weight
- * (sisa ~54dp) + footer watermark 28 = 530dp. Muat tanpa scroll.
+ * + 4 x 8 = 352 + celah 12 + kartu statistik 86 + Spacer weight
+ * (sisa ~42dp) + footer watermark 28 = 542dp. Muat tanpa scroll.
  */
 @Composable
 private fun RecapTopArtistsSlide(data: RecapData) {
@@ -871,7 +871,7 @@ private fun RecapTopArtistsSlide(data: RecapData) {
 /**
  * Kartu satu statistik di bawah daftar artis: "Total Artis" (jumlah
  * artis berbeda yang diputar 2026), full-width, gaya sama seperti
- * kartu statistik slide lagu. Tinggi ~74dp (sama seperti kartu lagu).
+ * kartu statistik slide lagu. Tinggi ~86dp (sama seperti kartu lagu).
  */
 @Composable
 private fun RecapArtistStatsCard(totalArtists: Int) {
@@ -881,7 +881,7 @@ private fun RecapArtistStatsCard(totalArtists: Int) {
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(Color.White.copy(alpha = 0.14f))
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RecapStat(
@@ -1045,9 +1045,11 @@ private fun RecapRadialAlbumLabel(
  * Wrapped). Slide 0-3 dan penutup tidak diubah, hanya indeks
  * penutup yang geser ke 5.
  * Anggaran (ruang konten 584dp, tanpa scroll): thumbnail 154 +
- * celah 12 + dua kolom ~144 (header ~20 + celah 8 + 5 baris x 20
- * + 4 x 4) + celah 12 + kartu statistik 74 = ~396dp. Muat, sisa
- * ~188dp.
+ * celah 20 + dua kolom ~204 (header ~24 + celah 8 + 5 baris x 28
+ * + 4 x 8) + celah 20 + kartu statistik 86 = ~484dp. Muat, sisa
+ * ~100dp — blok dibesarkan dari ~396dp supaya slide tidak kelihatan
+ * hampa di layar panjang (ruang kosong atas-bawah tinggal ~22dp di
+ * frame 9:16).
  */
 @Composable
 private fun RecapSummarySlide(data: RecapData) {
@@ -1069,7 +1071,7 @@ private fun RecapSummarySlide(data: RecapData) {
                 modifier = Modifier.weight(1f),
             )
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(20.dp))
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth(),
@@ -1085,7 +1087,7 @@ private fun RecapSummarySlide(data: RecapData) {
                 modifier = Modifier.weight(1f),
             )
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(20.dp))
         RecapSongStatsCard(
             totalTimeMs = data.totalTimeMs,
             totalSongs = data.totalSongs,
@@ -1140,29 +1142,32 @@ private fun RecapSummaryRankColumn(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
             text = header,
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = Color.White,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(8.dp))
         items.forEachIndexed { index, item ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.height(28.dp),
+            ) {
                 Text(
                     text = "${index + 1}",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
                     modifier = Modifier.width(18.dp),
                 )
                 Text(
                     text = item,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
