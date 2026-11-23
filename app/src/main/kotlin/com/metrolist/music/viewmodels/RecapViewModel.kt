@@ -42,6 +42,9 @@ data class RecapSong(
 data class RecapArtist(
     val id: String,
     val name: String,
+    // ID channel YTM asli kalau ada di DB (bisa null); id di atas
+    // tidak selalu ID YTM — lihat fetchArtistThumbnail.
+    val channelId: String?,
     val thumbnailUrl: String?,
     val playCount: Int,
     val topSong: RecapSong,
@@ -143,6 +146,7 @@ constructor(
                     RecapArtist(
                         id = artistId,
                         name = artist.name,
+                        channelId = artist.channelId,
                         thumbnailUrl = artist.thumbnailUrl,
                         playCount = artistSongs.sumOf { it.songCountListened },
                         topSong = topSong.toRecapSong(),
@@ -193,23 +197,30 @@ constructor(
     // YouTube Music — mekanisme yang sama dengan ArtistViewModel
     // (YouTube.artist -> page.artist.thumbnail) — lalu disimpan ke
     // baris artis di DB. Artis ya foto artisnya, bukan artwork lagu.
-    // Kalau fetch gagal (offline / id bukan browse id), thumbnail
-    // dibiarkan kosong seperti sebelumnya; tidak ada fallback lain.
+    // Kalau fetch gagal, thumbnail dibiarkan kosong seperti
+    // sebelumnya; tidak ada fallback lain.
+    //
+    // ID artis di DB TIDAK selalu ID YTM: kalau data lagu dari YTM
+    // tidak membawa id artis, insert lagu membuat id lokal "LA..."
+    // (DatabaseDao.insert) yang tidak bisa di-browse. Karena itu
+    // urutannya: channelId dulu (id YTM asli kalau ada), lalu id
+    // kalau bentuknya ID YTM (UC...), terakhir cari artisnya lewat
+    // search nama — cara yang sama dengan YouTube.resolveArtistIds.
     private suspend fun enrichArtistThumbnails(data: RecapData): RecapData =
         withContext(Dispatchers.IO) {
             if (data.topArtists.none { it.thumbnailUrl.isNullOrBlank() }) return@withContext data
             val artists =
                 data.topArtists.map { artist ->
                     if (!artist.thumbnailUrl.isNullOrBlank()) return@map artist
-                    val fetchedThumbnail =
-                        YouTube.artist(artist.id).getOrNull()?.artist?.thumbnail
-                            ?.takeIf { it.isNotBlank() } ?: return@map artist
+                    val (fetchedThumbnail, resolvedChannelId) = fetchArtistThumbnail(artist)
+                    if (fetchedThumbnail == null) return@map artist
                     try {
                         val existing = database.artist(artist.id).firstOrNull()?.artist
                         if (existing != null) {
                             database.update(
                                 existing.copy(
                                     thumbnailUrl = fetchedThumbnail,
+                                    channelId = resolvedChannelId ?: existing.channelId,
                                     lastUpdateTime = LocalDateTime.now(),
                                 ),
                             )
@@ -221,6 +232,57 @@ constructor(
                 }
             data.copy(topArtists = artists)
         }
+
+    // Kembalikan (url foto, channel id YTM yang berhasil dipakai).
+    // null kalau semua jalur gagal — alasannya ditulis ke playback.log
+    // (tag "recap") supaya bisa dibaca, bukan ditebak.
+    private suspend fun fetchArtistThumbnail(artist: RecapArtist): Pair<String?, String?> {
+        val browseId =
+            artist.channelId?.takeIf { it.isNotBlank() }
+                ?: artist.id.takeIf { it.startsWith("UC") }
+        if (browseId != null) {
+            val thumbnail =
+                YouTube.artist(browseId).getOrNull()?.artist?.thumbnail
+                    ?.takeIf { it.isNotBlank() }
+            if (thumbnail != null) return thumbnail to browseId
+            com.metrolist.music.playback.PlaybackLog.log(
+                "recap",
+                "foto artis ${artist.name}: browse $browseId gagal/kosong, coba search nama",
+            )
+        } else {
+            com.metrolist.music.playback.PlaybackLog.log(
+                "recap",
+                "foto artis ${artist.name}: id=${artist.id} channelId=${artist.channelId} bukan ID YTM, coba search nama",
+            )
+        }
+        // ID lokal (LA...) atau browse gagal: cari artisnya lewat
+        // search nama, persis aturan YouTube.resolveArtistIds
+        // (judul harus sama persis, abaikan kapital).
+        val foundId =
+            YouTube.search(artist.name, YouTube.SearchFilter.FILTER_ARTIST)
+                .getOrNull()?.items
+                ?.filterIsInstance<com.metrolist.innertube.models.ArtistItem>()
+                ?.firstOrNull { it.title.trim().equals(artist.name.trim(), ignoreCase = true) }
+                ?.id
+        if (foundId == null) {
+            com.metrolist.music.playback.PlaybackLog.log(
+                "recap",
+                "foto artis ${artist.name}: search nama tidak ketemu",
+            )
+            return null to null
+        }
+        if (foundId == browseId) return null to null
+        val thumbnail =
+            YouTube.artist(foundId).getOrNull()?.artist?.thumbnail
+                ?.takeIf { it.isNotBlank() }
+        if (thumbnail == null) {
+            com.metrolist.music.playback.PlaybackLog.log(
+                "recap",
+                "foto artis ${artist.name}: browse hasil search $foundId kosong",
+            )
+        }
+        return thumbnail to foundId
+    }
 
     private fun SongWithStats.toRecapSong() =
         RecapSong(
