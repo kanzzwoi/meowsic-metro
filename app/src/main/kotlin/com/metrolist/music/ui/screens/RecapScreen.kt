@@ -917,15 +917,17 @@ private fun RecapArtistStatsCard(totalArtists: Int) {
 /**
  * Pusat 5 lingkaran slide album radial (Box 320x360, koordinat
  * lokal): pentagon dengan #1 di atas, sudut -90/-18/54/126/162
- * terhadap pusat radial C=(160,188), jari-jari elips Rx=116/Ry=108.
+ * terhadap pusat radial C=(160,188), jari-jari elips Rx=122/Ry=108.
+ * Lingkaran 76dp (jari-jari 38dp) + celah label 8dp: tidak lagi
+ * mepet seperti saat lingkaran 88dp dengan celah 2dp.
  */
 private val RECAP_RADIAL_ALBUM_CENTERS =
     listOf(
         160.dp to 80.dp, // #1 atas
-        270.dp to 155.dp, // #2 kanan atas
-        228.dp to 275.dp, // #3 kanan bawah
-        92.dp to 275.dp, // #4 kiri bawah
-        50.dp to 155.dp, // #5 kiri atas
+        276.dp to 155.dp, // #2 kanan atas
+        232.dp to 275.dp, // #3 kanan bawah
+        88.dp to 275.dp, // #4 kiri bawah
+        44.dp to 155.dp, // #5 kiri atas
     )
 
 /**
@@ -935,15 +937,16 @@ private val RECAP_RADIAL_ALBUM_CENTERS =
  * album (tebal) + artis — tanpa deskripsi, tanpa jumlah putar.
  * Header atas dihapus, judul tengah yang jadi judul slide.
  *
- * Geometri (Box 320x360; lingkaran 88dp, jari-jari 44dp):
+ * Geometri (Box 320x360; lingkaran 76dp, jari-jari 38dp):
  * pusat lingkaran di atas; judul tengah "5 ALBUM / FAVORIT" 26sp
  * tebal, lebar 124dp di (98,156) — 2 baris x 32dp = 64dp, tengahnya
- * di y=188 = pusat radial. Celah: 32dp ke lingkaran atas (bawahnya
- * 124), 11dp ke lingkaran bawah (atasnya 231), ~19dp ke lingkaran
- * samping (tepi 79/241 di y=188, judul 98..222). Label: #1 di ATAS
- * lingkaran (y 4..34, lebar 110dp); #2-#5 di BAWAH lingkaran
- * (y 201..231 samping, 321..351 bawah; lebar 92dp) — tepi label
- * samping (96/224) tidak menyentuh judul tengah (98..222).
+ * di y=188 = pusat radial. Celah: 38dp ke lingkaran atas (bawahnya
+ * 118), 17dp ke lingkaran bawah (atasnya 237), ~35dp ke lingkaran
+ * samping di y=188 (judul 98..222). Label 8dp dari lingkaran
+ * (dulu 2dp): #1 di ATAS lingkaran (y 4..34, lebar 110dp); #2-#5
+ * di BAWAH lingkaran (y 201..231 samping, 321..351 bawah; lebar
+ * 92dp) — tepi label samping (90/230) berjarak 8dp dari judul
+ * tengah (98..222).
  * Total blok 360dp + footer 40 = 400dp ≤ 584dp, sisa diserap
  * Spacer weight atas-bawah supaya blok terpusat vertikal
  * (footer watermark menempel di bawah).
@@ -978,24 +981,25 @@ private fun RecapTopAlbumsSlide(data: RecapData) {
                 Box(
                     modifier =
                         Modifier
-                            .offset(x = cx - 44.dp, y = cy - 44.dp)
-                            .size(88.dp)
+                            .offset(x = cx - 38.dp, y = cy - 38.dp)
+                            .size(76.dp)
                             .clip(CircleShape)
                             .background(Color.White.copy(alpha = 0.14f)),
                 ) {
                     RecapArtwork(
                         url = album.thumbnailUrl,
-                        size = 88.dp,
+                        size = 76.dp,
                         shape = CircleShape,
                     )
                 }
-                // Label: #1 di atas lingkaran, sisanya di bawah.
-                // Tinggi label 30dp (13sp/16 + 11sp/14).
+                // Label: #1 di atas lingkaran, sisanya di bawah —
+                // celah 8dp dari lingkaran. Tinggi label 30dp
+                // (13sp/16 + 11sp/14).
                 val (labelX, labelY, labelWidth) =
                     if (index == 0) {
-                        Triple(cx - 55.dp, cy - 44.dp - 32.dp, 110.dp)
+                        Triple(cx - 55.dp, cy - 38.dp - 38.dp, 110.dp)
                     } else {
-                        Triple(cx - 46.dp, cy + 44.dp + 2.dp, 92.dp)
+                        Triple(cx - 46.dp, cy + 38.dp + 8.dp, 92.dp)
                     }
                 RecapRadialAlbumLabel(
                     title = album.title,
