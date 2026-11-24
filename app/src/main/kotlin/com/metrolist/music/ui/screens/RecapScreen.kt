@@ -165,6 +165,7 @@ private val RECAP_SLIDE_BACKGROUNDS =
     mapOf(
         1 to R.drawable.recap_songs_bg, // 1 lagu: biru 2026
         2 to R.drawable.recap_artists_bg, // 2 artis: hijau 2026
+        3 to R.drawable.recap_albums_bg, // 3 album: ungu 2026
         4 to R.drawable.recap_summary_bg, // 4 ringkasan: ungu 2026
     )
 
