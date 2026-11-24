@@ -97,6 +97,16 @@ constructor(
             return LyricsWithProvider(LYRICS_NOT_FOUND, PROVIDER_NONE)
         }
 
+        // Hasil terbaik disimpan DI LUAR blok timeout: kalau cap 10 dtk
+        // memotong pencarian saat sedang berburu lirik per kata, lirik
+        // per baris yang sudah ketemu tetap dikembalikan — bukan NOT_FOUND.
+        // (Sebelumnya `found` hidup di dalam blok, jadi ikut mati saat
+        // timeout dan player menampilkan "Lirik tidak ditemukan" walau
+        // LrcLib sudah mengembalikannya.)
+        var found: LyricsWithProvider? = null
+        var foundTimingKind = LyricsTimingKind.UNSYNCED
+        val notes = mutableListOf<String>()
+
         val result = withTimeoutOrNull(MAX_LYRICS_FETCH_MS) {
             val cleanedTitle = LyricsUtils.cleanTitleForSearch(mediaMetadata.title)
             val enabledProviders = orderedProviders.filter { it.isEnabled(context) }
@@ -135,9 +145,6 @@ constructor(
                     null
                 }?.takeIf { it.isNotBlank() }
 
-            var found: LyricsWithProvider? = null
-            var foundTimingKind = LyricsTimingKind.UNSYNCED
-            val notes = mutableListOf<String>()
             for (provider in enabledProviders) {
                 val t0 = System.currentTimeMillis()
                 val text = fetch(provider)
@@ -179,8 +186,6 @@ constructor(
                 }
                 if (found != null && foundTimingKind >= preferredTiming) break
             }
-            LyricsStats.detail = notes.joinToString(", ").takeIf { it.isNotEmpty() }
-
             if (found != null) {
                 val elapsed = (System.currentTimeMillis() - startedAt) / 1000.0
                 LyricsStats.lastTrackId = mediaMetadata.id
@@ -198,7 +203,13 @@ constructor(
             LyricsWithProvider(LYRICS_NOT_FOUND, PROVIDER_NONE)
         }
 
-        return result ?: LyricsWithProvider(LYRICS_NOT_FOUND, PROVIDER_NONE)
+        // Rincian per provider tetap dicatat walau timeout memotong loop,
+        // supaya playback.log menunjukkan provider mana yang sempat dicoba.
+        LyricsStats.detail = notes.joinToString(", ").takeIf { it.isNotEmpty() }
+
+        // Timeout mengembalikan null — kembalikan hasil terbaik yang sudah
+        // ketemu (mis. per baris dari LrcLib), bukan NOT_FOUND.
+        return result ?: found ?: LyricsWithProvider(LYRICS_NOT_FOUND, PROVIDER_NONE)
     }
 
     suspend fun getAllLyrics(
