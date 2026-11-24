@@ -156,6 +156,18 @@ private val RECAP_SLIDE_GRADIENTS =
     )
 
 /**
+ * Slide yang latarnya gambar kiriman user, bukan gradient
+ * (indeks slide -> drawable). Gambar menutup penuh (Crop) dan
+ * lingkaran dekoratif dimatikan di slide itu (gambarnya sudah
+ * ramai sendiri); slide lain tetap gradient + lingkaran.
+ */
+private val RECAP_SLIDE_BACKGROUNDS =
+    mapOf(
+        1 to R.drawable.recap_songs_bg, // 1 lagu: biru 2026
+        4 to R.drawable.recap_summary_bg, // 4 ringkasan: ungu 2026
+    )
+
+/**
  * Raport tahunan Meowsic ala story (Spotify Wrapped): layar penuh,
  * segmen progres di atas, maju otomatis tiap 5 detik, ketuk kanan =
  * slide berikut, ketuk kiri = slide sebelumnya, tahan = jeda timer.
@@ -446,8 +458,8 @@ private fun RecapSlideContent(
 /**
  * Latar tiap slide: gradient sendiri + dua lingkaran dekoratif
  * tembus pandang (sebagian di luar layar) supaya latar tidak datar.
- * Slide 4 (ringkasan) pakai gambar latar recap_summary_bg full-bleed,
- * tanpa gradient dan tanpa lingkaran (gambarnya sudah ramai sendiri).
+ * Slide yang ada di RECAP_SLIDE_BACKGROUNDS pakai gambar latar
+ * full-bleed, tanpa gradient dan tanpa lingkaran.
  * Konten di dalamnya sudah diberi padding atas 76dp (ruang tombol
  * atas) dan navigationBarsPadding supaya tidak ketutup gesture bar.
  */
@@ -457,15 +469,16 @@ private fun RecapSlideBackground(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val (top, bottom) = RECAP_SLIDE_GRADIENTS[slide]
+    val backgroundRes = RECAP_SLIDE_BACKGROUNDS[slide]
     Box(
         modifier =
             Modifier
                 .fillMaxSize()
                 .background(Brush.verticalGradient(listOf(top, bottom))),
     ) {
-        if (slide == 4) {
+        if (backgroundRes != null) {
             Image(
-                painter = painterResource(R.drawable.recap_summary_bg),
+                painter = painterResource(backgroundRes),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
