@@ -446,6 +446,8 @@ private fun RecapSlideContent(
 /**
  * Latar tiap slide: gradient sendiri + dua lingkaran dekoratif
  * tembus pandang (sebagian di luar layar) supaya latar tidak datar.
+ * Slide 4 (ringkasan) pakai gambar latar recap_summary_bg full-bleed,
+ * tanpa gradient dan tanpa lingkaran (gambarnya sudah ramai sendiri).
  * Konten di dalamnya sudah diberi padding atas 76dp (ruang tombol
  * atas) dan navigationBarsPadding supaya tidak ketutup gesture bar.
  */
@@ -461,22 +463,31 @@ private fun RecapSlideBackground(
                 .fillMaxSize()
                 .background(Brush.verticalGradient(listOf(top, bottom))),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(280.dp)
-                    .offset(x = 190.dp, y = (-90).dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.07f)),
-        )
-        Box(
-            modifier =
-                Modifier
-                    .size(220.dp)
-                    .offset(x = (-110).dp, y = 480.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.06f)),
-        )
+        if (slide == 4) {
+            Image(
+                painter = painterResource(R.drawable.recap_summary_bg),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Box(
+                modifier =
+                    Modifier
+                        .size(280.dp)
+                        .offset(x = 190.dp, y = (-90).dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.07f)),
+            )
+            Box(
+                modifier =
+                    Modifier
+                        .size(220.dp)
+                        .offset(x = (-110).dp, y = 480.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.06f)),
+            )
+        }
         Column(
             modifier =
                 Modifier
