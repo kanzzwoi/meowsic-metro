@@ -65,7 +65,7 @@ class RoomChatClient(
         var relayUrl: String? = null
 
         /** The community relay that ships with Meowsic. */
-        const val DEFAULT_RELAY = "http://31.57.178.188:6130"
+        const val DEFAULT_RELAY = "http://5.39.63.207:6250"
 
         /** Maximum number of characters allowed in a single chat message. */
         const val MAX_CHAT_LENGTH = 500
