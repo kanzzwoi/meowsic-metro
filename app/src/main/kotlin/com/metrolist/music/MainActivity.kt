@@ -32,6 +32,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -1631,6 +1632,13 @@ class MainActivity : FragmentActivity() {
                             }
                             AlertDialog(
                                 onDismissRequest = dismissUpdate,
+                                icon = {
+                                    Image(
+                                        painter = painterResource(R.drawable.meowsic_logo),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(64.dp),
+                                    )
+                                },
                                 title = { Text(stringResource(R.string.update_available_title)) },
                                 text = {
                                     Column(

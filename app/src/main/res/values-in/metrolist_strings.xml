@@ -965,7 +965,7 @@
     <string name="playlist_position_end">Akhir daftar putar</string>
     <string name="playlist_position_end_desc">Lagu yang baru ditambahkan muncul setelah lagu yang sudah ada</string>
     <string name="playlist_created_locally">Sinkronisasi YouTube gagal. Daftar putar dibuat secara lokal.</string>
-    <string name="update_available_message">Metrolist %s siap diunduh.</string>
+    <string name="update_available_message">Hai Para Meowsicers, Aplikasi meowsic sudah update ke versi %1$s nih. Yuk update dulu aplikasinya untuk mengakses fitur atau sesuatu yang baru. jika menemukan bug/eror/kesalahan, harap untuk melaporkan kepada owner.\n\nTERIMAKASIH.\n~ Kanzz</string>
     <string name="update_action">Perbarui</string>
     <string name="error_no_internet_connection">Tidak ada koneksi internet</string>
     <string name="error_offline_playback">Anda sedang offline. Hubungkan ke internet, atau putar trek yang telah diunduh untuk penggunaan offline.</string>
