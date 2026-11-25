@@ -42,6 +42,12 @@ object Updater {
     private const val GITHUB_API_BASE = "https://api.github.com/repos/kanzzwoi/meowsic-metro"
     private const val KMP_LATEST_RELEASE_URL = "https://api.github.com/repos/kanzzwoi/meowsic-metro/releases/latest"
     private const val KMP_APK_NAME = "Meowsic.apk"
+    // Sumber versi terbaru: link.json di website resmi, bukan GitHub.
+    // File ini hanya berisi versi, ukuran, dan link unduh — tanpa changelog.
+    private const val MEOWSIC_LINK_JSON_URL = "https://www.meowsic.bond/link.json"
+    // Tombol Update membuka website supaya user bisa pilih mirror unduh
+    // (MediaFire/GoFile/SFile), bukan langsung ke satu file host.
+    private const val MEOWSIC_SITE_URL = "https://www.meowsic.bond"
 
     /**
      * Compares two version strings.
@@ -120,7 +126,43 @@ object Updater {
     }
 
     /**
-     * Fetch latest release from GitHub API
+     * Parse meowsic.bond/link.json into a ReleaseInfo.
+     * link.json hanya berisi versi, ukuran ("± 13 MB"), dan link unduh —
+     * tanpa changelog, sesuai desain (pesan update ditulis di aplikasi).
+     */
+    private fun parseLinkJson(response: String): ReleaseInfo {
+        val json = JSONObject(response)
+        val version = json.getString("version")
+        val sizeBytes =
+            Regex("(\\d+(?:\\.\\d+)?)\\s*MB")
+                .find(json.optString("size"))
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.toDoubleOrNull()
+                ?.let { (it * 1024 * 1024).toLong() } ?: 0L
+
+        return ReleaseInfo(
+            tagName = "v$version",
+            versionName = version,
+            description = "",
+            releaseDate = "",
+            assets =
+                listOf(
+                    ReleaseAsset(
+                        name = "meowsic.apk",
+                        // Buka website, bukan link MediaFire langsung —
+                        // di sana user pilih sendiri mirror unduhnya.
+                        downloadUrl = MEOWSIC_SITE_URL,
+                        size = sizeBytes,
+                        architecture = "universal",
+                        variant = "foss",
+                    ),
+                ),
+        )
+    }
+
+    /**
+     * Fetch latest release from meowsic.bond/link.json
      */
     suspend fun getLatestRelease(forceRefresh: Boolean = false): Result<ReleaseInfo> =
         withContext(Dispatchers.IO) {
@@ -129,19 +171,10 @@ object Updater {
                 if (cachedReleaseInfo != null && !forceRefresh) {
                     return@runCatching cachedReleaseInfo!!
                 }
-                
-                val response = client.get("$GITHUB_API_BASE/releases/latest")
-                    .bodyAsText()
-                val json = JSONObject(response)
-                
-                val releaseInfo = ReleaseInfo(
-                    tagName = json.getString("tag_name"),
-                    versionName = json.getString("tag_name").removePrefix("v"),
-                    description = json.getString("body"),
-                    releaseDate = json.getString("published_at"),
-                    assets = parseAssets(json.getJSONArray("assets"))
-                )
-                
+
+                val response = client.get(MEOWSIC_LINK_JSON_URL).bodyAsText()
+                val releaseInfo = parseLinkJson(response)
+
                 cachedReleaseInfo = releaseInfo
                 lastCheckTime = System.currentTimeMillis()
                 releaseInfo
@@ -220,10 +253,13 @@ object Updater {
      */
     fun getDownloadUrlForCurrentVariant(releaseInfo: ReleaseInfo): String? {
         val (currentArch, currentVariant) = getCurrentAppVariant()
-        
+
         return releaseInfo.assets
             .find { it.architecture == currentArch && it.variant == currentVariant }
             ?.downloadUrl
+            // link.json hanya menyediakan satu APK universal, jadi pakai itu
+            // kalau tidak ada aset yang cocok persis dengan varian HP ini.
+            ?: releaseInfo.assets.firstOrNull()?.downloadUrl
     }
 
     /**

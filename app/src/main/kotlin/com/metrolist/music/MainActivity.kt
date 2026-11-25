@@ -598,8 +598,8 @@ class MainActivity : FragmentActivity() {
         downloadUtil: DownloadUtil,
         syncUtils: SyncUtils,
     ) {
-        // Cek pembaruan GitHub dimatikan total: tidak ada dialog, notifikasi,
-        // maupun banner versi baru. Jangan diaktifkan tanpa permintaan user.
+        // Cek pembaruan dari meowsic.bond/link.json (bukan GitHub).
+        // Dialog/notifikasi update hanya muncul kalau toggle di Pengaturan nyala.
         val checkForUpdates by rememberPreference(CheckForUpdatesKey, defaultValue = false)
         var availableUpdate by remember { mutableStateOf<AvailableUpdate?>(null) }
 
@@ -1658,15 +1658,6 @@ class MainActivity : FragmentActivity() {
                                                 modifier = Modifier.padding(top = 12.dp),
                                             )
                                         }
-                                        Text(
-                                            text = stringResource(R.string.changelog),
-                                            style = MaterialTheme.typography.titleSmall,
-                                            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
-                                        )
-                                        Text(
-                                            text = update.release.description.ifBlank { stringResource(R.string.changelog_empty) },
-                                            style = MaterialTheme.typography.bodySmall,
-                                        )
                                     }
                                 },
                                 confirmButton = {

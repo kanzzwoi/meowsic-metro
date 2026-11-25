@@ -519,7 +519,7 @@
     <string name="check_for_updates">Automatically check for updates</string>
     <string name="update_notifications">Enable update notifications</string>
     <string name="update_available_title">New update available</string>
-    <string name="update_available_message">Meowsic %s is ready to download.</string>
+    <string name="update_available_message">Hai Para Meowsicers, Aplikasi meowsic sudah update ke versi %1$s nih. Yuk update dulu aplikasinya untuk mengakses fitur atau sesuatu yang baru. jika menemukan bug/eror/kesalahan, harap untuk melaporkan kepada owner.\n\nTERIMAKASIH.\n~ Kanzz</string>
     <string name="update_action">Update</string>
     <string name="update_channel_name">App updates</string>
     <string name="update_channel_desc">Notifications about new app versions</string>
