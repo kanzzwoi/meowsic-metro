@@ -253,6 +253,17 @@ fun SettingsScreen(
         )
         add(
             SettingsSearchEntry(
+                title = stringResource(R.string.updater),
+                subtitle = stringResource(R.string.check_for_updates_title),
+                keywords = listOf(
+                    "pembaruan", "update", "versi", "version", "baru",
+                ),
+                icon = painterResource(R.drawable.update),
+                onClick = { navController.navigate("settings/updater") },
+            )
+        )
+        add(
+            SettingsSearchEntry(
                 title = stringResource(R.string.about),
                 subtitle = stringResource(R.string.settings_desc_about),
                 keywords = listOf(
@@ -429,6 +440,13 @@ fun SettingsScreen(
                         title = { Text("Bagikan log pemutaran") },
                         onClick = sharePlaybackLog,
                     ),
+                )
+                add(
+                    Material3SettingsItem(
+                        icon = painterResource(R.drawable.update),
+                        title = { Text(stringResource(R.string.updater)) },
+                        onClick = { navController.navigate("settings/updater") }
+                    )
                 )
                 add(
                     Material3SettingsItem(

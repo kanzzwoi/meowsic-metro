@@ -599,8 +599,9 @@ class MainActivity : FragmentActivity() {
         syncUtils: SyncUtils,
     ) {
         // Cek pembaruan dari meowsic.bond/link.json (bukan GitHub).
-        // Dialog/notifikasi update hanya muncul kalau toggle di Pengaturan nyala.
-        val checkForUpdates by rememberPreference(CheckForUpdatesKey, defaultValue = false)
+        // Default nyala supaya dialog update muncul; toggle-nya ada di
+        // Pengaturan → Pembaruan.
+        val checkForUpdates by rememberPreference(CheckForUpdatesKey, defaultValue = true)
         var availableUpdate by remember { mutableStateOf<AvailableUpdate?>(null) }
 
         if (BuildConfig.UPDATER_AVAILABLE) {
