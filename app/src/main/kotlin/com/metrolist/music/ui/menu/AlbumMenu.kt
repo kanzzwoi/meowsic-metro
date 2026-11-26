@@ -367,7 +367,7 @@ fun AlbumMenu(
                                     Intent().apply {
                                         action = Intent.ACTION_SEND
                                         type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, MeowsicLinks.playlistUrl(album.album.playlistId))
+                                        putExtra(Intent.EXTRA_TEXT, album.album.playlistId?.let { MeowsicLinks.playlistUrl(it) }.orEmpty())
                                     }
                                 context.startActivity(Intent.createChooser(intent, null))
                             },
