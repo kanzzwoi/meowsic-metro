@@ -58,19 +58,24 @@ object ComposeToImage {
         textColor: Int? = null,
         secondaryTextColor: Int? = null,
         lyricsAlignment: Layout.Alignment = Layout.Alignment.ALIGN_CENTER,
+        // Lebar output dalam px. Export penuh pakai 2160; preview di dialog
+        // pakai nilai kecil (mis. 720) supaya rendernya cepat — semua ukuran
+        // di dalam fungsi ini diturunkan dari imageWidth, jadi proporsinya
+        // sama persis di ukuran berapa pun.
+        outputWidth: Int = 2160,
     ): Bitmap =
         withContext(Dispatchers.Default) {
-            // Use fixed high resolution as requested (2160x2160)
-            // This ensures consistent high-quality output regardless of the device screen
-            val imageWidth = 2160
-            val imageHeight = 2160
+            // Resolusi tetap (2160x2160 untuk export) memastikan kualitas
+            // konsisten apa pun ukuran layar HP.
+            val imageWidth = outputWidth
+            val imageHeight = outputWidth
 
             val bitmap = createBitmap(imageWidth, imageHeight)
             val canvas = Canvas(bitmap)
             val backgroundRect = RectF(0f, 0f, imageWidth.toFloat(), imageHeight.toFloat())
 
             // Base scale on width relative to the reference design (340dp)
-            // 2160 / 340 ≈ 6.35
+            // (mis. 2160 / 340 ≈ 6.35 untuk export penuh)
             val scale = imageWidth / 340f
             val cornerRadius = 20f * scale
             val exportPath =
@@ -118,7 +123,7 @@ object ComposeToImage {
                 }
 
                 LyricsBackgroundStyle.BLUR -> {
-                    // Kanvas 2160x2160. Sampul harus di-blur pada resolusi yang
+                    // Kanvas imageWidth x imageHeight. Sampul harus di-blur pada resolusi yang
                     // setara, bukan pada bitmap kecil.
                     //
                     // Versi lama memperkecil sampul ke imageWidth/10 (216px)

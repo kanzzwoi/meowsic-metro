@@ -23,6 +23,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -58,6 +59,7 @@ import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -84,12 +86,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -1923,39 +1928,30 @@ fun OriginalLyrics(
 
             var previewBackgroundStyle by remember { mutableStateOf(LyricsBackgroundStyle.BLUR) }
 
-            val previewCardWidth = configuration.containerDpSize.width * 0.90f
-            val previewPadding = 20.dp * 2
-            val previewBoxPadding = 28.dp * 2
-            val previewAvailableWidth = previewCardWidth - previewPadding - previewBoxPadding
-            val previewBoxHeight = 340.dp
-            val headerFooterEstimate = (48.dp + 14.dp + 16.dp + 20.dp + 8.dp + 28.dp * 2)
-            val previewAvailableHeight = previewBoxHeight - headerFooterEstimate
-
-            val lyricsTextAlign =
-                when (lyricsTextPosition) {
-                    LyricsPosition.LEFT -> TextAlign.Left
-                    LyricsPosition.CENTER -> TextAlign.Center
-                    LyricsPosition.RIGHT -> TextAlign.Right
+            // Preview WYSIWYG: dirender pakai fungsi export yang sama
+            // (ComposeToImage.createLyricsImage), cuma ukurannya kecil (720px)
+            // supaya cepat. Bitmap lama dipertahankan selama render ulang supaya
+            // tidak berkedip tiap ganti warna/gaya.
+            var previewBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+            LaunchedEffect(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, previewBackgroundStyle, lyricsText, songTitle, artists, coverUrl) {
+                try {
+                    val bmp = ComposeToImage.createLyricsImage(
+                        context, coverUrl, songTitle, artists, lyricsText,
+                        configuration.containerSize.width,
+                        configuration.containerSize.height,
+                        previewBackgroundColor.toArgb(), previewBackgroundStyle,
+                        previewTextColor.toArgb(), previewSecondaryTextColor.toArgb(),
+                        when (lyricsTextPosition) {
+                            LyricsPosition.LEFT -> Layout.Alignment.ALIGN_NORMAL
+                            LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
+                            else -> Layout.Alignment.ALIGN_OPPOSITE
+                        },
+                        outputWidth = 720,
+                    )
+                    previewBitmap = bmp.asImageBitmap()
+                } catch (_: Exception) {
                 }
-
-            val textStyleForMeasurement =
-                TextStyle(
-                    color = previewTextColor,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = lyricsTextAlign,
-                )
-            val textMeasurer = rememberTextMeasurer()
-
-            rememberAdjustedFontSize(
-                text = lyricsText,
-                maxWidth = previewAvailableWidth,
-                maxHeight = previewAvailableHeight,
-                density = density,
-                initialFontSize = 50.sp,
-                minFontSize = 22.sp,
-                style = textStyleForMeasurement,
-                textMeasurer = textMeasurer,
-            )
+            }
 
             LaunchedEffect(coverUrl) {
                 if (coverUrl != null) {
@@ -2044,15 +2040,22 @@ fun OriginalLyrics(
                                     .padding(8.dp)
                                     .clip(RoundedCornerShape(12.dp)),
                         ) {
-                            LyricsImageCard(
-                                lyricText = lyricsText,
-                                mediaMetadata = mediaMetadata ?: return@Box,
-                                backgroundColor = previewBackgroundColor,
-                                backgroundStyle = previewBackgroundStyle,
-                                textColor = previewTextColor,
-                                secondaryTextColor = previewSecondaryTextColor,
-                                textAlign = lyricsTextAlign,
-                            )
+                            val bitmap = previewBitmap
+                            if (bitmap != null) {
+                                Image(
+                                    bitmap = bitmap,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.FillBounds,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier.fillMaxSize().background(previewBackgroundColor),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator()
+                                }
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(18.dp))

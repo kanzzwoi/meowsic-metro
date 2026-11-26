@@ -17,6 +17,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -39,6 +41,7 @@ import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
@@ -58,15 +61,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -78,7 +82,6 @@ import coil3.request.allowHardware
 import coil3.toBitmap
 import com.metrolist.music.R
 import com.metrolist.music.lyrics.LyricsTranslationHelper
-import com.metrolist.music.models.MediaMetadata
 import com.metrolist.music.ui.screens.settings.LyricsPosition
 import com.metrolist.music.utils.ComposeToImage
 import kotlinx.coroutines.CoroutineScope
@@ -313,10 +316,30 @@ internal fun LyricsColorPickerDialog(
     var previewTextColor by remember { mutableStateOf(Color.White) }
     var previewSecondaryTextColor by remember { mutableStateOf(Color.White.copy(alpha = 0.7f)) }
     
-    val align = when (lyricsTextPosition) {
-        LyricsPosition.LEFT -> TextAlign.Left
-        LyricsPosition.CENTER -> TextAlign.Center
-        else -> TextAlign.Right
+    // Preview WYSIWYG: dirender pakai fungsi export yang sama
+    // (ComposeToImage.createLyricsImage), cuma ukurannya kecil (720px) supaya
+    // cepat. Bitmap lama dipertahankan selama render ulang supaya tidak
+    // berkedip tiap ganti warna/gaya.
+    var previewBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, bgStyle, txt, title, arts, thumbnailUrl) {
+        try {
+            val bmp = ComposeToImage.createLyricsImage(
+                context, thumbnailUrl, title, arts, txt,
+                (configuration.screenWidthDp * density.density).toInt(),
+                (configuration.screenHeightDp * density.density).toInt(),
+                previewBackgroundColor.toArgb(), bgStyle,
+                previewTextColor.toArgb(), previewSecondaryTextColor.toArgb(),
+                when (lyricsTextPosition) {
+                    LyricsPosition.LEFT -> Layout.Alignment.ALIGN_NORMAL
+                    LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
+                    else -> Layout.Alignment.ALIGN_OPPOSITE
+                },
+                outputWidth = 720,
+            )
+            previewBitmap = bmp.asImageBitmap()
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to render lyrics preview")
+        }
     }
     
     LaunchedEffect(thumbnailUrl) {
@@ -363,22 +386,22 @@ internal fun LyricsColorPickerDialog(
                 }
                 
                 Box(Modifier.fillMaxWidth().aspectRatio(1f).padding(8.dp).clip(RoundedCornerShape(12.dp))) {
-                    LyricsImageCard(
-                        lyricText = txt,
-                        mediaMetadata = MediaMetadata(
-                            id = "",
-                            title = title,
-                            artists = listOf(MediaMetadata.Artist(name = arts, id = null)),
-                            thumbnailUrl = thumbnailUrl,
-                            duration = 0
-                        ),
-                        darkBackground = true,
-                        backgroundColor = previewBackgroundColor,
-                        backgroundStyle = bgStyle,
-                        textColor = previewTextColor,
-                        secondaryTextColor = previewSecondaryTextColor,
-                        textAlign = align
-                    )
+                    val bitmap = previewBitmap
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap,
+                            contentDescription = null,
+                            contentScale = ContentScale.FillBounds,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier.fillMaxSize().background(previewBackgroundColor),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
                 }
                 
                 Spacer(Modifier.height(18.dp))
