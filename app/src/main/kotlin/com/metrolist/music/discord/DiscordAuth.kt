@@ -211,7 +211,7 @@ class DiscordAuth(
 
     companion object {
         private const val TAG = "DiscordSvc"
-        const val REDIRECT_URI = "metrolistdiscord://oauth2/callback"
+        const val REDIRECT_URI = "meowsicdiscord://oauth2/callback"
 
         private fun defaultClient(): HttpClient = HttpClient(OkHttp) {
             install(HttpTimeout) {

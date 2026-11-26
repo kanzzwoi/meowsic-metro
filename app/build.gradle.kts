@@ -68,7 +68,7 @@ android {
         buildConfigField("String", "LASTFM_API_KEY", "\"$lastFmKey\"")
         buildConfigField("String", "LASTFM_SECRET", "\"$lastFmSecret\"")
         buildConfigField("String", "ARCHITECTURE", "\"universal\"")
-        buildConfigField("Long", "DISCORD_APP_ID", "1447278780795064401L")
+        buildConfigField("Long", "DISCORD_APP_ID", "1575449894607388752L")
     }
 
     flavorDimensions += listOf("variant")

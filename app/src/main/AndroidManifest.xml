@@ -214,7 +214,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="metrolistdiscord" />
+                <data android:scheme="meowsicdiscord" />
                 <data android:host="oauth2" />
                 <data android:pathPrefix="/callback" />
             </intent-filter>
