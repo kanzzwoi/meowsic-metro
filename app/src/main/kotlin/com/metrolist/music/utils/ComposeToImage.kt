@@ -66,9 +66,10 @@ object ComposeToImage {
         outputHeight: Int = 2160,
         aspectRatio: Float = 1f,
         // Pengali ukuran teks lirik yang dipilih user di dialog (1f = normal).
-        // Dipakai sebagai ukuran AWAL auto-fit: makin kecil, makin banyak kata
-        // yang muat per baris (baris panjang bisa tetap 1 baris); auto-fit
-        // tetap mengecilkan lagi kalau tingginya tidak muat.
+        // >1f: auto-fit mulai dari 50sp x pengali (dipakai kalau muat);
+        // <1f: hasil fit dikalikan pengali, supaya mengecilkan benar-benar
+        // mengecilkan walau tinggi yang membatasi. Batas atasnya tetap tinggi
+        // area lirik (thumbnail/judul di atas, watermark di bawah).
         lyricsSizeScale: Float = 1f,
     ): Bitmap =
         withContext(Dispatchers.Default) {
@@ -80,9 +81,14 @@ object ComposeToImage {
             val canvas = Canvas(bitmap)
             val backgroundRect = RectF(0f, 0f, imageWidth.toFloat(), imageHeight.toFloat())
 
-            // Base scale on width relative to the reference design (340dp)
-            // (mis. 2160 / 340 ≈ 6.35 untuk export penuh)
-            val scale = imageWidth / 340f
+            // Skala dari sisi TERPENDEK terhadap desain acuan (340dp).
+            // Kalau dari lebar, kartu 4:3 (2880 lebar) bikin padding, sampul,
+            // dan header membesar 33% sementara tingginya tetap 2160 — area
+            // lirik menciut dari 176dp jadi 91dp dan font lirik mengecil
+            // separuh, baris tidak pernah nyampe ke samping. Dengan sisi
+            // terpendek, 4:3 jadi benar-benar lebih lebar dengan tinggi
+            // elemen yang sama seperti 1:1.
+            val scale = minOf(imageWidth, imageHeight) / 340f
             val cornerRadius = 20f * scale
             val exportPath =
                 Path().apply {
@@ -349,8 +355,12 @@ object ComposeToImage {
                 }
 
             // Adaptive font size calculation
-            // Start with a large size (e.g. 50sp equivalent) and scale down until it fits
-            var lyricsTextSize = 50f * scale * lyricsSizeScale
+            // Cari ukuran terbesar (dari 50sp ke bawah) yang muat di tinggi
+            // area lirik. Slider TIDAK ikut di pencarian ini: kalau ikut,
+            // geser ke kiri tidak berpengaruh saat tinggi yang membatasi —
+            // loop mengecilkan kembali ke ukuran fit yang sama, jadi slider
+            // terasa tidak berguna.
+            var lyricsTextSize = 50f * scale * lyricsSizeScale.coerceAtLeast(1f)
             val minLyricsSize = 13f * scale
             var lyricsLayout: StaticLayout
             var balancedLyrics = lyrics
@@ -375,8 +385,19 @@ object ComposeToImage {
                 lyricsTextSize -= 1f * scale // Decrease by ~1sp equivalent steps
             }
 
-            // One final rebuild with the determined size
+            // Terapkan slider ke hasil fit:
+            // - <100%: kalikan ke ukuran fit, supaya mengecilkan benar-benar
+            //   mengecilkan (baris panjang bisa kembali jadi 1 baris).
+            // - >100%: sudah ditangani pencarian di atas (mulai dari 50sp x
+            //   slider, mengecil sampai muat); batasnya tetap tinggi area.
+            if (lyricsSizeScale < 1f) {
+                lyricsTextSize = (lyricsTextSize * lyricsSizeScale).coerceAtLeast(minLyricsSize)
+            }
+
+            // Rebuild final pada ukuran akhir, dengan balance ulang: di ukuran
+            // lebih kecil, baris yang tadinya pecah bisa gabung lagi.
             lyricsPaint.textSize = lyricsTextSize
+            balancedLyrics = lyrics.split("\n").joinToString("\n") { balanceLyricsLine(it, lyricsPaint, lyricsWidth.toInt()) }
             lyricsLayout =
                 StaticLayout.Builder
                     .obtain(balancedLyrics, 0, balancedLyrics.length, lyricsPaint, lyricsWidth.toInt())
