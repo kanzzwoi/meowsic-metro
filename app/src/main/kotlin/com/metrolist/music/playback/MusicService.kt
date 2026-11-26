@@ -37,6 +37,7 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.datastore.preferences.core.Preferences
 import androidx.core.app.ServiceCompat
+import androidx.core.content.edit
 import androidx.core.content.getSystemService
 import androidx.core.net.toUri
 import androidx.media3.common.AudioAttributes
@@ -619,7 +620,13 @@ class MusicService :
         // On some OEMs (e.g. MIUI), even a DataStore read can be slow
         // enough to miss the window, so we promote before any I/O.
         ensureForegroundChannelExists()
-        if (!ensureStartedAsForegroundOrStop(stopOnFailure = false)) {
+        if (isNotificationDismissedByUser(this)) {
+            // User menghapus notifikasi (swipe / tombol hapus): jangan post
+            // ulang saat service di-restart sistem atau dibuat lewat bind.
+            // Service jalan tanpa foreground sampai user main lagi; begitu
+            // main, flag dibersihkan dan notifikasi balik.
+            PlaybackLog.log("service", "skip promote saat start: notifikasi dihapus user")
+        } else if (!ensureStartedAsForegroundOrStop(stopOnFailure = false)) {
             // Android 12+ menolak startForeground saat service di-restart
             // sistem dari background (proses dibunuh karena RAM, lalu restart
             // tanpa activity di depan). Jangan bunuh service: lanjutkan init
@@ -1625,6 +1632,10 @@ class MusicService :
     }
 
     fun stopDismiss() {
+        // Tombol hapus (di notifikasi / mini player): catat supaya notifikasi
+        // tidak di-post ulang saat app dibuka atau service di-restart.
+        setNotificationDismissedByUser(this, true)
+        PlaybackLog.log("service", "player dihapus user (tombol hapus)")
         clearPersistedQueueFiles()
         scope.launch(Dispatchers.Main) {
             runCatching {
@@ -4495,6 +4506,21 @@ class MusicService :
         startInForegroundRequired: Boolean,
     ) {
         if (taskCleared) return
+        if (isNotificationDismissedByUser(this)) {
+            // Notifikasi dihapus user: jangan post ulang selama masih pause.
+            // Begitu main lagi, flag dibersihkan dan notifikasi balik.
+            if (::player.isInitialized && player.isPlaying) {
+                setNotificationDismissedByUser(this, false)
+                PlaybackLog.log("service", "notifikasi balik: main lagi setelah dihapus")
+                // Pastikan service berstatus started supaya tetap hidup saat
+                // activity di-unbind (promoteForeground memanggil
+                // startForegroundService); Media3 sendiri cuma memanggil
+                // startForeground.
+                promoteForeground(this)
+            } else {
+                return
+            }
+        }
         try {
             super.onUpdateNotification(session, startInForegroundRequired)
         } catch (e: ForegroundServiceStartNotAllowedException) {
@@ -4515,7 +4541,11 @@ class MusicService :
     ): Int {
         if (intent?.action == ACTION_PROMOTE_FOREGROUND) {
             PlaybackLog.log("service", "promoteForeground diterima")
-            ensureStartedAsForegroundOrStop()
+            if (!isNotificationDismissedByUser(this)) {
+                ensureStartedAsForegroundOrStop()
+            } else {
+                PlaybackLog.log("service", "promoteForeground dilewati: notifikasi dihapus user")
+            }
             return START_STICKY
         }
         if (taskCleared) {
@@ -4534,7 +4564,14 @@ class MusicService :
         // media control.
         val isNotificationDismissal =
             intent?.getBooleanExtra(MediaNotification.NOTIFICATION_DISMISSED_EVENT_KEY, false) == true
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !isNotificationDismissal) {
+        if (isNotificationDismissal) {
+            // User swipe notifikasi: catat supaya tidak di-post ulang saat
+            // app dibuka, ada event media, atau service di-restart. Flag
+            // dibersihkan begitu user main lagi.
+            setNotificationDismissedByUser(this, true)
+            PlaybackLog.log("service", "notifikasi dihapus user (swipe)")
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !isNotificationDismissal && !isNotificationDismissedByUser(this)) {
             if (!ensureForegroundWithLatestNotificationOrStop(stopOnFailure = false)) {
                 // Restart dari background ditolak Android 12+: jangan bunuh
                 // service kalau lagi main, masih ada antrean, atau ada state
@@ -5158,8 +5195,29 @@ class MusicService :
     companion object {
         const val ACTION_PROMOTE_FOREGROUND = "com.metrolist.music.action.PROMOTE_FOREGROUND"
 
+        // Notifikasi player yang dihapus user (swipe / tombol hapus) dicatat di
+        // SharedPreferences supaya tetap hilang walau proses di-restart sistem.
+        // Flag dibersihkan begitu user main lagi.
+        private const val DISMISSED_PREFS_NAME = "meowsic_player_state"
+        private const val KEY_NOTIFICATION_DISMISSED = "notification_dismissed_by_user"
+
+        fun isNotificationDismissedByUser(context: Context): Boolean =
+            context.applicationContext
+                .getSharedPreferences(DISMISSED_PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean(KEY_NOTIFICATION_DISMISSED, false)
+
+        fun setNotificationDismissedByUser(context: Context, dismissed: Boolean) {
+            context.applicationContext
+                .getSharedPreferences(DISMISSED_PREFS_NAME, Context.MODE_PRIVATE)
+                .edit { putBoolean(KEY_NOTIFICATION_DISMISSED, dismissed) }
+        }
+
         /** Jadikan service foreground selagi app masih di depan (fitur Dengar Bersama). */
         fun promoteForeground(context: Context) {
+            if (isNotificationDismissedByUser(context)) {
+                PlaybackLog.log("service", "promoteForeground dilewati: notifikasi dihapus user")
+                return
+            }
             runCatching {
                 androidx.core.content.ContextCompat.startForegroundService(
                     context,

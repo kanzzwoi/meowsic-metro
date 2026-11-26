@@ -406,7 +406,12 @@ class MainActivity : FragmentActivity() {
         // Re-issuing startForegroundService() while an existing service instance is already
         // running can trigger "did not then call startForeground" on some Android 9 devices
         // when the framework expects a fresh foreground promotion for that start request.
-        if (!MusicService.isRunning) {
+        // Kalau user baru saja menghapus notifikasi/player, jangan start
+        // service lewat startForegroundService: onCreate akan melewati
+        // promote dan sistem bisa membunuh service karena timeout 5 detik.
+        // Bind di bawah tetap jalan (bound-only, tanpa tuntutan foreground)
+        // dan service naik ke foreground lagi begitu user main.
+        if (!MusicService.isRunning && !MusicService.isNotificationDismissedByUser(this)) {
             val serviceIntent = Intent(this, MusicService::class.java)
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

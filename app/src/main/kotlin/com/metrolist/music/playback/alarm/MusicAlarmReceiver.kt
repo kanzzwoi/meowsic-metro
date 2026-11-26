@@ -21,6 +21,9 @@ class MusicAlarmReceiver : BroadcastReceiver() {
             .putExtra(MusicService.EXTRA_ALARM_ID, alarmId)
             .putExtra(MusicService.EXTRA_ALARM_PLAYLIST_ID, playlistId)
             .putExtra(MusicService.EXTRA_ALARM_RANDOM_SONG, randomSong)
+        // Alarm = user minta main di jam tertentu: hapus flag dismissal supaya
+        // notifikasi boleh muncul lagi saat alarm jalan.
+        MusicService.setNotificationDismissedByUser(context, false)
         ContextCompat.startForegroundService(context, serviceIntent)
         CoroutineScope(Dispatchers.IO).launch {
             try {
