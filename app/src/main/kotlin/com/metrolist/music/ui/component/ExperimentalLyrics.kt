@@ -920,7 +920,7 @@ fun ExperimentalLyrics(
             txt = txt, title = title, arts = arts, thumbnailUrl = mediaMetadata?.thumbnailUrl,
             lyricsTextPosition = lyricsTextPosition,
             onDismiss = { showColorPickerDialog = false },
-            onShare = { bgColor, textColor, secTextColor, style, aspectRatio ->
+            onShare = { bgColor, textColor, secTextColor, style, aspectRatio, lyricsSizeScale ->
                 showColorPickerDialog = false
                 showProgressDialog = true
                 scope.launch {
@@ -942,6 +942,7 @@ fun ExperimentalLyrics(
                                 else -> Layout.Alignment.ALIGN_OPPOSITE
                             },
                             aspectRatio = aspectRatio,
+                            lyricsSizeScale = lyricsSizeScale,
                         )
                         val uri = ComposeToImage.saveBitmapAsFile(context, image, "lyrics_${System.currentTimeMillis()}")
                         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
@@ -956,7 +957,7 @@ fun ExperimentalLyrics(
                     }
                 }
             },
-            onDownload = { bgColor, textColor, secTextColor, style, aspectRatio ->
+            onDownload = { bgColor, textColor, secTextColor, style, aspectRatio, lyricsSizeScale ->
                 showColorPickerDialog = false
                 showProgressDialog = true
                 scope.launch {
@@ -978,6 +979,7 @@ fun ExperimentalLyrics(
                                 else -> Layout.Alignment.ALIGN_OPPOSITE
                             },
                             aspectRatio = aspectRatio,
+                            lyricsSizeScale = lyricsSizeScale,
                         )
                         ComposeToImage.saveBitmapAsFile(context, image, "lyrics_${System.currentTimeMillis()}")
                         Toast.makeText(context, context.getString(R.string.saved_to_gallery), Toast.LENGTH_SHORT).show()

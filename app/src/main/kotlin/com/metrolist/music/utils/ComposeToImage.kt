@@ -65,6 +65,11 @@ object ComposeToImage {
         // proporsinya sama persis di ukuran berapa pun.
         outputHeight: Int = 2160,
         aspectRatio: Float = 1f,
+        // Pengali ukuran teks lirik yang dipilih user di dialog (1f = normal).
+        // Dipakai sebagai ukuran AWAL auto-fit: makin kecil, makin banyak kata
+        // yang muat per baris (baris panjang bisa tetap 1 baris); auto-fit
+        // tetap mengecilkan lagi kalau tingginya tidak muat.
+        lyricsSizeScale: Float = 1f,
     ): Bitmap =
         withContext(Dispatchers.Default) {
             // Resolusi tetap memastikan kualitas konsisten apa pun ukuran layar HP.
@@ -345,7 +350,7 @@ object ComposeToImage {
 
             // Adaptive font size calculation
             // Start with a large size (e.g. 50sp equivalent) and scale down until it fits
-            var lyricsTextSize = 50f * scale
+            var lyricsTextSize = 50f * scale * lyricsSizeScale
             val minLyricsSize = 13f * scale
             var lyricsLayout: StaticLayout
             var balancedLyrics = lyrics

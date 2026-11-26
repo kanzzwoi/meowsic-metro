@@ -65,6 +65,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -1930,13 +1931,16 @@ fun OriginalLyrics(
 
             // Rasio kartu: 1:1 (default) atau 4:3 landscape (lebih lebar, 2880x2160).
             var cardAspectRatio by remember { mutableStateOf(1f) }
+            // Skala ukuran teks lirik: 1f = normal. User bisa mengecilkan supaya
+            // baris panjang muat 1 baris, atau membesarkan.
+            var lyricsSizeScale by remember { mutableStateOf(1f) }
 
             // Preview WYSIWYG: dirender pakai fungsi export yang sama
             // (ComposeToImage.createLyricsImage), cuma ukurannya kecil (720px)
             // supaya cepat. Bitmap lama dipertahankan selama render ulang supaya
             // tidak berkedip tiap ganti warna/gaya.
             var previewBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
-            LaunchedEffect(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, previewBackgroundStyle, cardAspectRatio, lyricsText, songTitle, artists, coverUrl) {
+            LaunchedEffect(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, previewBackgroundStyle, cardAspectRatio, lyricsSizeScale, lyricsText, songTitle, artists, coverUrl) {
                 try {
                     val bmp = ComposeToImage.createLyricsImage(
                         context, coverUrl, songTitle, artists, lyricsText,
@@ -1951,6 +1955,7 @@ fun OriginalLyrics(
                         },
                         outputHeight = 720,
                         aspectRatio = cardAspectRatio,
+                        lyricsSizeScale = lyricsSizeScale,
                     )
                     previewBitmap = bmp.asImageBitmap()
                 } catch (_: Exception) {
@@ -2049,6 +2054,15 @@ fun OriginalLyrics(
                                 )
                             }
                         }
+
+                        Text(text = stringResource(id = R.string.lyrics_text_size) + " ${(lyricsSizeScale * 100).toInt()}%", style = MaterialTheme.typography.titleMedium)
+                        Slider(
+                            value = lyricsSizeScale,
+                            onValueChange = { lyricsSizeScale = it },
+                            valueRange = 0.7f..1.3f,
+                            steps = 11,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        )
 
                         Box(
                             modifier =
@@ -2187,6 +2201,7 @@ fun OriginalLyrics(
                                                         LyricsPosition.RIGHT -> Layout.Alignment.ALIGN_OPPOSITE
                                                     },
                                                 aspectRatio = cardAspectRatio,
+                                                lyricsSizeScale = lyricsSizeScale,
                                             )
                                         val timestamp = System.currentTimeMillis()
                                         val filename = "lyrics_$timestamp"
@@ -2245,6 +2260,7 @@ fun OriginalLyrics(
                                                         LyricsPosition.RIGHT -> Layout.Alignment.ALIGN_OPPOSITE
                                                     },
                                                 aspectRatio = cardAspectRatio,
+                                                lyricsSizeScale = lyricsSizeScale,
                                             )
                                         val timestamp = System.currentTimeMillis()
                                         val filename = "lyrics_$timestamp"
