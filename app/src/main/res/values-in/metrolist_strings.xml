@@ -917,6 +917,9 @@
     <string name="discord_error_no_browser">Tidak ditemukan browser untuk menyelesaikan otorisasi Discord.</string>
     <string name="discord_error_token_refresh_failed">Sesi Discord telah berakhir. Silakan sambungkan kembali.</string>
     <string name="discord_error_invalid_scope">Discord menolak koneksi. Silakan sambungkan kembali dan berikan izin yang diperlukan.</string>
+    <string name="discord_error_denied">Otorisasi ditolak oleh Discord.</string>
+    <string name="discord_error_token_exchange_failed">Penukaran token gagal. Coba lagi.</string>
+    <string name="discord_error_timeout">Otorisasi kedaluwarsa. Coba lagi.</string>
     <string name="discord_error_banner_title">Kesalahan Discord</string>
     <string name="discord_state">Status</string>
     <string name="discord_details">Detail</string>

@@ -30,5 +30,9 @@ object DiscordDefaults {
     const val DISCORD_OAUTH_AUTHORIZE = "https://discord.com/oauth2/authorize"
     const val DISCORD_OAUTH_TOKEN = "https://discord.com/api/v10/oauth2/token"
 
+    // v14 redirect scheme (was meowsicdiscord://oauth2/callback in the old in-memory flow).
+    // Must match the redirect registered in the Discord developer portal exactly.
+    const val DISCORD_REDIRECT_URI = "meowsic-auth://discord/callback"
+
     const val DISCORD_SCOPES = "openid sdk.social_layer_presence"
 }

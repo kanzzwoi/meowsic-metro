@@ -1,6 +1,5 @@
 package com.metrolist.music.discord
 
-import android.app.Activity
 import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -40,9 +39,6 @@ object DiscordRpcManager {
 
     @Volatile
     private var accessToken: String? = null
-
-    @Volatile
-    private var authorizeInProgress: Boolean = false
 
     @Volatile
     private var lastActivitySentAtMs: Long = 0L
@@ -115,7 +111,7 @@ object DiscordRpcManager {
 
     private val appId: String = BuildConfigProvider.appId
 
-    private val auth: DiscordAuth = DiscordAuth()
+    val auth: DiscordAuth = DiscordAuth()
 
     private var gateway: DiscordGateway = createGateway(scope)
 
@@ -159,101 +155,43 @@ object DiscordRpcManager {
         }
     }
 
-    fun authorize(activity: Activity, onComplete: (Boolean) -> Unit) {
-        if (authorizeInProgress) {
-            Timber.tag(TAG).w("authorize: already in progress, ignoring double-tap")
-            scope.launch(Dispatchers.Main) { onComplete(false) }
-            return
-        }
-        authorizeInProgress = true
-
-        fun completeWith(success: Boolean) {
-            scope.launch(Dispatchers.Main) { onComplete(success) }
-        }
-
-        if (_ready && _authorized) {
-            Timber.tag(TAG).d("authorize: short-circuit — already ready and authorized")
-            authorizeInProgress = false
-            scope.launch(Dispatchers.Main) { onComplete(true) }
-            return
-        }
-        if (_authorized) {
-            Timber.tag(TAG).d("authorize: short-circuit — authorized but not ready, reconnecting")
-            authorizeInProgress = false
-            reconnectWithToken(accessToken ?: "")
-            scope.launch(Dispatchers.Main) { onComplete(true) }
-            return
-        }
-
-        _connectionStatus.value = Status.Authorizing
-        _lastError.value = null
-
-        scope.launch {
-            try {
-                val result = auth.authorize(activity)
-                DiscordTokenStore.storeFull(
-                    result.accessToken,
-                    result.refreshToken,
-                    result.expiresInSec,
-                )
-                accessToken = result.accessToken
-                _accessTokenFlow.value = result.accessToken
-                _authorized = true
-
-                try {
-                    reconnectMutex.withLock {
-                        runCatching { gateway.close(4000, "re-authorizing") }
-                        gateway.connect()
-                        gateway.identify("Bearer ${result.accessToken}")
-                    }
-                    completeWith(true)
-                } catch (e: Throwable) {
-                    Timber.tag(TAG).e(e, "authorize: gateway connect/identify failed")
-                    _lastError.value = "discord_error_loopback_timeout"
-                    _connectionStatus.value = Status.Disconnected
-                    _ready = false
-                    _authorized = false
-                    completeWith(false)
-                }
-            } catch (e: DiscordAuthException.UserCancelled) {
-                Timber.tag(TAG).i("authorize: user cancelled")
-                _lastError.value = "discord_error_loopback_timeout"
-                _connectionStatus.value = Status.Disconnected
-                completeWith(false)
-            } catch (e: DiscordAuthException.StateMismatch) {
-                Timber.tag(TAG).w(e, "authorize: state mismatch")
-                _lastError.value = "discord_error_invalid_scope"
-                _connectionStatus.value = Status.Disconnected
-                completeWith(false)
-            } catch (e: DiscordAuthException.NetworkFailure) {
-                Timber.tag(TAG).e(e, "authorize: network failure")
-                _lastError.value = "discord_error_loopback_timeout"
-                _connectionStatus.value = Status.Disconnected
-                completeWith(false)
-            } catch (e: DiscordAuthException.NoBrowser) {
-                Timber.tag(TAG).w(e, "authorize: no browser available")
-                _lastError.value = "discord_error_no_browser"
-                _connectionStatus.value = Status.Disconnected
-                completeWith(false)
-            } catch (e: DiscordAuthException.InvalidGrant) {
-                Timber.tag(TAG).w(e, "authorize: invalid grant")
-                _lastError.value = "discord_error_token_refresh_failed"
-                _connectionStatus.value = Status.Disconnected
-                completeWith(false)
-            } catch (e: Throwable) {
-                Timber.tag(TAG).e(e, "authorize: unexpected failure")
-                _lastError.value = "discord_error_loopback_timeout"
-                _connectionStatus.value = Status.Disconnected
-                completeWith(false)
-            } finally {
-                authorizeInProgress = false
-            }
-        }
+    fun setError(error: String) {
+        _lastError.value = error
     }
 
-    fun cancelAuthorize() {
-        Timber.tag(TAG).i("cancelAuthorize: cancelling active authorization")
-        auth.cancel()
+    /**
+     * Stores freshly exchanged tokens and connects the gateway. Called by
+     * DiscordLoginFlow after the OAuth code exchange; the old authorize()
+     * did this inline after the in-memory browser wait.
+     */
+    fun storeAndConnect(accessToken: String, refreshToken: String, expiresInSec: Long) {
+        scope.launch {
+            _connectionStatus.value = Status.Authorizing
+            _lastError.value = null
+
+            DiscordTokenStore.storeFull(
+                accessToken,
+                refreshToken,
+                expiresInSec,
+            )
+            this@DiscordRpcManager.accessToken = accessToken
+            _accessTokenFlow.value = accessToken
+            _authorized = true
+
+            try {
+                reconnectMutex.withLock {
+                    runCatching { gateway.close(4000, "re-authorizing") }
+                    gateway.connect()
+                    gateway.identify("Bearer $accessToken")
+                }
+            } catch (e: Throwable) {
+                Timber.tag(TAG).e(e, "storeAndConnect: gateway connect/identify failed")
+                _lastError.value = "discord_error_loopback_timeout"
+                _connectionStatus.value = Status.Disconnected
+                _ready = false
+                _authorized = false
+            }
+        }
     }
 
     fun fetchCurrentUser(token: String): DiscordUser? {

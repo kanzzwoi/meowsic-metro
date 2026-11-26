@@ -1,6 +1,5 @@
 package com.metrolist.music.ui.screens.settings.integrations
 
-import android.app.Activity
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -96,8 +95,10 @@ import com.metrolist.music.constants.DiscordUsernameKey
 import com.metrolist.music.constants.EnableDiscordRPCKey
 import com.metrolist.music.db.entities.Song
 import com.metrolist.music.discord.DiscordDefaults
+import com.metrolist.music.discord.DiscordLoginFlow
 import com.metrolist.music.discord.DiscordRpcManager
 import com.metrolist.music.discord.DiscordTemplateRenderer
+import com.metrolist.music.discord.openDiscordUrl
 import com.metrolist.music.ui.component.EnumDialog
 import com.metrolist.music.ui.component.DefaultDialog
 import com.metrolist.music.ui.component.IconButton
@@ -168,7 +169,6 @@ fun DiscordSettings(
     val displayUsername = displayUser?.username?.ifEmpty { null } ?: discordUsername
     val displayAvatar = displayUser?.avatar ?: discordAvatar
     val isLoggedIn = !accessToken.isNullOrEmpty()
-    var isBusy by remember { mutableStateOf(false) }
 
     val connectionStatus by DiscordRpcManager.connectionStatus.collectAsState()
 
@@ -188,15 +188,33 @@ fun DiscordSettings(
             "discord_error_no_browser" -> R.string.discord_error_no_browser
             "discord_error_token_refresh_failed" -> R.string.discord_error_token_refresh_failed
             "discord_error_invalid_scope" -> R.string.discord_error_invalid_scope
+            "discord_error_denied" -> R.string.discord_error_denied
+            "discord_error_token_exchange_failed" -> R.string.discord_error_token_exchange_failed
+            "discord_error_timeout" -> R.string.discord_error_timeout
             else -> R.string.discord_error_banner_title
         }
         stringResource(resId)
+    }
+
+    // v14 login flow: a pending session survives the browser round-trip, so the
+    // screen watches it and times out after 120s if nothing comes back.
+    val loginInProgress = DiscordLoginFlow.isActive
+
+    LaunchedEffect(loginInProgress) {
+        if (loginInProgress) {
+            delay(120_000L)
+            if (DiscordLoginFlow.isActive && !DiscordLoginFlow.exchanging) {
+                DiscordLoginFlow.clear()
+                DiscordRpcManager.setError("discord_error_timeout")
+            }
+        }
     }
 
     LaunchedEffect(Unit) {
         if (!DiscordRpcManager.isInitialized()) {
             DiscordRpcManager.init(context)
         }
+        DiscordLoginFlow.init(context)
     }
 
     LaunchedEffect(fetchedUser) {
@@ -444,33 +462,19 @@ fun DiscordSettings(
                             .padding(start = 20.dp, end = 20.dp, bottom = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    if (!isBusy) {
+                    if (!loginInProgress) {
                         OutlinedButton(
                             onClick = {
-                                isBusy = true
-                                val activity = findActivity(context)
-                                if (activity == null) {
-                                    isBusy = false
-                                    Timber.w("DiscordSettings: cannot start authorize without Activity context")
-                                } else {
-                                    DiscordRpcManager.authorize(activity) { success ->
-                                        isBusy = false
-                                        if (success) {
-                                            coroutineScope.launch(Dispatchers.IO) {
-                                                val token = DiscordRpcManager.getAccessToken()
-                                                if (token != null) {
-                                                    val user = DiscordRpcManager.fetchCurrentUser(token)
-                                                    if (user != null) {
-                                                        withContext(Dispatchers.Main) {
-                                                            discordUsername = user.username
-                                                            discordName = user.name
-                                                            discordAvatar = user.avatar ?: ""
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
+                                // v14 login flow: create a persisted session, then open
+                                // the authorize URL (Discord app first, Custom Tabs next).
+                                val session = runCatching { DiscordRpcManager.auth.createSession() }.getOrElse {
+                                    DiscordRpcManager.setError("discord_error_no_browser")
+                                    return@OutlinedButton
+                                }
+                                DiscordLoginFlow.start(session, context)
+                                runCatching { context.openDiscordUrl(session.authorizeUrl) }.onFailure {
+                                    DiscordLoginFlow.clear()
+                                    DiscordRpcManager.setError("discord_error_no_browser")
                                 }
                             },
                         ) {
@@ -480,7 +484,7 @@ fun DiscordSettings(
                 }
             }
 
-            if (isBusy) {
+            if (loginInProgress) {
                 LinearProgressIndicator(
                     modifier =
                         Modifier
@@ -1179,11 +1183,3 @@ fun SongProgressBar(
     }
 }
 
-private fun findActivity(context: android.content.Context): Activity? {
-    var c: android.content.Context? = context
-    while (c is android.content.ContextWrapper) {
-        if (c is Activity) return c
-        c = c.baseContext
-    }
-    return null
-}

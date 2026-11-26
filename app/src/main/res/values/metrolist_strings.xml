@@ -970,6 +970,9 @@
     <string name="discord_error_no_browser">No browser was found to complete Discord authorization.</string>
     <string name="discord_error_token_refresh_failed">Discord session expired. Please reconnect.</string>
     <string name="discord_error_invalid_scope">Discord rejected the connection. Please reconnect and grant the required permission.</string>
+    <string name="discord_error_denied">Authorization denied by Discord.</string>
+    <string name="discord_error_token_exchange_failed">Token exchange failed. Try again.</string>
+    <string name="discord_error_timeout">Authorization timed out. Try again.</string>
     <string name="discord_error_banner_title">Discord error</string>
     <string name="discord_rpc_preview">Rich Presence preview</string>
     <string name="discord_integration">Discord Integration</string>

@@ -1,14 +1,10 @@
 package com.metrolist.music.discord
 
-import android.app.Activity
-import android.content.ActivityNotFoundException
-import android.content.Intent
 import android.util.Base64
-import androidx.browser.customtabs.CustomTabsIntent
-import androidx.core.net.toUri
 import com.metrolist.music.BuildConfig
 import com.metrolist.music.discord.DiscordDefaults.DISCORD_OAUTH_AUTHORIZE
 import com.metrolist.music.discord.DiscordDefaults.DISCORD_OAUTH_TOKEN
+import com.metrolist.music.discord.DiscordDefaults.DISCORD_REDIRECT_URI
 import com.metrolist.music.discord.DiscordDefaults.DISCORD_SCOPES
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -17,17 +13,20 @@ import io.ktor.client.request.forms.submitForm
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.URLBuilder
 import io.ktor.http.parameters
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.TimeoutCancellationException
-import org.json.JSONObject
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import timber.log.Timber
-import java.io.IOException
-import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.security.SecureRandom
 
+@Serializable
 data class DiscordAuthResult(
     val accessToken: String,
     val refreshToken: String,
@@ -35,183 +34,144 @@ data class DiscordAuthResult(
     val scope: String,
 )
 
-data class PkcePair(val verifier: String, val challenge: String)
+data class PkcePair(
+    val verifier: String,
+    val challenge: String,
+)
 
-sealed class DiscordAuthException(message: String, cause: Throwable? = null) : Exception(message, cause) {
-    class UserCancelled(message: String = "User cancelled authorization") : DiscordAuthException(message)
-    class NetworkFailure(cause: Throwable) : DiscordAuthException("Network failure: ${cause.message}", cause)
-    class InvalidGrant(message: String = "Invalid or expired grant") : DiscordAuthException(message)
+@Serializable
+data class DiscordAuthSession(
+    val authorizeUrl: String,
+    val redirectUri: String,
+    val pkceVerifier: String,
+    val state: String,
+)
+
+sealed class DiscordAuthException(
+    message: String,
+    cause: Throwable? = null,
+) : Exception(message, cause) {
+    class NetworkFailure(
+        cause: Throwable,
+    ) : DiscordAuthException("Network failure: ${cause.message}", cause)
+
+    class InvalidGrant(
+        message: String = "Invalid or expired grant",
+    ) : DiscordAuthException(message)
+
     class StateMismatch : DiscordAuthException("OAuth state mismatch")
-    class NoBrowser(message: String = "No browser available") : DiscordAuthException(message)
 }
 
 class DiscordAuth(
     private val httpClient: HttpClient = defaultClient(),
 ) {
+    private val redirectUri: String = DISCORD_REDIRECT_URI
 
-    suspend fun authorize(activity: Activity): DiscordAuthResult {
+    fun createSession(): DiscordAuthSession {
         val pkce = generatePkcePair()
         val state = generateState()
-        DiscordOAuthActivity.newDeferred()
 
-        try {
-            val authUrl = buildAuthorizeUrl(
-                clientId = BuildConfig.DISCORD_APP_ID,
-                redirectUri = REDIRECT_URI,
-                state = state,
-                challenge = pkce.challenge,
-            )
+        val authorizeUrl =
+            URLBuilder(DISCORD_OAUTH_AUTHORIZE)
+                .apply {
+                    parameters.append("client_id", BuildConfig.DISCORD_APP_ID.toString())
+                    parameters.append("response_type", "code")
+                    parameters.append("redirect_uri", redirectUri)
+                    parameters.append("scope", DISCORD_SCOPES)
+                    parameters.append("state", state)
+                    parameters.append("code_challenge_method", "S256")
+                    parameters.append("code_challenge", pkce.challenge)
+                }.buildString()
 
-            Timber.tag(TAG).i("authorize: launching URL (clientId prefix=%s)", BuildConfig.DISCORD_APP_ID.toString().take(8))
+        Timber.tag(TAG).i("createSession: url length=%d, redirectUri=%s", authorizeUrl.length, redirectUri)
 
-            val intent = CustomTabsIntent.Builder().build().intent
-            intent.data = authUrl.toUri()
-            intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-            try {
-                activity.startActivity(intent)
-            } catch (e: ActivityNotFoundException) {
-                Timber.tag(TAG).w(e, "authorize: no browser available to launch URL")
-                throw DiscordAuthException.NoBrowser()
-            }
-
-            val callback = try {
-                DiscordOAuthActivity.awaitCode(timeoutMs = 120_000L)
-            } catch (e: TimeoutCancellationException) {
-                throw DiscordAuthException.UserCancelled()
-            } catch (e: CancellationException) {
-                Timber.tag(TAG).i("authorize: cancelled")
-                throw DiscordAuthException.UserCancelled()
-            }
-
-            if (callback.state != state) {
-                Timber.tag(TAG).w(
-                    "authorize: state mismatch (expected=%s, got=%s)",
-                    state.take(8),
-                    callback.state.take(8),
-                )
-                throw DiscordAuthException.StateMismatch()
-            }
-
-            return exchangeAuthorizationCode(
-                code = callback.code,
-                verifier = pkce.verifier,
-                redirectUri = REDIRECT_URI,
-            )
-        } finally {
-            // no cleanup needed — no local server
-        }
+        return DiscordAuthSession(
+            authorizeUrl = authorizeUrl,
+            redirectUri = redirectUri,
+            pkceVerifier = pkce.verifier,
+            state = state,
+        )
     }
 
-    fun cancel() {
-        DiscordOAuthActivity.cancelPending()
-    }
-
-    fun close() {
-        runCatching { httpClient.close() }
-    }
-
-    suspend fun refresh(refreshToken: String): DiscordAuthResult = refreshAccessToken(refreshToken)
-
-    private suspend fun exchangeAuthorizationCode(
+    suspend fun exchangeCode(
         code: String,
         verifier: String,
-        redirectUri: String,
-    ): DiscordAuthResult = performTokenExchange(
-        grantType = "authorization_code",
-        extraParams = parameters {
-            append("code", code)
-            append("redirect_uri", redirectUri)
-            append("code_verifier", verifier)
-        },
-    )
+        state: String,
+        expectedState: String,
+    ): DiscordAuthResult {
+        if (state != expectedState) {
+            Timber.tag(TAG).w("exchangeCode: state mismatch")
+            throw DiscordAuthException.StateMismatch()
+        }
 
-    private suspend fun refreshAccessToken(refreshToken: String): DiscordAuthResult =
+        return performTokenExchange(
+            grantType = "authorization_code",
+            extraParams =
+                mapOf(
+                    "code" to code,
+                    "redirect_uri" to redirectUri,
+                    "code_verifier" to verifier,
+                ),
+        )
+    }
+
+    suspend fun refresh(refreshToken: String): DiscordAuthResult =
         performTokenExchange(
             grantType = "refresh_token",
-            extraParams = parameters {
-                append("refresh_token", refreshToken)
-            },
+            extraParams = mapOf("refresh_token" to refreshToken),
         )
 
     private suspend fun performTokenExchange(
         grantType: String,
-        extraParams: io.ktor.http.Parameters,
+        extraParams: Map<String, String>,
     ): DiscordAuthResult {
-        val response: HttpResponse = httpClient.submitForm(
-            url = DISCORD_OAUTH_TOKEN,
-            formParameters = parameters {
-                append("client_id", BuildConfig.DISCORD_APP_ID.toString())
-                append("grant_type", grantType)
-                extraParams.forEach { name, values ->
-                    values.forEach { value -> append(name, value) }
-                }
-            },
-        )
+        try {
+            val response: HttpResponse =
+                httpClient.submitForm(
+                    url = DISCORD_OAUTH_TOKEN,
+                    formParameters =
+                        parameters {
+                            append("client_id", BuildConfig.DISCORD_APP_ID.toString())
+                            append("grant_type", grantType)
+                            extraParams.forEach { (name, value) -> append(name, value) }
+                        },
+                )
 
-        val status = response.status
-        val body = response.bodyAsText()
+            val body = response.bodyAsText()
+            if (response.status.value in 200..299) {
+                val json = Json.parseToJsonElement(body).jsonObject
+                return DiscordAuthResult(
+                    accessToken = json["access_token"]?.jsonPrimitive?.content ?: "",
+                    refreshToken = json["refresh_token"]?.jsonPrimitive?.content ?: "",
+                    expiresInSec = json["expires_in"]?.jsonPrimitive?.long ?: 0L,
+                    scope = json["scope"]?.jsonPrimitive?.content ?: DISCORD_SCOPES,
+                )
+            }
 
-        if (status.value in 200..299) {
-            val json = JSONObject(body)
-            val accessToken = json.getString("access_token")
-            val refreshToken = json.optString("refresh_token", "")
-            val expiresIn = json.optLong("expires_in", 0L)
-            val scope = json.optString("scope", DISCORD_SCOPES)
-            Timber.tag(TAG).i(
-                "token exchange: success (accessToken length=%d, refreshToken present=%s, expiresIn=%d)",
-                accessToken.length,
-                refreshToken.isNotEmpty(),
-                expiresIn,
-            )
-            return DiscordAuthResult(
-                accessToken = accessToken,
-                refreshToken = refreshToken,
-                expiresInSec = expiresIn,
-                scope = scope,
-            )
-        }
-
-        val errorCode = runCatching { JSONObject(body).optString("error", "") }
-            .getOrDefault("")
-        if (status == HttpStatusCode.BadRequest && errorCode == "invalid_grant") {
-            Timber.tag(TAG).w("token exchange: invalid_grant on %s", grantType)
-            throw DiscordAuthException.InvalidGrant()
-        }
-        Timber.tag(TAG).w(
-            "token exchange: HTTP %d (grantType=%s, error=%s, body=%s)",
-            status.value,
-            grantType,
-            errorCode,
-            body.take(200),
-        )
-        throw DiscordAuthException.NetworkFailure(IOException("HTTP ${status.value}: $body"))
-    }
-
-    private fun buildAuthorizeUrl(
-        clientId: Long,
-        redirectUri: String,
-        state: String,
-        challenge: String,
-    ): String {
-        val encodedRedirect = URLEncoder.encode(redirectUri, StandardCharsets.UTF_8.name())
-        val encodedScope = URLEncoder.encode(DISCORD_SCOPES, StandardCharsets.UTF_8.name())
-        return buildString {
-            append(DISCORD_OAUTH_AUTHORIZE)
-            append("?client_id=").append(clientId)
-            append("&response_type=code")
-            append("&redirect_uri=").append(encodedRedirect)
-            append("&scope=").append(encodedScope)
-            append("&state=").append(state)
-            append("&code_challenge_method=S256")
-            append("&code_challenge=").append(challenge)
+            val errorCode =
+                runCatching {
+                    Json
+                        .parseToJsonElement(body)
+                        .jsonObject["error"]
+                        ?.jsonPrimitive
+                        ?.content
+                }.getOrNull()
+            if (response.status == HttpStatusCode.BadRequest && errorCode == "invalid_grant") {
+                Timber.tag(TAG).w("token exchange: invalid_grant on %s", grantType)
+                throw DiscordAuthException.InvalidGrant()
+            }
+            throw DiscordAuthException.NetworkFailure(Exception("HTTP ${response.status.value}: $body"))
+        } catch (e: DiscordAuthException) {
+            throw e
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            throw DiscordAuthException.NetworkFailure(e)
         }
     }
 
     companion object {
         private const val TAG = "DiscordSvc"
-        const val REDIRECT_URI = "meowsicdiscord://oauth2/callback"
 
         private fun defaultClient(): HttpClient = HttpClient(OkHttp) {
             install(HttpTimeout) {
