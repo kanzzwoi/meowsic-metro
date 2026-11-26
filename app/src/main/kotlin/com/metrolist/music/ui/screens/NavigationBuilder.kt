@@ -59,6 +59,7 @@ import com.metrolist.music.ui.screens.settings.ThemeScreen
 import com.metrolist.music.ui.screens.settings.UpdaterScreen
 import com.metrolist.music.playlistimport.ImportProvider
 import com.metrolist.music.ui.screens.settings.integrations.DiscordSettings
+import com.metrolist.music.ui.screens.settings.integrations.IntegrationScreen
 import com.metrolist.music.ui.screens.settings.integrations.LastFMSettings
 import com.metrolist.music.ui.screens.settings.integrations.ListenTogetherSettings
 
@@ -481,6 +482,10 @@ fun NavGraphBuilder.navigationBuilder(
 
     composable("settings/backup_restore") {
         BackupAndRestore(navController)
+    }
+
+    composable("settings/integrations") {
+        IntegrationScreen(navController)
     }
 
     composable("settings/integrations/discord") {

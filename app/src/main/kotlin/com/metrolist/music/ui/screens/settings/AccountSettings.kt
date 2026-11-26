@@ -518,6 +518,15 @@ fun AccountSettings(
         // ---- grup lainnya ----
         ProfileGroupCard {
             ProfileRow(
+                icon = painterResource(R.drawable.integration),
+                label = stringResource(R.string.integrations),
+                onClick = {
+                    onClose()
+                    navController.navigate("settings/integrations")
+                },
+            )
+            ProfileDivider()
+            ProfileRow(
                 icon = painterResource(R.drawable.settings),
                 label = stringResource(R.string.settings),
                 onClick = {
