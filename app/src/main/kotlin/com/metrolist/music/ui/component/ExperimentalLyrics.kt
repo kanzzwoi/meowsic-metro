@@ -920,7 +920,7 @@ fun ExperimentalLyrics(
             txt = txt, title = title, arts = arts, thumbnailUrl = mediaMetadata?.thumbnailUrl,
             lyricsTextPosition = lyricsTextPosition,
             onDismiss = { showColorPickerDialog = false },
-            onShare = { bgColor, textColor, secTextColor, style, aspectRatio, lyricsSizeScale ->
+            onShare = { bgColor, textColor, secTextColor, style, aspectRatio, lyricsSizeScale, lyricsAlignment ->
                 showColorPickerDialog = false
                 showProgressDialog = true
                 scope.launch {
@@ -936,11 +936,7 @@ fun ExperimentalLyrics(
                                 LyricsBackgroundStyle.GRADIENT -> LyricsBackgroundStyle.GRADIENT
                             },
                             textColor.toArgb(), secTextColor.toArgb(),
-                            when (lyricsTextPosition) {
-                                LyricsPosition.LEFT -> Layout.Alignment.ALIGN_NORMAL
-                                LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
-                                else -> Layout.Alignment.ALIGN_OPPOSITE
-                            },
+                            lyricsAlignment,
                             aspectRatio = aspectRatio,
                             lyricsSizeScale = lyricsSizeScale,
                         )
@@ -957,7 +953,7 @@ fun ExperimentalLyrics(
                     }
                 }
             },
-            onDownload = { bgColor, textColor, secTextColor, style, aspectRatio, lyricsSizeScale ->
+            onDownload = { bgColor, textColor, secTextColor, style, aspectRatio, lyricsSizeScale, lyricsAlignment ->
                 showColorPickerDialog = false
                 showProgressDialog = true
                 scope.launch {
@@ -973,11 +969,7 @@ fun ExperimentalLyrics(
                                 LyricsBackgroundStyle.GRADIENT -> LyricsBackgroundStyle.GRADIENT
                             },
                             textColor.toArgb(), secTextColor.toArgb(),
-                            when (lyricsTextPosition) {
-                                LyricsPosition.LEFT -> Layout.Alignment.ALIGN_NORMAL
-                                LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
-                                else -> Layout.Alignment.ALIGN_OPPOSITE
-                            },
+                            lyricsAlignment,
                             aspectRatio = aspectRatio,
                             lyricsSizeScale = lyricsSizeScale,
                         )

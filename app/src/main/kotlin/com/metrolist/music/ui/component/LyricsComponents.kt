@@ -303,8 +303,8 @@ internal fun LyricsColorPickerDialog(
     thumbnailUrl: String?,
     lyricsTextPosition: LyricsPosition,
     onDismiss: () -> Unit,
-    onShare: (backgroundColor: Color, textColor: Color, secondaryTextColor: Color, style: LyricsBackgroundStyle, aspectRatio: Float, lyricsSizeScale: Float) -> Unit,
-    onDownload: (backgroundColor: Color, textColor: Color, secondaryTextColor: Color, style: LyricsBackgroundStyle, aspectRatio: Float, lyricsSizeScale: Float) -> Unit
+    onShare: (backgroundColor: Color, textColor: Color, secondaryTextColor: Color, style: LyricsBackgroundStyle, aspectRatio: Float, lyricsSizeScale: Float, lyricsAlignment: Layout.Alignment) -> Unit,
+    onDownload: (backgroundColor: Color, textColor: Color, secondaryTextColor: Color, style: LyricsBackgroundStyle, aspectRatio: Float, lyricsSizeScale: Float, lyricsAlignment: Layout.Alignment) -> Unit
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -318,6 +318,17 @@ internal fun LyricsColorPickerDialog(
     // Skala ukuran teks lirik: 1f = normal. User bisa mengecilkan supaya
     // baris panjang muat 1 baris, atau membesarkan.
     var lyricsSizeScale by remember { mutableStateOf(1f) }
+    // Perataan lirik di kartu, awalnya ngikutin pengaturan posisi lirik
+    // di pemutar; user bisa ubah sendiri di dialog ini.
+    var lyricsAlignment by remember {
+        mutableStateOf(
+            when (lyricsTextPosition) {
+                LyricsPosition.LEFT -> Layout.Alignment.ALIGN_NORMAL
+                LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
+                else -> Layout.Alignment.ALIGN_OPPOSITE
+            },
+        )
+    }
     var previewBackgroundColor by remember { mutableStateOf(Color(0xFF242424)) }
     var previewTextColor by remember { mutableStateOf(Color.White) }
     var previewSecondaryTextColor by remember { mutableStateOf(Color.White.copy(alpha = 0.7f)) }
@@ -327,7 +338,7 @@ internal fun LyricsColorPickerDialog(
     // cepat. Bitmap lama dipertahankan selama render ulang supaya tidak
     // berkedip tiap ganti warna/gaya.
     var previewBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
-    LaunchedEffect(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, bgStyle, cardAspectRatio, lyricsSizeScale, txt, title, arts, thumbnailUrl) {
+    LaunchedEffect(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, bgStyle, cardAspectRatio, lyricsSizeScale, lyricsAlignment, txt, title, arts, thumbnailUrl) {
         try {
             val bmp = ComposeToImage.createLyricsImage(
                 context, thumbnailUrl, title, arts, txt,
@@ -335,11 +346,7 @@ internal fun LyricsColorPickerDialog(
                 (configuration.screenHeightDp * density.density).toInt(),
                 previewBackgroundColor.toArgb(), bgStyle,
                 previewTextColor.toArgb(), previewSecondaryTextColor.toArgb(),
-                when (lyricsTextPosition) {
-                    LyricsPosition.LEFT -> Layout.Alignment.ALIGN_NORMAL
-                    LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
-                    else -> Layout.Alignment.ALIGN_OPPOSITE
-                },
+                lyricsAlignment,
                 outputHeight = 720,
                 aspectRatio = cardAspectRatio,
                 lyricsSizeScale = lyricsSizeScale,
@@ -400,7 +407,7 @@ internal fun LyricsColorPickerDialog(
                     }
                 }
 
-                Text(stringResource(R.string.lyrics_text_size) + " ${(lyricsSizeScale * 100).toInt()}%", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.lyrics_card_text_size) + " ${(lyricsSizeScale * 100).toInt()}%", style = MaterialTheme.typography.titleMedium)
                 Slider(
                     value = lyricsSizeScale,
                     onValueChange = { lyricsSizeScale = it },
@@ -408,6 +415,17 @@ internal fun LyricsColorPickerDialog(
                     steps = 11,
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 )
+
+                Text(stringResource(R.string.lyrics_text_align), style = MaterialTheme.typography.titleMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                    listOf(
+                        Layout.Alignment.ALIGN_NORMAL to stringResource(R.string.lyrics_align_left),
+                        Layout.Alignment.ALIGN_CENTER to stringResource(R.string.lyrics_align_center),
+                        Layout.Alignment.ALIGN_OPPOSITE to stringResource(R.string.lyrics_align_right),
+                    ).forEach { (align, label) ->
+                        FilterChip(selected = lyricsAlignment == align, onClick = { lyricsAlignment = align }, label = { Text(label) })
+                    }
+                }
 
                 Box(Modifier.fillMaxWidth().aspectRatio(cardAspectRatio).padding(8.dp).clip(RoundedCornerShape(12.dp))) {
                     val bitmap = previewBitmap
@@ -454,7 +472,7 @@ internal fun LyricsColorPickerDialog(
                 Spacer(Modifier.height(12.dp))
                 
                 Button(onClick = {
-                    onShare(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, bgStyle, cardAspectRatio, lyricsSizeScale)
+                    onShare(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, bgStyle, cardAspectRatio, lyricsSizeScale, lyricsAlignment)
                 }, Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.share))
                 }
@@ -462,7 +480,7 @@ internal fun LyricsColorPickerDialog(
                 // Simpan kartu lirik ke galeri (tanpa membuka dialog bagikan).
                 OutlinedButton(
                     onClick = {
-                        onDownload(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, bgStyle, cardAspectRatio, lyricsSizeScale)
+                        onDownload(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, bgStyle, cardAspectRatio, lyricsSizeScale, lyricsAlignment)
                     },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 ) {

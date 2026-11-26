@@ -93,7 +93,11 @@
 
     <string name="player_background_style">Player background style</string>
     <string name="lyrics_card_size">Card size</string>
-    <string name="lyrics_text_size">Lyrics text size</string>
+    <string name="lyrics_card_text_size">Lyrics text size</string>
+    <string name="lyrics_text_align">Lyrics alignment</string>
+    <string name="lyrics_align_left">Left</string>
+    <string name="lyrics_align_center">Center</string>
+    <string name="lyrics_align_right">Right</string>
     <string name="player_thumbnail_style">Thumbnail</string>
     <string name="compact_rounded">Compact rounded</string>
     <string name="full_screen">Full screen</string>

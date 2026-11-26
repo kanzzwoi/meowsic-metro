@@ -1934,13 +1934,24 @@ fun OriginalLyrics(
             // Skala ukuran teks lirik: 1f = normal. User bisa mengecilkan supaya
             // baris panjang muat 1 baris, atau membesarkan.
             var lyricsSizeScale by remember { mutableStateOf(1f) }
+            // Perataan lirik di kartu, awalnya ngikutin pengaturan posisi lirik
+            // di pemutar; user bisa ubah sendiri di dialog ini.
+            var lyricsAlignment by remember {
+                mutableStateOf(
+                    when (lyricsTextPosition) {
+                        LyricsPosition.LEFT -> Layout.Alignment.ALIGN_NORMAL
+                        LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
+                        else -> Layout.Alignment.ALIGN_OPPOSITE
+                    },
+                )
+            }
 
             // Preview WYSIWYG: dirender pakai fungsi export yang sama
             // (ComposeToImage.createLyricsImage), cuma ukurannya kecil (720px)
             // supaya cepat. Bitmap lama dipertahankan selama render ulang supaya
             // tidak berkedip tiap ganti warna/gaya.
             var previewBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
-            LaunchedEffect(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, previewBackgroundStyle, cardAspectRatio, lyricsSizeScale, lyricsText, songTitle, artists, coverUrl) {
+            LaunchedEffect(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, previewBackgroundStyle, cardAspectRatio, lyricsSizeScale, lyricsAlignment, lyricsText, songTitle, artists, coverUrl) {
                 try {
                     val bmp = ComposeToImage.createLyricsImage(
                         context, coverUrl, songTitle, artists, lyricsText,
@@ -1948,11 +1959,7 @@ fun OriginalLyrics(
                         configuration.containerSize.height,
                         previewBackgroundColor.toArgb(), previewBackgroundStyle,
                         previewTextColor.toArgb(), previewSecondaryTextColor.toArgb(),
-                        when (lyricsTextPosition) {
-                            LyricsPosition.LEFT -> Layout.Alignment.ALIGN_NORMAL
-                            LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
-                            else -> Layout.Alignment.ALIGN_OPPOSITE
-                        },
+                        lyricsAlignment,
                         outputHeight = 720,
                         aspectRatio = cardAspectRatio,
                         lyricsSizeScale = lyricsSizeScale,
@@ -2055,7 +2062,7 @@ fun OriginalLyrics(
                             }
                         }
 
-                        Text(text = stringResource(id = R.string.lyrics_text_size) + " ${(lyricsSizeScale * 100).toInt()}%", style = MaterialTheme.typography.titleMedium)
+                        Text(text = stringResource(id = R.string.lyrics_card_text_size) + " ${(lyricsSizeScale * 100).toInt()}%", style = MaterialTheme.typography.titleMedium)
                         Slider(
                             value = lyricsSizeScale,
                             onValueChange = { lyricsSizeScale = it },
@@ -2063,6 +2070,24 @@ fun OriginalLyrics(
                             steps = 11,
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         )
+
+                        Text(text = stringResource(id = R.string.lyrics_text_align), style = MaterialTheme.typography.titleMedium)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(vertical = 8.dp),
+                        ) {
+                            listOf(
+                                Layout.Alignment.ALIGN_NORMAL to stringResource(R.string.lyrics_align_left),
+                                Layout.Alignment.ALIGN_CENTER to stringResource(R.string.lyrics_align_center),
+                                Layout.Alignment.ALIGN_OPPOSITE to stringResource(R.string.lyrics_align_right),
+                            ).forEach { (align, label) ->
+                                androidx.compose.material3.FilterChip(
+                                    selected = lyricsAlignment == align,
+                                    onClick = { lyricsAlignment = align },
+                                    label = { Text(label) },
+                                )
+                            }
+                        }
 
                         Box(
                             modifier =
@@ -2194,12 +2219,7 @@ fun OriginalLyrics(
                                                 backgroundStyle = previewBackgroundStyle,
                                                 textColor = previewTextColor.toArgb(),
                                                 secondaryTextColor = previewSecondaryTextColor.toArgb(),
-                                                lyricsAlignment =
-                                                    when (lyricsTextPosition) {
-                                                        LyricsPosition.LEFT -> Layout.Alignment.ALIGN_NORMAL
-                                                        LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
-                                                        LyricsPosition.RIGHT -> Layout.Alignment.ALIGN_OPPOSITE
-                                                    },
+                                                lyricsAlignment = lyricsAlignment,
                                                 aspectRatio = cardAspectRatio,
                                                 lyricsSizeScale = lyricsSizeScale,
                                             )
@@ -2253,12 +2273,7 @@ fun OriginalLyrics(
                                                 backgroundStyle = previewBackgroundStyle,
                                                 textColor = previewTextColor.toArgb(),
                                                 secondaryTextColor = previewSecondaryTextColor.toArgb(),
-                                                lyricsAlignment =
-                                                    when (lyricsTextPosition) {
-                                                        LyricsPosition.LEFT -> Layout.Alignment.ALIGN_NORMAL
-                                                        LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
-                                                        LyricsPosition.RIGHT -> Layout.Alignment.ALIGN_OPPOSITE
-                                                    },
+                                                lyricsAlignment = lyricsAlignment,
                                                 aspectRatio = cardAspectRatio,
                                                 lyricsSizeScale = lyricsSizeScale,
                                             )
