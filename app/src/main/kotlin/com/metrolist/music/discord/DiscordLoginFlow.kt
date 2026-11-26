@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.net.toUri
+import com.metrolist.music.playback.PlaybackLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,20 +63,31 @@ object DiscordLoginFlow {
     fun handleCallback(intent: Intent, context: Context): Boolean {
         val data = intent.data ?: return false
         if (data.scheme != "meowsic-auth" || data.host != "discord") return false
-        val session = sessions(context).pending() ?: return true
+        val session = sessions(context).pending()
+        if (session == null) {
+            PlaybackLog.log("discord", "callback: no pending session, ignoring")
+            return true
+        }
         val redirect = session.redirectUri.toUri()
         if (data.scheme != redirect.scheme || data.authority != redirect.authority || data.path != redirect.path) return true
-        if (data.getQueryParameter("state") != session.state) return true
+        if (data.getQueryParameter("state") != session.state) {
+            PlaybackLog.log("discord", "callback: state mismatch, ignoring")
+            return true
+        }
         clear()
-        if (data.getQueryParameter("error") != null) {
+        val error = data.getQueryParameter("error")
+        if (error != null) {
+            PlaybackLog.log("discord", "callback: error=$error desc=${data.getQueryParameter("error_description") ?: "-"}")
             DiscordRpcManager.setError("discord_error_denied")
             return true
         }
         val code = data.getQueryParameter("code")
         if (code.isNullOrBlank()) {
+            PlaybackLog.log("discord", "callback: no code and no error")
             DiscordRpcManager.setError("discord_error_token_exchange_failed")
             return true
         }
+        PlaybackLog.log("discord", "callback: code received, exchanging")
         exchanging = true
         scope.launch {
             try {

@@ -14,14 +14,7 @@ import androidx.core.net.toUri
  * discord:// deep link, then falls back to Custom Tabs, then a plain browser.
  */
 fun Context.openDiscordUrl(url: String) {
-    if (url.startsWith("https://discord.com/oauth2/authorize")) {
-        val actionUri = url.replace("https://discord.com", "discord://action").toUri()
-        try {
-            startActivity(Intent(Intent.ACTION_VIEW, actionUri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            return
-        } catch (_: ActivityNotFoundException) {
-        }
-    } else {
+    if (!url.startsWith("https://discord.com/oauth2/authorize")) {
         val discordUri = buildDiscordSchemeUri(url)
         if (discordUri != null) {
             try {
@@ -31,7 +24,11 @@ fun Context.openDiscordUrl(url: String) {
             }
         }
     }
-
+    // Authorize URLs open in Custom Tabs / the browser, NOT inside the
+    // Discord app: opening authorize via discord://action showed the consent
+    // page fine, but after Authorize the Discord app redirected back with
+    // error=access_denied instead of a code (debug79). The standard web
+    // flow hands the code back through the redirect instead.
     val customTabsPackage = CustomTabsClient.getPackageName(this, null)
     if (customTabsPackage != null) {
         val customTabsIntent = CustomTabsIntent.Builder().build()
