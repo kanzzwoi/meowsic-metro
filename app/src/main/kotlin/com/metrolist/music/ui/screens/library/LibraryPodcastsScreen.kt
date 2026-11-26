@@ -88,6 +88,7 @@ import com.metrolist.music.ui.component.SongListItem
 import com.metrolist.music.ui.component.SortHeader
 import com.metrolist.music.ui.menu.SongMenu
 import com.metrolist.music.utils.joinByBullet
+import com.metrolist.music.utils.MeowsicLinks
 import com.metrolist.music.utils.makeTimeString
 import com.metrolist.music.utils.rememberEnumPreference
 import com.metrolist.music.utils.rememberPreference
@@ -647,7 +648,7 @@ private fun PodcastEpisodePlaylistMenu(
     val isPinned by database.speedDialDao.isPinned(podcast.id).collectAsStateWithLifecycle(initialValue = false)
 
     val playlistId = podcast.id.removePrefix("MPSP")
-    val shareUrl = "https://music.youtube.com/playlist?list=$playlistId"
+    val shareUrl = MeowsicLinks.playlistUrl(playlistId)
 
     Spacer(Modifier.height(12.dp))
     Material3MenuGroup(

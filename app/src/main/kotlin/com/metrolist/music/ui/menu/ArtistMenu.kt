@@ -48,6 +48,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.metrolist.music.utils.MeowsicLinks
 
 @Composable
 fun ArtistMenu(
@@ -206,7 +207,7 @@ fun ArtistMenu(
                                         type = "text/plain"
                                         putExtra(
                                             Intent.EXTRA_TEXT,
-                                            "https://music.youtube.com/channel/${artist.id}"
+                                            MeowsicLinks.channelUrl(artist.id)
                                         )
                                     }
                                     context.startActivity(Intent.createChooser(intent, null))

@@ -43,7 +43,7 @@ data class SongItem(
         get() = musicVideoType != null && musicVideoType != MUSIC_VIDEO_TYPE_ATV
 
     override val shareLink: String
-        get() = "https://music.youtube.com/watch?v=$id"
+        get() = "https://www.meowsic.web.id/s/$id"
 }
 
 data class AlbumItem(
@@ -57,7 +57,7 @@ data class AlbumItem(
     override val explicit: Boolean = false,
 ) : YTItem() {
     override val shareLink: String
-        get() = "https://music.youtube.com/playlist?list=$playlistId"
+        get() = "https://www.meowsic.web.id/p/$playlistId"
 }
 
 data class PlaylistItem(
@@ -77,7 +77,7 @@ data class PlaylistItem(
     override val explicit: Boolean
         get() = false
     override val shareLink: String
-        get() = "https://music.youtube.com/playlist?list=$id"
+        get() = "https://www.meowsic.web.id/p/$id"
 }
 
 data class ArtistItem(
@@ -93,7 +93,7 @@ data class ArtistItem(
     override val explicit: Boolean
         get() = false
     override val shareLink: String
-        get() = "https://music.youtube.com/channel/$id"
+        get() = "https://www.meowsic.web.id/c/$id"
 }
 
 data class PodcastItem(
@@ -111,7 +111,7 @@ data class PodcastItem(
     override val explicit: Boolean
         get() = false
     override val shareLink: String
-        get() = "https://music.youtube.com/playlist?list=$id"
+        get() = "https://www.meowsic.web.id/p/$id"
 
     fun asPlaylistItem() = PlaylistItem(
         id = id,
@@ -143,7 +143,7 @@ data class EpisodeItem(
     val markAsUnplayedToken: String? = null,
 ) : YTItem() {
     override val shareLink: String
-        get() = "https://music.youtube.com/watch?v=$id"
+        get() = "https://www.meowsic.web.id/s/$id"
 
     fun asSongItem() = SongItem(
         id = id,

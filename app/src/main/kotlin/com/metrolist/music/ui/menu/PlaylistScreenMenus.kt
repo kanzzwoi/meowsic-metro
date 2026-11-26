@@ -41,6 +41,7 @@ import com.metrolist.music.ui.component.DefaultDialog
 import com.metrolist.music.ui.component.Material3MenuGroup
 import com.metrolist.music.ui.component.Material3MenuItemData
 import com.metrolist.music.utils.PlaylistExporter
+import com.metrolist.music.utils.MeowsicLinks
 import com.metrolist.music.utils.getExportFileUri
 import com.metrolist.music.utils.saveToPublicDocuments
 import kotlinx.coroutines.launch
@@ -197,7 +198,7 @@ fun LocalPlaylistMenu(
                     onClick = {
                         val shareText =
                             if (isYouTubePlaylist) {
-                                "https://music.youtube.com/playlist?list=${playlist.playlist.browseId}"
+                                MeowsicLinks.playlistUrl(playlist.playlist.browseId)
                             } else {
                                 songs.joinToString("\n") { it.song.song.title }
                             }

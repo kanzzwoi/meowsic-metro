@@ -99,6 +99,7 @@ import com.metrolist.music.ui.component.NewAction
 import com.metrolist.music.ui.component.NewActionGrid
 import com.metrolist.music.ui.component.VolumeSlider
 import com.metrolist.music.utils.rememberPreference
+import com.metrolist.music.utils.MeowsicLinks
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlin.math.log2
@@ -368,7 +369,7 @@ fun PlayerMenu(
                                 val clip =
                                     android.content.ClipData.newPlainText(
                                         "Song Link",
-                                        "https://music.youtube.com/watch?v=${mediaMetadata.id}",
+                                        MeowsicLinks.songUrl(mediaMetadata.id),
                                     )
                                 clipboard.setPrimaryClip(clip)
                                 android.widget.Toast

@@ -199,6 +199,7 @@ import com.metrolist.music.ui.utils.ShowMediaInfo
 import com.metrolist.music.ui.utils.ShowOffsetDialog
 import com.metrolist.music.ui.utils.resize
 import com.metrolist.music.utils.dataStore
+import com.metrolist.music.utils.MeowsicLinks
 import com.metrolist.music.utils.makeTimeString
 import com.metrolist.music.utils.rememberEnumPreference
 import com.metrolist.music.utils.rememberPreference
@@ -1496,7 +1497,7 @@ fun BottomSheetPlayer(
                                                     type = "text/plain"
                                                     putExtra(
                                                         Intent.EXTRA_TEXT,
-                                                        "https://music.youtube.com/watch?v=${mediaMetadata.id}",
+                                                        MeowsicLinks.songUrl(mediaMetadata.id),
                                                     )
                                                 }
                                             context.startActivity(Intent.createChooser(intent, null))

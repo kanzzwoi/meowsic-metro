@@ -66,6 +66,7 @@ import com.metrolist.music.ui.component.PlaylistListItem
 import com.metrolist.music.ui.component.TextFieldDialog
 import com.metrolist.music.ui.menu.ExportDialog
 import com.metrolist.music.utils.PlaylistExporter
+import com.metrolist.music.utils.MeowsicLinks
 import com.metrolist.music.utils.getExportFileUri
 import com.metrolist.music.utils.saveToPublicDocuments
 import kotlinx.coroutines.CoroutineScope
@@ -383,7 +384,7 @@ fun PlaylistMenu(
                                         type = "text/plain"
                                         putExtra(
                                             Intent.EXTRA_TEXT,
-                                            "https://music.youtube.com/playlist?list=${dbPlaylist?.playlist?.browseId}",
+                                            dbPlaylist?.playlist?.browseId?.let { MeowsicLinks.playlistUrl(it) }.orEmpty(),
                                         )
                                     }
                                 context.startActivity(Intent.createChooser(intent, null))

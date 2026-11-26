@@ -88,6 +88,7 @@ import com.metrolist.music.ui.component.NewActionGrid
 import com.metrolist.music.ui.component.SongListItem
 import com.metrolist.music.ui.menu.ExportDialog
 import com.metrolist.music.utils.PlaylistExporter
+import com.metrolist.music.utils.MeowsicLinks
 import com.metrolist.music.utils.getExportFileUri
 import com.metrolist.music.utils.saveToPublicDocuments
 import kotlinx.coroutines.Dispatchers
@@ -366,7 +367,7 @@ fun AlbumMenu(
                                     Intent().apply {
                                         action = Intent.ACTION_SEND
                                         type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, "https://music.youtube.com/playlist?list=${album.album.playlistId}")
+                                        putExtra(Intent.EXTRA_TEXT, MeowsicLinks.playlistUrl(album.album.playlistId))
                                     }
                                 context.startActivity(Intent.createChooser(intent, null))
                             },

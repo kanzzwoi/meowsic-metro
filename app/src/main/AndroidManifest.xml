@@ -87,6 +87,19 @@
                 <data android:host="metrolist.cc" />
                 <data android:pathPrefix="/listen" />
             </intent-filter>
+            <!-- Meowsic share links (App Links) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="https" />
+                <data android:host="www.meowsic.web.id" />
+                <data android:pathPrefix="/s" />
+                <data android:pathPrefix="/p" />
+                <data android:pathPrefix="/c" />
+            </intent-filter>
 
             <!-- Youtube filter -->
             <intent-filter android:autoVerify="true">

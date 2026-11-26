@@ -181,6 +181,7 @@ import com.metrolist.music.ui.screens.settings.LyricsPosition
 import com.metrolist.music.ui.screens.settings.defaultList
 import com.metrolist.music.ui.utils.fadingEdge
 import com.metrolist.music.utils.ComposeToImage
+import com.metrolist.music.utils.MeowsicLinks
 import com.metrolist.music.utils.rememberEnumPreference
 import com.metrolist.music.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
@@ -1847,7 +1848,7 @@ fun OriginalLyrics(
                                                 action = Intent.ACTION_SEND
                                                 type = "text/plain"
                                                 val songLink =
-                                                    "https://music.youtube.com/watch?v=${mediaMetadata?.id}"
+                                                    mediaMetadata?.id?.let { MeowsicLinks.songUrl(it) }.orEmpty()
                                                 // Use the potentially multi-line lyricsText here
                                                 putExtra(
                                                     Intent.EXTRA_TEXT,

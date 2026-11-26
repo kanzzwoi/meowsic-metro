@@ -1779,8 +1779,8 @@ class MainActivity : FragmentActivity() {
         }
 
         when (val path = uri.pathSegments.firstOrNull()) {
-            "playlist" -> {
-                val playlistId = uri.getQueryParameter("list")
+            "playlist", "p" -> {
+                val playlistId = uri.getQueryParameter("list") ?: uri.pathSegments.getOrNull(1)
                 if (playlistId.isNullOrBlank() || playlistId.equals("null", ignoreCase = true)) {
                     Toast.makeText(this, R.string.playlist_unavailable, Toast.LENGTH_SHORT).show()
                     return
@@ -1825,6 +1825,7 @@ class MainActivity : FragmentActivity() {
                 val videoId =
                     when {
                         path == "watch" -> uri.getQueryParameter("v")
+                        path == "s" -> uri.pathSegments.getOrNull(1)
                         uri.host == "youtu.be" -> uri.pathSegments.firstOrNull()
                         else -> null
                     }
