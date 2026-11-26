@@ -302,8 +302,8 @@ internal fun LyricsColorPickerDialog(
     thumbnailUrl: String?,
     lyricsTextPosition: LyricsPosition,
     onDismiss: () -> Unit,
-    onShare: (backgroundColor: Color, textColor: Color, secondaryTextColor: Color, style: LyricsBackgroundStyle) -> Unit,
-    onDownload: (backgroundColor: Color, textColor: Color, secondaryTextColor: Color, style: LyricsBackgroundStyle) -> Unit
+    onShare: (backgroundColor: Color, textColor: Color, secondaryTextColor: Color, style: LyricsBackgroundStyle, aspectRatio: Float) -> Unit,
+    onDownload: (backgroundColor: Color, textColor: Color, secondaryTextColor: Color, style: LyricsBackgroundStyle, aspectRatio: Float) -> Unit
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -312,6 +312,8 @@ internal fun LyricsColorPickerDialog(
     
     val pal = remember { mutableStateListOf<Color>() }
     var bgStyle by remember { mutableStateOf(LyricsBackgroundStyle.BLUR) }
+    // Rasio kartu: 1:1 (default) atau 4:3 landscape (lebih lebar, 2880x2160).
+    var cardAspectRatio by remember { mutableStateOf(1f) }
     var previewBackgroundColor by remember { mutableStateOf(Color(0xFF242424)) }
     var previewTextColor by remember { mutableStateOf(Color.White) }
     var previewSecondaryTextColor by remember { mutableStateOf(Color.White.copy(alpha = 0.7f)) }
@@ -321,7 +323,7 @@ internal fun LyricsColorPickerDialog(
     // cepat. Bitmap lama dipertahankan selama render ulang supaya tidak
     // berkedip tiap ganti warna/gaya.
     var previewBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
-    LaunchedEffect(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, bgStyle, txt, title, arts, thumbnailUrl) {
+    LaunchedEffect(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, bgStyle, cardAspectRatio, txt, title, arts, thumbnailUrl) {
         try {
             val bmp = ComposeToImage.createLyricsImage(
                 context, thumbnailUrl, title, arts, txt,
@@ -334,7 +336,8 @@ internal fun LyricsColorPickerDialog(
                     LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
                     else -> Layout.Alignment.ALIGN_OPPOSITE
                 },
-                outputWidth = 720,
+                outputHeight = 720,
+                aspectRatio = cardAspectRatio,
             )
             previewBitmap = bmp.asImageBitmap()
         } catch (e: Exception) {
@@ -384,8 +387,15 @@ internal fun LyricsColorPickerDialog(
                         FilterChip(selected = bgStyle == style, onClick = { bgStyle = style }, label = { Text(label) })
                     }
                 }
-                
-                Box(Modifier.fillMaxWidth().aspectRatio(1f).padding(8.dp).clip(RoundedCornerShape(12.dp))) {
+
+                Text(stringResource(R.string.lyrics_card_size), style = MaterialTheme.typography.titleMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                    listOf(1f to "1:1", 4f / 3f to "4:3").forEach { (ratio, label) ->
+                        FilterChip(selected = cardAspectRatio == ratio, onClick = { cardAspectRatio = ratio }, label = { Text(label) })
+                    }
+                }
+
+                Box(Modifier.fillMaxWidth().aspectRatio(cardAspectRatio).padding(8.dp).clip(RoundedCornerShape(12.dp))) {
                     val bitmap = previewBitmap
                     if (bitmap != null) {
                         Image(
@@ -430,7 +440,7 @@ internal fun LyricsColorPickerDialog(
                 Spacer(Modifier.height(12.dp))
                 
                 Button(onClick = {
-                    onShare(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, bgStyle)
+                    onShare(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, bgStyle, cardAspectRatio)
                 }, Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.share))
                 }
@@ -438,7 +448,7 @@ internal fun LyricsColorPickerDialog(
                 // Simpan kartu lirik ke galeri (tanpa membuka dialog bagikan).
                 OutlinedButton(
                     onClick = {
-                        onDownload(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, bgStyle)
+                        onDownload(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, bgStyle, cardAspectRatio)
                     },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 ) {

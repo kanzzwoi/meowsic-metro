@@ -1928,12 +1928,15 @@ fun OriginalLyrics(
 
             var previewBackgroundStyle by remember { mutableStateOf(LyricsBackgroundStyle.BLUR) }
 
+            // Rasio kartu: 1:1 (default) atau 4:3 landscape (lebih lebar, 2880x2160).
+            var cardAspectRatio by remember { mutableStateOf(1f) }
+
             // Preview WYSIWYG: dirender pakai fungsi export yang sama
             // (ComposeToImage.createLyricsImage), cuma ukurannya kecil (720px)
             // supaya cepat. Bitmap lama dipertahankan selama render ulang supaya
             // tidak berkedip tiap ganti warna/gaya.
             var previewBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
-            LaunchedEffect(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, previewBackgroundStyle, lyricsText, songTitle, artists, coverUrl) {
+            LaunchedEffect(previewBackgroundColor, previewTextColor, previewSecondaryTextColor, previewBackgroundStyle, cardAspectRatio, lyricsText, songTitle, artists, coverUrl) {
                 try {
                     val bmp = ComposeToImage.createLyricsImage(
                         context, coverUrl, songTitle, artists, lyricsText,
@@ -1946,7 +1949,8 @@ fun OriginalLyrics(
                             LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
                             else -> Layout.Alignment.ALIGN_OPPOSITE
                         },
-                        outputWidth = 720,
+                        outputHeight = 720,
+                        aspectRatio = cardAspectRatio,
                     )
                     previewBitmap = bmp.asImageBitmap()
                 } catch (_: Exception) {
@@ -2032,11 +2036,25 @@ fun OriginalLyrics(
                             }
                         }
 
+                        Text(text = stringResource(id = R.string.lyrics_card_size), style = MaterialTheme.typography.titleMedium)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(vertical = 8.dp),
+                        ) {
+                            listOf(1f to "1:1", 4f / 3f to "4:3").forEach { (ratio, label) ->
+                                androidx.compose.material3.FilterChip(
+                                    selected = cardAspectRatio == ratio,
+                                    onClick = { cardAspectRatio = ratio },
+                                    label = { Text(label) },
+                                )
+                            }
+                        }
+
                         Box(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .aspectRatio(1f)
+                                    .aspectRatio(cardAspectRatio)
                                     .padding(8.dp)
                                     .clip(RoundedCornerShape(12.dp)),
                         ) {
@@ -2168,6 +2186,7 @@ fun OriginalLyrics(
                                                         LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
                                                         LyricsPosition.RIGHT -> Layout.Alignment.ALIGN_OPPOSITE
                                                     },
+                                                aspectRatio = cardAspectRatio,
                                             )
                                         val timestamp = System.currentTimeMillis()
                                         val filename = "lyrics_$timestamp"
@@ -2225,6 +2244,7 @@ fun OriginalLyrics(
                                                         LyricsPosition.CENTER -> Layout.Alignment.ALIGN_CENTER
                                                         LyricsPosition.RIGHT -> Layout.Alignment.ALIGN_OPPOSITE
                                                     },
+                                                aspectRatio = cardAspectRatio,
                                             )
                                         val timestamp = System.currentTimeMillis()
                                         val filename = "lyrics_$timestamp"

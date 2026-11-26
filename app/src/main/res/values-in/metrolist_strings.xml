@@ -60,6 +60,7 @@
     <string name="lyrics">Lirik</string>
     <string name="already_in_playlist">Sudah ada di playlist:</string>
     <string name="player_background_style">Gaya latar belakang pemutar musik</string>
+    <string name="lyrics_card_size">Ukuran kartu</string>
     <string name="my_top">Teratas Saya</string>
     <string name="cached_playlist">Tersimpan di Cache</string>
     <string name="sync_disabled">Sinkronisasi dinonaktifkan</string>

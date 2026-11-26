@@ -58,17 +58,18 @@ object ComposeToImage {
         textColor: Int? = null,
         secondaryTextColor: Int? = null,
         lyricsAlignment: Layout.Alignment = Layout.Alignment.ALIGN_CENTER,
-        // Lebar output dalam px. Export penuh pakai 2160; preview di dialog
+        // Tinggi output dalam px; lebar = tinggi x aspectRatio. Export penuh
+        // pakai 2160 (1:1 -> 2160x2160, 4:3 -> 2880x2160); preview di dialog
         // pakai nilai kecil (mis. 720) supaya rendernya cepat — semua ukuran
-        // di dalam fungsi ini diturunkan dari imageWidth, jadi proporsinya
-        // sama persis di ukuran berapa pun.
-        outputWidth: Int = 2160,
+        // di dalam fungsi ini diturunkan dari imageWidth/imageHeight, jadi
+        // proporsinya sama persis di ukuran berapa pun.
+        outputHeight: Int = 2160,
+        aspectRatio: Float = 1f,
     ): Bitmap =
         withContext(Dispatchers.Default) {
-            // Resolusi tetap (2160x2160 untuk export) memastikan kualitas
-            // konsisten apa pun ukuran layar HP.
-            val imageWidth = outputWidth
-            val imageHeight = outputWidth
+            // Resolusi tetap memastikan kualitas konsisten apa pun ukuran layar HP.
+            val imageHeight = outputHeight
+            val imageWidth = (outputHeight * aspectRatio).roundToInt()
 
             val bitmap = createBitmap(imageWidth, imageHeight)
             val canvas = Canvas(bitmap)
@@ -259,7 +260,10 @@ object ComposeToImage {
                 StaticLayout.Builder
                     .obtain(songTitle, 0, songTitle.length, titlePaint, textMaxWidth.toInt())
                     .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-                    .setMaxLines(1)
+                    // Judul boleh 2 baris (sama seperti preview dulu): judul panjang
+                    // tidak lagi kepotong "..." di satu baris. Ellipsis hanya kalau
+                    // 2 baris pun tetap tidak muat.
+                    .setMaxLines(2)
                     .setEllipsize(android.text.TextUtils.TruncateAt.END)
                     .build()
 
@@ -344,12 +348,16 @@ object ComposeToImage {
             var lyricsTextSize = 50f * scale
             val minLyricsSize = 13f * scale
             var lyricsLayout: StaticLayout
+            var balancedLyrics = lyrics
 
             while (lyricsTextSize > minLyricsSize) {
                 lyricsPaint.textSize = lyricsTextSize
+                // Seimbangkan tiap baris sumber pada ukuran font ini supaya
+                // tidak ada kata yatim di baris terakhir.
+                balancedLyrics = lyrics.split("\n").joinToString("\n") { balanceLyricsLine(it, lyricsPaint, lyricsWidth.toInt()) }
                 lyricsLayout =
                     StaticLayout.Builder
-                        .obtain(lyrics, 0, lyrics.length, lyricsPaint, lyricsWidth.toInt())
+                        .obtain(balancedLyrics, 0, balancedLyrics.length, lyricsPaint, lyricsWidth.toInt())
                         .setAlignment(lyricsAlignment)
                         .setLineSpacing(0f, 1.2f)
                         .setIncludePad(false)
@@ -366,7 +374,7 @@ object ComposeToImage {
             lyricsPaint.textSize = lyricsTextSize
             lyricsLayout =
                 StaticLayout.Builder
-                    .obtain(lyrics, 0, lyrics.length, lyricsPaint, lyricsWidth.toInt())
+                    .obtain(balancedLyrics, 0, balancedLyrics.length, lyricsPaint, lyricsWidth.toInt())
                     .setAlignment(lyricsAlignment)
                     .setLineSpacing(0f, 1.2f)
                     .setIncludePad(false)
@@ -387,6 +395,48 @@ object ComposeToImage {
 
             return@withContext bitmap
         }
+
+    // Bagi satu baris lirik jadi beberapa baris dengan panjang yang seimbang
+    // (ala text-wrap: balance): cari jumlah baris minimal yang muat, lalu bagi
+    // kata supaya baris terpanjang seminimal mungkin. Tanpa ini, wrap serakah
+    // StaticLayout meninggalkan 1-2 kata yatim di baris terakhir ("cat").
+    private fun balanceLyricsLine(line: String, paint: TextPaint, maxWidth: Int): String {
+        val words = line.split(" ").filter { it.isNotEmpty() }
+        if (words.size <= 1) return line
+        if (paint.measureText(line) <= maxWidth) return line
+        val n = words.size
+        val inf = Float.MAX_VALUE
+        for (lineCount in 2..n) {
+            val cost = Array(lineCount + 1) { FloatArray(n + 1) { inf } }
+            val cut = Array(lineCount + 1) { IntArray(n + 1) }
+            cost[0][0] = 0f
+            for (k in 1..lineCount) {
+                for (j in 1..n) {
+                    for (i in k - 1 until j) {
+                        val seg = words.subList(i, j).joinToString(" ")
+                        val w = paint.measureText(seg)
+                        if (w > maxWidth) continue
+                        val c = maxOf(cost[k - 1][i], w)
+                        if (c < cost[k][j]) {
+                            cost[k][j] = c
+                            cut[k][j] = i
+                        }
+                    }
+                }
+            }
+            if (cost[lineCount][n] < inf) {
+                val out = ArrayList<String>(lineCount)
+                var j = n
+                for (k in lineCount downTo 1) {
+                    val i = cut[k][j]
+                    out.add(words.subList(i, j).joinToString(" "))
+                    j = i
+                }
+                return out.reversed().joinToString("\n")
+            }
+        }
+        return line
+    }
 
     // Stack Blur v1.0 from http://www.quasimondo.com/StackBlurForCanvas/StackBlurDemo.html
     // Java Author: Mario Klingemann <mario at quasimondo.com>
