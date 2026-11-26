@@ -65,6 +65,9 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -2011,7 +2014,7 @@ fun OriginalLyrics(
                             .padding(20.dp),
                 ) {
                     Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                        horizontalAlignment = Alignment.Start,
                         modifier =
                             Modifier
                                 .verticalScroll(rememberScrollState())
@@ -2020,29 +2023,52 @@ fun OriginalLyrics(
                         Text(
                             text = stringResource(id = R.string.customize_colors),
                             style = MaterialTheme.typography.headlineSmall,
-                            textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth(),
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        Text(text = stringResource(id = R.string.player_background_style), style = MaterialTheme.typography.titleMedium)
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.padding(vertical = 8.dp),
+                        Box(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(cardAspectRatio)
+                                    .padding(8.dp)
+                                    .clip(RoundedCornerShape(12.dp)),
                         ) {
-                            LyricsBackgroundStyle.entries.forEach { style ->
+                            val bitmap = previewBitmap
+                            if (bitmap != null) {
+                                Image(
+                                    bitmap = bitmap,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.FillBounds,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier.fillMaxSize().background(previewBackgroundColor),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator()
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        Text(text = stringResource(id = R.string.player_background_style), style = MaterialTheme.typography.titleMedium)
+                        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                            LyricsBackgroundStyle.entries.forEachIndexed { index, style ->
                                 val label =
                                     when (style) {
                                         LyricsBackgroundStyle.SOLID -> stringResource(R.string.player_background_solid)
                                         LyricsBackgroundStyle.BLUR -> stringResource(R.string.player_background_blur)
                                         LyricsBackgroundStyle.GRADIENT -> stringResource(R.string.gradient)
                                     }
-                                val selected = previewBackgroundStyle == style
-
-                                androidx.compose.material3.FilterChip(
-                                    selected = selected,
+                                SegmentedButton(
+                                    selected = previewBackgroundStyle == style,
                                     onClick = { previewBackgroundStyle = style },
+                                    shape = SegmentedButtonDefaults.itemShape(index, LyricsBackgroundStyle.entries.size),
                                     label = { Text(label) },
                                 )
                             }
@@ -2086,32 +2112,6 @@ fun OriginalLyrics(
                                     onClick = { lyricsAlignment = align },
                                     label = { Text(label) },
                                 )
-                            }
-                        }
-
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(cardAspectRatio)
-                                    .padding(8.dp)
-                                    .clip(RoundedCornerShape(12.dp)),
-                        ) {
-                            val bitmap = previewBitmap
-                            if (bitmap != null) {
-                                Image(
-                                    bitmap = bitmap,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.FillBounds,
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier.fillMaxSize().background(previewBackgroundColor),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    CircularProgressIndicator()
-                                }
                             }
                         }
 
