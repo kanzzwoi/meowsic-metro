@@ -45,5 +45,5 @@ fun borderDrawableRes(borderLevel: Int): Int? =
 /** Drawable border dari String yang dikirim lewat profil ("10"), atau null kalau kosong/tak dikenal. */
 fun borderDrawableRes(border: String): Int? = border.toIntOrNull()?.let { borderDrawableRes(it) }
 
-/** Nama tier dari border ini, mis. "Rhythm" untuk border level 10. */
+/** Nama tier dari border ini, mis. "Groove" untuk border level 10. */
 fun borderTierName(borderLevel: Int): String = tierForLevel(borderLevel).name

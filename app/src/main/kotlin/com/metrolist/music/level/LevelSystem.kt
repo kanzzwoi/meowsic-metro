@@ -32,7 +32,7 @@ data class LevelTier(
 val LEVEL_TIERS =
     listOf(
         LevelTier("Rookie", 1, 9, R.drawable.tier_rookie, Color(0xFFC7CDD6)),
-        LevelTier("Rhythm", 10, 19, R.drawable.tier_rhythm, Color(0xFF5B8DEF)),
+        LevelTier("Groove", 10, 19, R.drawable.tier_rhythm, Color(0xFF5B8DEF)),
         LevelTier("Monarch", 20, 29, R.drawable.tier_monarch, Color(0xFFD9A441)),
         LevelTier("Phantom", 30, 39, R.drawable.tier_phantom, Color(0xFFA66CFF)),
         LevelTier("Aqua", 40, 49, R.drawable.tier_aqua, Color(0xFF4FC3E8)),
